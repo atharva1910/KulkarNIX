@@ -12,16 +12,25 @@ __start:
     jmp     boot
 
     ;; Includes
-%include "Debugging.asm"
+    %include "Debugging.asm"
+    %include "Globals.asm"
+    ;; Macros
+    %macro  setupGDTEntry 3
+        ;; %1 Base
+        ;; %2 Limit
+        ;; %3 Acccess Byte
+        ;; %4 Flag
+    %endmacro
 
 boot:
     ;; Test Print String
     call    PrintInitMessage
     call    IsA20GateEnabled
-    jc      boot_end
+    jc      .end
     call    EnableA20Gate
-boot_end:   
+.end:
     hlt
+    ret
     
 PrintInitMessage:
     mov     si, WelcomeMessage
@@ -44,11 +53,11 @@ IsA20GateEnabled:
 
     pop     ds
     cmp     word [ds:si], ax
-    je      IsA20GateEnabled_end
+    je      .end
     stc                         ; a20 gate is not enabled
     ;; Todo todo todo
     ;; This could be pure luck, change the signaature and test again!!
-IsA20GateEnabled_end:   
+.end:
     ret
 
     ;; Enable 21st bit addressing
@@ -70,36 +79,41 @@ EnableA20Gate:
     call    FlushPS2InputBuffers
     out     060h, al
     call    FlushPS2OutputBuffers
-EnableA20Gate_end:  
+.end:
     ret
 
 FlushPS2OutputBuffers:
     ;; Output buffer from the point of 8042 chip
     ;; This function waits for the output buffer to be set
     pusha
-FlushPS2OutputBuffers_loop: 
+.loop:
     xor     ax, ax
     in      al, 064h
     test    al, 1               ; 1st bit is set if buffer is full
-    jz      FlushPS2OutputBuffers_loop ; wait till output is set
-FlushPS2OutputBuffers_end:  
+    jz      .loop ; wait till output is set
+.end:
     popa
     ret
 
 FlushPS2InputBuffers:
     ;; Input buffer from the point of 8042 chip
     pusha
-FlushPS2InputBuffers_loop:  
+.loop:
     xor     ax, ax
     in      al, 064h
     test    al, 2               ; 2nd bit is set if buffer is full
-    jnz     FlushPS2InputBuffers ; wait till input buffer is cleared
-FlushPS2InputBuffers_end:   
+    jnz     .loop ; wait till input buffer is cleared
+.end:   
     popa
     ret
 
-WelcomeMessage: db "Welcome to KulkarNix",0
+myGDT:  
+    NULLGDT_ENTRY                                ;null entry
+    GDT_ENTRY 0 ,0FFFFFh ,(GDT_EXECUTE|GDT_READ) ;code segment
+    GDT_ENTRY 0 ,0FFFFFh ,GDT_WRITE              ;data segment
 
-   
+GDTDescriptor:
+    .size:  dw (GDTDescriptor - myGDT - 1)
+    .address: dq myGDT
 times 510 - ($-$$) db 0 ; pad remaining 510 bytes with zeroes
 dw 0xaa55 ; magic bootloader magic - marks this 512 byte sector bootable!

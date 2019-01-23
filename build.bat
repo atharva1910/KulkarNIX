@@ -1,10 +1,13 @@
 @echo off
 
 :: Build the image using nasm
-nasm -f bin Bootloader\Bootloader.asm -o Build\Bootloader.bin
+cd Bootloader
+nasm -f bin Bootloader.asm -o ..\Build\Bootloader.bin
 
 :: Run in qemu
-qemu-system-x86_64 -fda Build\Bootloader.bin
+cd ..\Build
+qemu-system-x86_64 -fda Bootloader.bin
+::qemu-system-x86_64 -drive format=raw,file=Bootloader.bin,index=0,if=floppy
 
 :: pause
-::pause
+pause
