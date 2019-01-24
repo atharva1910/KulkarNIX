@@ -23,6 +23,6 @@ WelcomeMessage: db "Welcome to KulkarNix",0
     dw  (%1 & 0ffffh)              ; Base 0-15
     dw  ((%1>>16) & 0ffh)          ; Base 16-23 
     db  ((090h | %3) & 0ffh)       ; Define access byte
-    db  (0cfh | ((%2>> 16) & 0fh)) ; Granularity 1 Size 1, 16-19 Limit
+    db  (0c0h | ((%2>> 16) & 0fh)) ; Granularity 1 Size 1, 16-19 Limit
     db  ((%1>>24) & 0fh)             ; 24-31 Base
 %endmacro

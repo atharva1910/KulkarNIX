@@ -110,26 +110,49 @@ SwitchToPMode:
     mov     eax, cr0
     or      al, 1
     mov     cr0, eax
-    call    PrintInitMessage
-    hlt
+    ;; 08 -> offset into the GDT. 
     jmp     08h:ProtectedModeEntry
 .end:
     ;; Probaly never get here
+    hlt
+    hlt
+    hlt
     ret
 
 myGDT:  
-    NULLGDT_ENTRY                                ;null entry
-    GDT_ENTRY 0 ,0FFFFFh ,(GDT_EXECUTE|GDT_READ) ;code segment
-    GDT_ENTRY 0 ,0FFFFFh ,GDT_WRITE              ;data segment
+;    NULLGDT_ENTRY                                   ;null entry
+;    GDT_ENTRY 0 ,0FFFFFFFFh ,(GDT_EXECUTE|GDT_READ) ;code segment
+;    GDT_ENTRY 0 ,0FFFFFFFFh ,GDT_WRITE              ;data segment
+
+    ;; Null
+  dw 0000h
+  db 00h
+  db 00000000b
+  db 00000000b
+  db 00h
+
+    ;; Code
+  dw 0ffffh
+  dw 0000h
+  db 00h
+  db 10011010b
+  db 11001111b
+  db 00h
+
+    ;; Data
+  dw 0ffffh
+  dw 0000h
+  db 0x00
+  db 10010010b
+  db 11001111b                 ;
+  db 00h
 
 GDTDescriptor:
-    .size:  dw (GDTDescriptor - myGDT - 1)
-    .address: dd myGDT
+    dw (GDTDescriptor - myGDT - 1) ;size
+    dd myGDT                       ;offset to GDT
    
     bits    32
 ProtectedModeEntry:
-    mov     si, ProtectedModeWelcomeString
-    call    PrintString
     hlt
 .end:
     ret
