@@ -14,20 +14,16 @@ __start:
     ;; Includes
     %include "Debugging.asm"
     %include "Globals.asm"
-    ;; Macros
-    %macro  setupGDTEntry 3
-        ;; %1 Base
-        ;; %2 Limit
-        ;; %3 Acccess Byte
-        ;; %4 Flag
-    %endmacro
 
 boot:
     ;; Test Print String
     call    PrintInitMessage
     call    IsA20GateEnabled
-    jc      .end
-    call    EnableA20Gate
+    jc      .skipA20enable
+    call    EnableA20Gate       
+.skipA20enable:
+    ;call    LoadGDT
+    call    SwitchToPMode
 .end:
     hlt
     ret
@@ -54,7 +50,7 @@ IsA20GateEnabled:
     pop     ds
     cmp     word [ds:si], ax
     je      .end
-    stc                         ; a20 gate is not enabled
+    stc                         ; a20 gate is enabled
     ;; Todo todo todo
     ;; This could be pure luck, change the signaature and test again!!
 .end:
@@ -107,6 +103,20 @@ FlushPS2InputBuffers:
     popa
     ret
 
+SwitchToPMode:
+    ;; Switch to protected mode
+    cli
+    lgdt    [GDTDescriptor]
+    mov     eax, cr0
+    or      al, 1
+    mov     cr0, eax
+    call    PrintInitMessage
+    hlt
+    jmp     08h:ProtectedModeEntry
+.end:
+    ;; Probaly never get here
+    ret
+
 myGDT:  
     NULLGDT_ENTRY                                ;null entry
     GDT_ENTRY 0 ,0FFFFFh ,(GDT_EXECUTE|GDT_READ) ;code segment
@@ -114,6 +124,16 @@ myGDT:
 
 GDTDescriptor:
     .size:  dw (GDTDescriptor - myGDT - 1)
-    .address: dq myGDT
+    .address: dd myGDT
+   
+    bits    32
+ProtectedModeEntry:
+    mov     si, ProtectedModeWelcomeString
+    call    PrintString
+    hlt
+.end:
+    ret
+   
+ProtectedModeWelcomeString: db "Welcome to protected mode"
 times 510 - ($-$$) db 0 ; pad remaining 510 bytes with zeroes
 dw 0xaa55 ; magic bootloader magic - marks this 512 byte sector bootable!
