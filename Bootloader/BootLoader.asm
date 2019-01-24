@@ -22,7 +22,6 @@ boot:
     jc      .skipA20enable
     call    EnableA20Gate       
 .skipA20enable:
-    ;call    LoadGDT
     call    SwitchToPMode
 .end:
     hlt
@@ -110,53 +109,49 @@ SwitchToPMode:
     mov     eax, cr0
     or      al, 1
     mov     cr0, eax
-    ;; 08 -> offset into the GDT. 
-    jmp     08h:ProtectedModeEntry
+    ;; 08 -> offset into the GDTs code segment. 
+    jmp     (CODE_SEGMENT << 3):ProtectedModeEntry ; since each entry is 8 bytes
 .end:
     ;; Probaly never get here
-    hlt
-    hlt
     hlt
     ret
 
 myGDT:  
-;    NULLGDT_ENTRY                                   ;null entry
-;    GDT_ENTRY 0 ,0FFFFFFFFh ,(GDT_EXECUTE|GDT_READ) ;code segment
-;    GDT_ENTRY 0 ,0FFFFFFFFh ,GDT_WRITE              ;data segment
-
-    ;; Null
-  dw 0000h
-  db 00h
-  db 00000000b
-  db 00000000b
-  db 00h
-
-    ;; Code
-  dw 0ffffh
-  dw 0000h
-  db 00h
-  db 10011010b
-  db 11001111b
-  db 00h
-
-    ;; Data
-  dw 0ffffh
-  dw 0000h
-  db 0x00
-  db 10010010b
-  db 11001111b                 ;
-  db 00h
+    NULLGDT_ENTRY                                   ;null entry
+    GDT_ENTRY 0 ,0FFFFFFFFh ,(GDT_EXECUTE|GDT_READ) ;code segment
+    GDT_ENTRY 0 ,0FFFFFFFFh ,GDT_WRITE              ;data segment
 
 GDTDescriptor:
     dw (GDTDescriptor - myGDT - 1) ;size
     dd myGDT                       ;offset to GDT
    
+    ;; WE are now in protected mode :)
     bits    32
 ProtectedModeEntry:
+    ;; Test to see if we really are in protected mode
+    mov     eax, cr0
+    and     eax, 1
+    cmp     eax, 1
+    je      .runningInProtectedMode
+    xor     bx, bx
+    mov     ah, 0Ah
+    int     10h
+.runningInProtectedMode:
+    ;; Yes
+    hlt
+    hlt
+    mov     ax, (DATA_SEGMENT << 3)
+    mov     ds, ax
+    mov     ss, ax
+    mov     es, ax
+
+    xor     bx, bx
+    mov     ah, 0Ah
+    int     10h
     hlt
 .end:
     ret
-   
 ProtectedModeWelcomeString: db "Welcome to protected mode"
+
 times 510 - ($-$$) db 0 ; pad remaining 510 bytes with zeroes
 dw 0xaa55 ; magic bootloader magic - marks this 512 byte sector bootable!
