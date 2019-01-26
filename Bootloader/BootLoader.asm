@@ -25,6 +25,9 @@ boot:
 .skipA20enable:
     call    SwitchToPMode
 .end:
+	;; ERROR: perofrm a warm boot
+    ;;  jump to reset vector
+    jmp     0FFFFh:00h
     hlt
     ret
     
@@ -44,7 +47,10 @@ SwitchToPMode:
     ;; 08 -> offset into the GDTs code segment. 
     jmp     (CODE_SEGMENT << 3):ProtectedModeEntry ; since each entry is 8 bytes
 .end:
-    ;; Probaly never get here
+	;; ERROR: perofrm a warm boot
+    ;;  jump to reset vector
+    jmp     0FFFFh:00h
+    hlt
     hlt
     ret
 
@@ -80,11 +86,6 @@ ProtectedModeEntry:
     ;; jump to kernel
     hlt
 .end:
-    ;; ERROR: perofrm a warm boot
-    ;;  jump to reset vector
-    jmp     0FFFFh:00h
-    hlt
-    hlt
     ret
 
 PPrintString:   
