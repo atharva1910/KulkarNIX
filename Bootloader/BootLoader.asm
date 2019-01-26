@@ -68,24 +68,43 @@ ProtectedModeEntry:
     xor     bx, bx
     mov     ah, 0Ah
     int     10h
+    jmp     .end
 .runningInProtectedMode:
     ;; Yes
     ;; Print Hi on the top left, CGA mode
-    mov     dword [0b8000h], 007690748h ;
-    hlt
-    hlt
     mov     ax, (DATA_SEGMENT << 3)
     mov     ds, ax
     mov     ss, ax
     mov     es, ax
-
-    xor     bx, bx
-    mov     ah, 0Ah
-    int     10h
+    call    PPrintString
+    ;; jump to kernel
     hlt
 .end:
+    ;; ERROR: perofrm a warm boot
+    ;;  jump to reset vector
+    jmp     0FFFFh:00h
+    hlt
+    hlt
     ret
-ProtectedModeWelcomeString: db "Welcome to protected mode"
+
+PPrintString:   
+    pusha
+    mov     si, ProtectedModeWelcomeString
+    mov     ebx, 0b8000h
+    xor     cx, cx
+.loop:
+    lodsb
+    cmp     al, 0
+    je      .end
+    mov     ah, 07h             ;black baackground, white foreground
+    mov     word [ebx], ax
+    add     bx, 02h
+    jmp     .loop
+.end:
+    popa
+    ret
+ProtectedModeWelcomeString: db "Welcome to protected mode",0
+
 
 times 510 - ($-$$) db 0 ; pad remaining 510 bytes with zeroes
 dw 0xaa55 ; magic bootloader magic - marks this 512 byte sector bootable!
