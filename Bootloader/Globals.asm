@@ -7,6 +7,7 @@
     
 boot_drive:  db 0
 WelcomeMessage: db "Welcome to KulkarNix",0
+KernelReadFailStr:    db "Error while reading the second sector", 0
 
 %macro NULLGDT_ENTRY 0
     ;; Yea yea could have been done better

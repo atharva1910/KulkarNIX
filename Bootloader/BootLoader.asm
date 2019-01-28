@@ -42,18 +42,16 @@ ReadSecondSectorToMemory:
     mov     dl, [boot_drive]
     mov     cl, 02h           ; read the 2nd sector
     mov     bx, 08000h        ; Address to load
-    call    ReadSector
+    mov     ax, 0201h
+    int     13h
     jnc     .end
-    mov     si, ErrorString
+    mov     si, KernelReadFailStr
     call    PrintString
     hlt
 .end:
     popa
     ret
 
-ErrorString:    db "ERROR ERROR ERRROR", 0
-
-    
 PrintInitMessage:
     mov     si, WelcomeMessage
     call    PrintString
