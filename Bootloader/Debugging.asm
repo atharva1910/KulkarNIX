@@ -17,6 +17,7 @@ PrintString:
 PrintHex:
     ;; Inputs
     ;; dx -> Hex value to be printed
+    pusha
     mov     al, 030h            ;print '0'
     call    PrintChar
     mov     al, 078h            ;print 'x'
@@ -40,6 +41,7 @@ PrintHex:
     rol     dx, 04h
     jmp     .loop_printhex
 .end:
+    popa
     ret
 
 PrintEnter:
@@ -72,6 +74,20 @@ PrintBinary:
     rol     dx, 1
     jmp     .loop
 .end:
+    ret
+
+DumpMemory:
+    ;; bx -> memory to dump
+    ;; cx -> counter for bytes
+.loop:
+    mov     dx, [bx]
+    call    PrintHex
+    dec     cx
+    jz      .end
+    add     bx, 2
+    jmp     .loop
+.end:
+    call    PrintEnter
     ret
     
 PrintFlags:

@@ -9,31 +9,50 @@ __start:
     mov     ds, ax              
     mov     es, ax
     mov     ss, ax
-    mov     sp, 08000h          ; set up the real mode stack
+    mov     sp, 07BFFh          ; set up the real mode stack
     jmp     boot
 
     ;; Includes
     %include "Debugging.asm"
     %include "Globals.asm"
     %include "A20.asm"
+    %include "IO.asm"
 
 boot:
     mov     al, dl              ;
     mov     [boot_drive], al    ; save our boot drive number
-
     ;; Test Print String
     call    PrintInitMessage
     call    IsA20GateEnabled
     jc      .skipA20enable
     call    EnableA20Gate       
 .skipA20enable:
+    call    ReadSecondSectorToMemory
     call    SwitchToPMode
 .end:
-	;; ERROR: perofrm a warm boot
-    ;;  jump to reset vector
+	;; ERROR: perofrm a warm boot. jump to reset vector
     jmp     0FFFFh:00h
     hlt
     ret
+
+ReadSecondSectorToMemory:
+    pusha
+    xor     cx, cx
+    xor     dx, dx
+    mov     dl, [boot_drive]
+    mov     cl, 02h           ; read the 2nd sector
+    mov     bx, 08000h        ; Address to load
+    call    ReadSector
+    jnc     .end
+    mov     si, ErrorString
+    call    PrintString
+    hlt
+.end:
+    popa
+    ret
+
+ErrorString:    db "ERROR ERROR ERRROR", 0
+
     
 PrintInitMessage:
     mov     si, WelcomeMessage
@@ -48,7 +67,7 @@ SwitchToPMode:
     mov     eax, cr0
     or      al, 1
     mov     cr0, eax
-    ;; 08 -> offset into the GDTs code segment. 
+    ;; offset into the GDTs code segment. 
     jmp     (CODE_SEGMENT << 3):ProtectedModeEntry ; since each entry is 8 bytes
 .end:
 	;; ERROR: perofrm a warm boot
@@ -70,24 +89,14 @@ GDTDescriptor:
     ;; WE are now in protected mode :)
     bits    32
 ProtectedModeEntry:
-    ;; Test to see if we really are in protected mode
-    mov     eax, cr0
-    and     eax, 1
-    cmp     eax, 1
-    je      .runningInProtectedMode
-    xor     bx, bx
-    mov     ah, 0Ah
-    int     10h
-    jmp     .end
-.runningInProtectedMode:
-    ;; Yes
-    ;; Print Hi on the top left, CGA mode
     mov     ax, (DATA_SEGMENT << 3)
     mov     ds, ax
     mov     ss, ax
     mov     es, ax
-    call    PPrintString
     ;; jump to kernel
+    ;; jump to extended BIOS memory
+    push    08000h
+    jmp     (CODE_SEGMENT << 3):08000h
     hlt
 .end:
     ret
