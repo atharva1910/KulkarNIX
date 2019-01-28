@@ -5,6 +5,7 @@
 %define CODE_SEGMENT    1
 %define DATA_SEGMENT    2
     
+boot_drive:  db 0
 WelcomeMessage: db "Welcome to KulkarNix",0
 
 %macro NULLGDT_ENTRY 0

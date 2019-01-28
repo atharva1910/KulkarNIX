@@ -9,6 +9,7 @@ __start:
     mov     ds, ax              
     mov     es, ax
     mov     ss, ax
+    mov     sp, 08000h          ; set up the real mode stack
     jmp     boot
 
     ;; Includes
@@ -17,6 +18,9 @@ __start:
     %include "A20.asm"
 
 boot:
+    mov     al, dl              ;
+    mov     [boot_drive], al    ; save our boot drive number
+
     ;; Test Print String
     call    PrintInitMessage
     call    IsA20GateEnabled
