@@ -1,15 +1,19 @@
 ;.section .text
 ;.global _start
     bits    32
+    org     08000h
 _start:
     ;; We have jumped here from the bootloader
     ;; Set back the segment registers, set up the stack
     ;; call C++ code
-    pop     eax
-    mov     ds, eax
-    mov     cs, eax
-    mov     ss, eax
-    mov     es, eax
+    ;xor     eax, eax
+    ;mov     ds, eax
+    ;mov     ss, eax
+    ;mov     es, eax
+    pop     ax
+    mov     ds, ax
+    mov     ss, ax
+    mov     es, ax
     call    PPrintString
     hlt
     hlt
@@ -33,7 +37,7 @@ PPrintString:
     hlt
     popa
     ret
-WelcomeString: db "Hello from the jump",0
+WelcomeString: db "Welcome to the Kernel",0
 
 
 times 512 - ($-$$) db 0

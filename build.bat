@@ -1,4 +1,5 @@
-@echo off
+echo "This bat file is not longer updated."
+pause
 
 :: Build the image using nasm
 cd Bootloader
