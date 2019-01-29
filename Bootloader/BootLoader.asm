@@ -1,5 +1,6 @@
     bits    16                      ; 16 bit code
     org     07c00h                  ; Jump after BIOS
+    DEBUG   equ   0                  ; debuggin support
 
 __start:
     ;; Entry point
@@ -13,14 +14,15 @@ __start:
     jmp     boot
 
     ;; Includes
+%ifdef DEBUG
     %include "Debugging.asm"
+%endif
     %include "Globals.asm"
     %include "A20.asm"
 
 boot:
     mov     al, dl              ;
     mov     [boot_drive], al    ; save our boot drive number
-    call    PrintInitMessage
     call    IsA20GateEnabled
     jc      .skipA20enable
     call    EnableA20Gate       
@@ -43,17 +45,15 @@ ReadSecondSectorToMemory:
     mov     ax, 0201h
     int     13h
     jnc     .end
+%ifdef DEBUG
     mov     si, KernelReadFailStr
     call    PrintString
+%else
+    jmp $
+%endif
     hlt
 .end:
     popa
-    ret
-
-PrintInitMessage:
-    mov     si, WelcomeMessage
-    call    PrintString
-    call    PrintEnter
     ret
 
 SwitchToPMode:
@@ -74,6 +74,15 @@ SwitchToPMode:
     hlt
     hlt
     ret
-  
+
+%ifdef DEBUG
+PrintInitMessage:
+    mov     si, WelcomeMessage
+    call    PrintString
+    call    PrintEnter
+    ret
+
+%endif
+ 
 times 510 - ($-$$) db 0 ; pad remaining 510 bytes with zeroes
 dw 0xaa55 ; magic bootloader magic - marks this 512 byte sector bootable!
