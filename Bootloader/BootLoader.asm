@@ -14,19 +14,20 @@ __start:
     jmp     boot
 
     ;; Includes
-%ifdef DEBUG
+%if DEBUG
     %include "Debugging.asm"
 %endif
     %include "Globals.asm"
     %include "A20.asm"
 
 boot:
-    mov     al, dl              ;
+    mov     al, dl              
     mov     [boot_drive], al    ; save our boot drive number
     call    IsA20GateEnabled
     jc      .skipA20enable
     call    EnableA20Gate       
 .skipA20enable:
+;    call    EnableBigSegments
     call    ReadSecondSectorToMemory
     call    SwitchToPMode
 .end:
@@ -45,7 +46,7 @@ ReadSecondSectorToMemory:
     mov     ax, 0201h
     int     13h
     jnc     .end
-%ifdef DEBUG
+%if DEBUG
     mov     si, KernelReadFailStr
     call    PrintString
 %else
@@ -54,6 +55,48 @@ ReadSecondSectorToMemory:
     hlt
 .end:
     popa
+    ret
+
+EnableBigSegments:
+    ;; Switch to Unreal mode
+    cli
+    ;; Switch to protected mode
+    lgdt    [GDTDescriptor]
+    mov     eax, cr0
+    or      al, 1
+    mov     cr0, eax
+    jmp     (CODE_SEGMENT << 3):.switch
+
+    bits    32
+.switch:
+    ;; We are now in protected mode
+    ;; save a segment
+    xor     eax, eax
+    mov     eax, (DATA_SEGMENT << 3)
+    mov     es, eax
+    mov     gs, eax
+    mov     fs, eax
+    
+    ;; switch back to real mode
+    mov     eax, cr0
+    and     eax, 0x7FFFFFFe	; Disable paging bit & disable 16-bit pmode.
+    mov     cr0, eax
+
+    xor     eax, eax
+    mov     ds, eax
+    mov     cs, eax
+    mov     ss, eax 
+    mov     es, eax
+    jmp     .switchback
+    bits    16
+.switchback:   
+    xor     eax, eax
+    mov     ds, eax
+    mov     cs, eax
+    mov     ss, eax 
+    mov     sp, 07BFFh          ; set up the real mode stack
+    lgdt    [RealModeGDT]
+.end:
     ret
 
 SwitchToPMode:
@@ -75,7 +118,7 @@ SwitchToPMode:
     hlt
     ret
 
-%ifdef DEBUG
+%if DEBUG
 PrintInitMessage:
     mov     si, WelcomeMessage
     call    PrintString
@@ -83,6 +126,5 @@ PrintInitMessage:
     ret
 
 %endif
- 
 times 510 - ($-$$) db 0 ; pad remaining 510 bytes with zeroes
 dw 0xaa55 ; magic bootloader magic - marks this 512 byte sector bootable!

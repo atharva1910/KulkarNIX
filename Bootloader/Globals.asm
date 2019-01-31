@@ -41,3 +41,7 @@ GDTDescriptor:
     dw (GDTDescriptor - myGDT - 1) ;size
     dd myGDT                       ;offset to GDT
  
+RealModeGDT:
+	dw 0x3ff		; 256 entries, 4b each = 1K
+	dd 0			; Real Mode IVT @ 0x0000
+
