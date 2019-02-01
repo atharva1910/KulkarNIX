@@ -1,6 +1,7 @@
     bits    16                      ; 16 bit code
     org     07c00h                  ; Jump after BIOS
-    DEBUG   equ   0                  ; debuggin support
+    DEBUG   equ   0                 ; debuggin support
+    UNREAL  equ   0
 
 __start:
     ;; Entry point
@@ -27,7 +28,6 @@ boot:
     jc      .skipA20enable
     call    EnableA20Gate       
 .skipA20enable:
-;    call    EnableBigSegments
     call    ReadSecondSectorToMemory
     call    SwitchToPMode
 .end:
@@ -57,6 +57,7 @@ ReadSecondSectorToMemory:
     popa
     ret
 
+%if UNREAL
 EnableBigSegments:
     ;; Switch to Unreal mode
     cli
@@ -98,6 +99,7 @@ EnableBigSegments:
     lgdt    [RealModeGDT]
 .end:
     ret
+%endif
 
 SwitchToPMode:
     ;; Switch to protected mode

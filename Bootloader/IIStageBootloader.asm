@@ -1,5 +1,3 @@
-;.section .text
-;.global _start
     bits    32
     org     08000h
 _start:
