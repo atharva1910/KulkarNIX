@@ -1,6 +1,9 @@
     bits    32
-    org     08000h
-_start:
+    extern  boot_main
+
+    section .text
+    global  __start
+__start:
     ;; We have jumped here from the bootloader
     ;; Set back the segment registers, set up the stack
     ;; call C++ code
@@ -12,11 +15,12 @@ _start:
     mov     ds, ax
     mov     ss, ax
     mov     es, ax
-    call    PPrintString
+    call    boot_main
     hlt
     hlt
     hlt
 
+    global PPrintString
 PPrintString:   
     pusha
     mov     si, WelcomeString
@@ -35,9 +39,6 @@ PPrintString:
     hlt
     popa
     ret
+
+    section .data
 WelcomeString: db "Welcome to the Kernel",0
-
-
-times 512 - ($-$$) db 0
-    
-    
