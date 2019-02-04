@@ -1,2 +1,2 @@
-BootLoader.bin
-Build/
+*.bin
+*.img
