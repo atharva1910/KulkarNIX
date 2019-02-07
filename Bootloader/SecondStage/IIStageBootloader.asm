@@ -15,6 +15,7 @@ __start:
     mov     ds, ax
     mov     ss, ax
     mov     es, ax
+    mov     sp, 07c00h
     call    boot_main
     hlt
     hlt
