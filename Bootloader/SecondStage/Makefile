@@ -4,20 +4,20 @@ ASMCC   = nasm
 
 CCFLAGS = -ffreestanding -fno-exceptions -O2 -fno-rtti
 LDFLAGS = -ffreestanding -nostdlib 
-LDFILE  = Linker.ld
+LDFILE  = linker.ld
 
-all: IIStageBootloader.o boot_main.o harddisk.o
+all: IIStageBootloader.o boot_main.o Harddisk.o
 	$(LD) -T $(LDFILE) -o Boot.bin $(LDFLAGS) $^ -lgcc
-	objcopy.exe -O binary Boot.bin ../../Build/IIStageBootLoader.bin
+	objcopy -O binary Boot.bin ../../Build/IIStageBootloader.bin
 
 IIStageBootloader.o: IIStageBootloader.asm
 	$(ASMCC) -f elf32 IIStageBootloader.asm -o IIStageBootloader.o
 
-boot_main.o: boot_main.cpp
-	$(CC) -c $^ $(CCFLAGS)
+boot_main.o: 
+	$(CC) -c boot_main.cpp $(CCFLAGS)
 
-harddisk.o: harddisk.cpp
-	$(CC) -c $^ $(CCFLAGS)
+Harddisk.o: 
+	$(CC) -c Harddisk.cpp $(CCFLAGS)
 
 clean:
 	rm -f *.o *.bin *.img

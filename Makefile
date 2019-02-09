@@ -4,14 +4,14 @@ run: all
 all: FirstStage SecondStage 
 
 FirstStage:
-	$(MAKE) -C BootLoader/FirstStage
+	$(MAKE) -C Bootloader/FirstStage
 SecondStage:
-	$(MAKE) -C BootLoader/SecondStage
+	$(MAKE) -C Bootloader/SecondStage
 
 run:
 
 clean:
 	$(MAKE) -C Build/ clean
-	$(MAKE) -C BootLoader/FirstStage clean
-	$(MAKE) -C BootLoader/SecondStage clean
+	$(MAKE) -C Bootloader/FirstStage clean
+	$(MAKE) -C Bootloader/SecondStage clean
 
