@@ -17,9 +17,9 @@ SECTIONS
         *(.data)
     }
 
-    .bss : ALIGN(0)
+    .rodata : ALIGN(0)
     {
-        *(.bss)
+        *(.rodata)
     }
 
 }

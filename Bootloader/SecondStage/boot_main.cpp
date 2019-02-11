@@ -5,7 +5,9 @@ extern "C" void
 boot_main()
 {
     Harddisk hdd;
-    char buffer[10];
-    hdd.ReadWriteHarddisk(0, 1, (void *)buffer, sizeof(buffer), true);
+    void *address = (void *)0x10000; // Save kernel at address
+    size_t bufferSize = 512; // Sector size
+    uint32_t sectorNum = 3;
+    hdd.ReadWriteHarddisk(sectorNum, 1, (void *)address, bufferSize, false);
     while(1);
 }

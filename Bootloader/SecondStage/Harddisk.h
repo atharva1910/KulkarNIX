@@ -9,7 +9,7 @@ public:
     Harddisk(){
     };
 private:
-    bool ReadSector();
+    bool ReadSector(uint32_t startSector, uint32_t adderss);
     bool WriteSector();
 
     Port m_Port;
