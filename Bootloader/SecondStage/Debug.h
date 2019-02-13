@@ -5,7 +5,7 @@
 void
 print_char(char *address, char c, byte bg_color)
 {
-    address[1] = bg_color; //black bg
+    address[1] = bg_color;
     address[0] = c;
 }
 
@@ -14,18 +14,18 @@ print_string(char *string)
 {
     byte bgcolor = 0x07;
     char *vga_buffer = (char *)0xb8000;
+    char c = 0;
     uint32_t pos = 0;
-    while(string[pos] != '\0'){
-        print_char(vga_buffer, string[pos], 0x07);
+    while((c = string[pos++]) != '\0'){
+        print_char(vga_buffer, c, 0x07);
         vga_buffer += 2;
-        pos++;
     }
 }
 
 void
 clrscr()
 {
-    uint32_t x=80, y=25;
+    uint32_t x = 80, y = 25;
     byte *vga_buffer = (byte *)0xb8000;
     char c = ' '; byte bg = 0x07;
     uint32_t pos = 0;
@@ -34,4 +34,30 @@ clrscr()
         vga_buffer[pos++] = bg;
     }
 }
+
+void
+itoa(uint32_t number, char *buffer)
+{
+    if (buffer == NULL)
+        return;
+
+    return;
+    return;
+    return;
+
+    // Why the fuck does this not work
+    // Even if we compare and inc with the same local we get a crash
+    // Probaly running outof stack space??
+    uint32_t num = number;
+    uint32_t digit = 0;
+    uint32_t i = 0;
+    while(num > 0){
+        digit = num % 10;
+        buffer[i++] = digit + '0';
+        num = num / 10;
+    }
+
+    buffer[i] = '\0';
+}
+
 #endif

@@ -1,6 +1,8 @@
 #ifndef _TYPEDEFS_H
 #define _TYPEDEFS_H
 
+// NULL
+#define NULL 0
 // ASM
 typedef char byte;
 typedef short word;
