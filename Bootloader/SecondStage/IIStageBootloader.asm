@@ -21,6 +21,34 @@ __start:
     hlt
     hlt
 
+    global ata_bsy_wait
+ata_bsy_wait:
+    pusha
+    xor al, al
+    mov dx, 01F7h
+    in  al, dx
+    
+.loop:   
+    test al, 0EFh
+    jnz .loop
+.end:
+    popa
+    ret
+
+    global ata_drq_wait
+ata_drq_wait:
+    pusha
+    xor ax, ax
+    mov dx, 01F7h
+    in  al, dx
+.loop:
+    test al, 0FBh
+    jnz .loop
+.end:
+    popa
+    ret
+    
+    %if 0
     global PPrintString
 PPrintString:   
     pusha
@@ -43,3 +71,4 @@ PPrintString:
 
     section .data
 WelcomeString: db "Welcome to the Kernel",0
+    %endif
