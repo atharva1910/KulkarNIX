@@ -2,7 +2,7 @@ ENTRY(__start)
 
 SECTIONS
 {
-    . = 0x8000;
+    . = 0x7e00;
 
     /*
         Align the segemts to each page size so that it's easier to specify permissions

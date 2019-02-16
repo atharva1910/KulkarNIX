@@ -28,7 +28,8 @@ boot:
     jc      .skipA20enable
     call    EnableA20Gate       
 .skipA20enable:
-    call    ReadSecondSectorToMemory
+    mov     dx, 2
+    call    Read2ndStageToMem
     call    SwitchToPMode
 .end:
 	;; ERROR: perofrm a warm boot. jump to reset vector
@@ -36,27 +37,33 @@ boot:
     hlt
     ret
 
-ReadSecondSectorToMemory:
+Read2ndStageToMem:
+    ;; bx -> number of sectors to read
     pusha
-    xor     cx, cx
-    xor     dx, dx
-    mov     dl, [boot_drive]
-    mov     cl, 02h                   ; read the 2nd sector
-    mov     bx, KERNEL_ADDRESS        ; Address to load
-    mov     ax, 0201h
-    int     13h
-    jnc     .end
-%if DEBUG
-    mov     si, KernelReadFailStr
-    call    PrintString
-%else
-    jmp $
-%endif
-    hlt
+    mov     cx, 02h             ; start from 2n sector
+    mov     bx, KERNEL_ADDRESS  ; initial address
+    xor     ax, ax
+.loop:   
+    call    ReadSector
+    inc     ax
+    cmp     ax, dx
+    je      .end
+    add     bx, 0200h           ;point to next sector
+    inc     cx                  ;read next sector
 .end:
     popa
     ret
 
+ReadSector:
+    ;; cx -> sector number to read
+    ;; bx -> address
+    pusha
+    mov     dl, [boot_drive]
+    mov     ax, 0201h
+    int     13h
+.end:    
+    popa
+    ret
 %if UNREAL
 EnableBigSegments:
     ;; Switch to Unreal mode

@@ -1,5 +1,8 @@
 run: all
-	$(MAKE) -C Build run
+	$(MAKE) -C Build debug
+
+release: all
+	$(MAKE) -C Build release
 
 all: FirstStage SecondStage 
 

@@ -4,7 +4,7 @@
 %define GDT_EXECUTE     8
 %define CODE_SEGMENT    1
 %define DATA_SEGMENT    2
-%define KERNEL_ADDRESS  08000h
+%define KERNEL_ADDRESS  07E00h
     
 boot_drive:  db 0
 WelcomeMessage: db "Welcome to KulkarNix",0
