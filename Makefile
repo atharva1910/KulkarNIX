@@ -1,6 +1,6 @@
 output = Build/KulkarNIX.bin
 
-#By default debug is built
+#This is the default option
 debug:clean all
 	qemu-system-x86_64 -s -S -drive file=$(output),media=disk,format=raw
 
