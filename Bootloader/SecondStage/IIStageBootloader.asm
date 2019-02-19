@@ -2,7 +2,7 @@
     section .text
     global __start
     extern boot_main
-    extern read_sector
+    extern read_kernel
 __start:
     ;; We have jumped here from the bootloader
     ;; Set back the segment registers, set up the stack
@@ -11,18 +11,26 @@ __start:
     ;mov     ds, eax
     ;mov     ss, eax
     ;mov     es, eax
+    cli
     pop     ax
     mov     ds, ax
     mov     ss, ax
     mov     es, ax
     mov     sp, 07c00h
     call    boot_main
+    
+    ;; get data from port
+    mov     dx, 01F0h
+    mov     cx, 0100h
+    mov     edi, 010000h
+    rep     insw
+    
     mov     si, WelcomeString
     call    PPrintString
     hlt
     hlt
 
-    %if 0
+%if 0
     mov     edx, 1
     call    ata_disk_wait
 
@@ -45,19 +53,6 @@ __start:
     hlt
     hlt
     hlt
-
-    global ata_bsy_wait
-ata_bsy_wait:
-    pusha
-    xor al, al
-    mov dx, 01F7h
-.loop:   
-    in  al, dx
-    test al, 080h
-    jnz .loop
-.end:
-    popa
-    ret
 
 ReadSector: 
     pusha
@@ -102,7 +97,21 @@ ReadSector:
     out dx, al
     popa
     ret
-    %endif
+%endif
+
+    global ata_drq_wait
+ata_drq_wait:
+    pusha
+    xor al, al
+    mov dx, 01F7h
+.loop:   
+    in  al, dx
+    test al, 008h
+    jz .loop
+.end:
+    popa
+    ret
+
 
     global ata_disk_wait
 ata_disk_wait:
