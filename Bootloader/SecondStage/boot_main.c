@@ -1,7 +1,10 @@
 #include "boot_main.h"
-extern void ata_disk_wait();
-extern void ata_drq_wait();
-    
+extern void PPrintString();
+   
+void ata_disk_wait()
+{
+    while(inb(0x1F7) & 0xC0 != 0x40);
+}
 void read_sector(uint32_t sector)
 {
     ata_disk_wait(); // wait BSY to 0 and RDY to 1
@@ -12,21 +15,20 @@ void read_sector(uint32_t sector)
     outb(0x1F5, sector >> 16);
     // Make a read call
     outb(0x1F7, 0x20);
-    // transfere
 }
 
-void read_kernel(uint32_t address, uint32_t sector)
+void read_kernel(byte *address, uint32_t sector)
 {
     read_sector(sector);
     ata_disk_wait();
-    ata_drq_wait();// wait DRQ to 1
-    // copy to address
-    // insw(0x1F0, (uint32_t)address, 512/2);
+    insw(0x1F0, address, 512/2);
+    PPrintString();
 }
 
 void
 boot_main()
 {
-    byte *address = (byte *)0x10000; // Save kernel at address
-    read_kernel((uint32_t)address, 1);
+    byte *address = (byte *)0x10000;
+    read_kernel(address, 1);
+    while(1);
 }

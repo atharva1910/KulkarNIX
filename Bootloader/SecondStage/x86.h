@@ -17,8 +17,8 @@ inb(uint16_t port)
 }
 
 void
-insw(uint16_t port, uint32_t address, uint32_t count)
+insw(uint16_t port, byte *address, uint32_t count)
 {
-    asm volatile("cld; rep insw;":"=c"(count), "=D"(address):"d"(port): "memory");
+    asm volatile("cld; rep insw":"+D"(address), "+c"(count):"d"(port): "memory");
 }
 #endif

@@ -1,15 +1,18 @@
-run: all
-	$(MAKE) -C Build debug
+output = Build/KulkarNIX.bin
+debug:clean all
+	qemu-system-x86_64 -s -S -drive file=$(output),media=disk,format=raw
 
-release: all
-	$(MAKE) -C Build release
+release:clean all
+	qemu-system-x86_64 -drive file=$(output),index=0,media=disk,format=raw
 
-all: FirstStage SecondStage 
+all: FirstStage SecondStage WriteImage
 
 FirstStage:
 	$(MAKE) -C Bootloader/FirstStage
 SecondStage:
 	$(MAKE) -C Bootloader/SecondStage
+WriteImage:
+	$(MAKE) -C Build/ 
 
 run:
 
