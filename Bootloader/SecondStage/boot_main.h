@@ -7,6 +7,7 @@
 #if DEBUG
 #include "Debug.h"
 #endif
+#include "elfheader.h"
 
 bool blank();
 

@@ -3,8 +3,9 @@ extern void PPrintString();
    
 void ata_disk_wait()
 {
-    while(inb(0x1F7) & 0xC0 != 0x40);
+    while((inb(0x1F7) & 0xC0) != 0x40);
 }
+
 void read_sector(uint32_t sector)
 {
     ata_disk_wait(); // wait BSY to 0 and RDY to 1
@@ -29,6 +30,6 @@ void
 boot_main()
 {
     byte *address = (byte *)0x10000;
-    read_kernel(address, 1);
+    read_kernel(address, 5);
     while(1);
 }
