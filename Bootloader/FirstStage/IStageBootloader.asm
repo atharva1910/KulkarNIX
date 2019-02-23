@@ -28,7 +28,7 @@ boot:
     jc      .skipA20enable
     call    EnableA20Gate       
 .skipA20enable:
-    mov     dx, 2
+    mov     dx, 3               ; Read 3 sectors
     call    Read2ndStageToMem
     call    SwitchToPMode
 .end:
@@ -50,6 +50,7 @@ Read2ndStageToMem:
     je      .end
     add     bx, 0200h           ;point to next sector
     inc     cx                  ;read next sector
+    jmp     .loop
 .end:
     popa
     ret

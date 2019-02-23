@@ -41,13 +41,6 @@ itoa(uint32_t number, char *buffer)
     if (buffer == NULL)
         return;
 
-    return;
-    return;
-    return;
-
-    // Why the fuck does this not work
-    // Even if we compare and inc with the same local we get a crash
-    // Probaly running outof stack space??
     uint32_t num = number;
     uint32_t digit = 0;
     uint32_t i = 0;
