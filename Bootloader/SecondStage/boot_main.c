@@ -1,9 +1,23 @@
 #include "boot_main.h"
-extern void PPrintString();
    
-uint32_t get_binary_size(ELF_HEADER *elf)
+bool read_prog_headers(ELF_HEADER *elf)
 {
-    
+    // Get pointer to the first program header
+    ELF_PROG_HEADER *prod_head = (ELF_PROG_HEADER *)(elf + elf->e_phoff);
+    if (prod_head == 0)
+        return false;
+
+    // Get pointer to the last program header
+    ELF_PROG_HEADER *last_prod_head = (ELF_PROG_HEADER *)(prod_head + elf->e_phnum);
+    if (last_prod_head == 0)
+        return false;
+
+    // Read each of the program header
+    for(; prod_head < last_prod_head; prod_head++){
+        // read each prog_header
+    }
+
+    return true;
 }
 
 void ata_disk_wait()
@@ -23,28 +37,45 @@ void read_sector(uint32_t sector)
     outb(0x1F7, 0x20);
 }
 
-void read_kernel(byte *address, uint32_t start_sector)
+ELF_HEADER *read_elf_header()
 {
+    ELF_HEADER *elf_head = (ELF_HEADER *)0x10000;
+    uint32_t start_sector = 5;
+
     // Read the first sector
     read_sector(start_sector);
     ata_disk_wait();
-    insw(0x1F0, address, 512/2);
+    insw(0x1F0, (byte *)elf_head, 512/2);
 
-    ELF_HEADER *knix_elf_header = address;
-    uint32_t bin_size = get_binary_size(knix_elf_header);
-    PPrintString();
+    // Confirm its an elf header
+    if(elf_head->ei_magic != ELF_MAGIC)
+        return NULL;
+
+    return elf_head;
+}
+
+
+bool read_kernel()
+{
+    bool bRet = false;
+    ELF_HEADER *elf_head = NULL;
+
+    if((elf_head = read_elf_header()) == NULL)
+        return bRet;
+
+    if (!read_prog_headers(elf_head))
+        return bRet;
+    
+    bRet = true;
+    return bRet;
 }
 
 void
 boot_main()
 {
-    byte *address = (byte *)0x10000;
-    uint32_t start_sector = 5;
-    read_kernel(address, start_sector);
-
-    char buffer[10]  = {0};
-    itoa(42, buffer);
-    print_string(buffer);
-
+    if(!read_kernel()){
+        char *err = "Failed to read kernel";
+        print_string(err);
+    }
     while(1);
 }
