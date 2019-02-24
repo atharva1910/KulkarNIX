@@ -3,6 +3,7 @@
 
 #include "typedefs.h"
 #define ELF_MAGIC 0x7F454c46
+#define EXE_MAX_HEADERS 3
 
 /*
   Header taken: https://en.wikipedia.org/wiki/Executable_and_Linkable_Format
@@ -34,6 +35,7 @@ typedef struct ELF_PROG_HEADER{
     uint32_t p_type;         // Type of segment
     uint32_t p_offset;       // Offset of segment
     uint32_t p_vaddr;        // Virtual address of segment
+    uint32_t p_paddr;        // Physical address of segment
     uint32_t p_filesz;       // Size of segment in file mem
     uint32_t p_memsz;        // Size of segment in mem
     uint32_t p_flags;        // Segment-dependant flag

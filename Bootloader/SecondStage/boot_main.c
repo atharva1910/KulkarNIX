@@ -1,24 +1,4 @@
 #include "boot_main.h"
-   
-bool read_prog_headers(ELF_HEADER *elf)
-{
-    // Get pointer to the first program header
-    ELF_PROG_HEADER *prod_head = (ELF_PROG_HEADER *)(elf + elf->e_phoff);
-    if (prod_head == 0)
-        return false;
-
-    // Get pointer to the last program header
-    ELF_PROG_HEADER *last_prod_head = (ELF_PROG_HEADER *)(prod_head + elf->e_phnum);
-    if (last_prod_head == 0)
-        return false;
-
-    // Read each of the program header
-    for(; prod_head < last_prod_head; prod_head++){
-        // read each prog_header
-    }
-
-    return true;
-}
 
 void ata_disk_wait()
 {
@@ -36,6 +16,56 @@ void read_sector(uint32_t sector)
     // Make a read call
     outb(0x1F7, 0x20);
 }
+
+/*
+  Inputs:
+  addr -> physical address
+  offset -> offset into the file
+
+  Outputs:
+  None
+
+  Since we know that the file _always_ resides on the KERNEL_START_SECT we can calculate the sector addres from the offset.
+  Mod the offset, so we either get 0 (the offset lies on the KERNEL_START_SECT sector) or some sector number, then we read that sector.
+ */
+void
+read_prog_header(uint32_t addr, uint32_t offset)
+{
+    uint32_t end_segment = addr + offset; // Points to the last address for segment
+    uint32_t sect        = (offset % SECTOR_SIZE) + KERNEL_START_SECT; // Sector to read
+
+    for(; addr < end_segment; sect++){
+        read_sector(sect);
+        ata_disk_wait();
+        insw(0x1F0, (byte *)addr, 512/2);
+        addr += SECTOR_SIZE;
+    }
+}
+
+bool read_prog_headers(ELF_HEADER *elf)
+{
+    // Validate the number of headers
+    if(elf->e_phnum > EXE_MAX_HEADERS || elf->e_phnum < 0)
+        return false;
+    
+    // Get pointer to the first program header
+    ELF_PROG_HEADER *prog_head = (ELF_PROG_HEADER *)(elf + elf->e_phoff);
+    if (prog_head == 0)
+        return false;
+
+    // Get pointer to the last program header
+    ELF_PROG_HEADER *last_prog_head = (ELF_PROG_HEADER *)(prog_head + elf->e_phnum);
+    if (last_prog_head == 0)
+        return false;
+
+    // Read each of the program header
+    for(; prog_head < last_prog_head; prog_head++){
+        // read each prog_header
+        read_prog_header(prog_head->p_paddr, prog_head->p_filesz);
+    }
+    return true;
+}
+
 
 ELF_HEADER *read_elf_header()
 {
@@ -74,8 +104,7 @@ void
 boot_main()
 {
     if(!read_kernel()){
-        char *err = "Failed to read kernel";
-        print_string(err);
+        // ERROR
     }
     while(1);
 }
