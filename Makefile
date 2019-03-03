@@ -7,19 +7,24 @@ debug:clean all
 release:clean all
 	qemu-system-x86_64 -drive file=$(output),index=0,media=disk,format=raw
 
-all: FirstStage SecondStage WriteImage
+build:clean all
+
+all: FirstStage SecondStage kernel WriteImage
 
 FirstStage:
 	$(MAKE) -C Bootloader/FirstStage
 SecondStage:
 	$(MAKE) -C Bootloader/SecondStage
+kernel:
+	$(MAKE) -C Kernel/ all
+
 WriteImage:
 	$(MAKE) -C Build/ 
 
-run:
 
 clean:
 	$(MAKE) -C Build/ clean
+	$(MAKE) -C Kernel/ clean
 	$(MAKE) -C Bootloader/FirstStage clean
 	$(MAKE) -C Bootloader/SecondStage clean
 

@@ -21,9 +21,5 @@ SECTIONS
     {
         *(.bss)
     }
-    .rodata : ALIGN(0)
-    {
-        *(.rodata)
-    }
 
 }

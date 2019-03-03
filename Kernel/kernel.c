@@ -1,5 +1,5 @@
 void
-kmain()
+kernel_main()
 {
     while(1);
 }
