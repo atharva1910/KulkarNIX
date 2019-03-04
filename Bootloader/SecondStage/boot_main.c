@@ -70,6 +70,9 @@ bool read_prog_headers(ELF_HEADER *elf)
 ELF_HEADER *read_elf_header()
 {
     ELF_HEADER *elf_head = (ELF_HEADER *)0x10000;
+    dump_address(0x1234BEEF);
+    asm volatile("hlt");
+    
     uint32_t start_sector = 5;
 
     // Read the first sector
@@ -104,7 +107,8 @@ void
 boot_main()
 {
     if(!read_kernel()){
-        // ERROR
+        char *c = "We done goofed up";
+        print_string(c);
     }
     while(1);
 }

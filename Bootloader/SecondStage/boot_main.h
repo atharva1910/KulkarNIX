@@ -1,6 +1,6 @@
 #ifndef __BOOT_MAIN_H
 #define __BOOT_MAIN_H
-#define DEBUG 0
+#define DEBUG 1
 #define SECTOR_SIZE 512
 #define KERNEL_START_SECT 5
 

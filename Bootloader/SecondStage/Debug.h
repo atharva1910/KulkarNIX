@@ -22,6 +22,41 @@ print_string(char *string)
     }
 }
 
+#if 0
+void
+dump_address(uint32_t address)
+{
+    char hex_addr[11] = "0x";
+    uint32_t val = address;
+    for(int i = 9; i >= 2; i--){
+        uint8_t lower = val & 0xF;
+        if (lower >= 0 && lower <= 9)  lower += 48;
+        else                           lower += 55; 
+        hex_addr[i] = lower;
+        val       = val >> 4;
+    }
+    print_string(hex_addr);
+    while(1);
+}
+
+
+void
+print_hex(char *addr)
+{
+    char *address = addr;
+    char hex_val[5] = "0x";
+
+    char c = (addr[0] >> 4) & 0x0f;
+    (c >= 0 || c <= 9) ? c += 48 : c += 55; 
+    hex_val[2] = c;
+
+    c = addr[0] & 0x0f;
+    (c >= 0 || c <= 9) ? c += 48 : c += 55; 
+    hex_val[3] = c;
+    print_string(hex_val);
+}
+
+
 void
 clrscr()
 {
@@ -52,5 +87,6 @@ itoa(uint32_t number, char *buffer)
 
     buffer[i] = '\0';
 }
+#endif
 
 #endif
