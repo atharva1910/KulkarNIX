@@ -2,7 +2,7 @@
 #define _ELF_HEADER_H
 
 #include "typedefs.h"
-#define ELF_MAGIC 0x7F454c46
+#define ELF_MAGIC 0x464c457f
 #define EXE_MAX_HEADERS 3
 
 /*
@@ -23,6 +23,7 @@ typedef struct _ELF_HEADER{
     uint32_t e_entry;        // Entry point
     uint32_t e_phoff;        // Offset to program header
     uint32_t e_shoff;        // Offset to section header
+    uint32_t e_flags;        // Depends upon arc type
     uint16_t e_ehsize;       // size of this header
     uint16_t e_phentsize;    // Size of program header table
     uint16_t e_phnum;        // No of entries on program header table

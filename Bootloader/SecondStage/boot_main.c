@@ -42,36 +42,9 @@ read_prog_header(uint32_t addr, uint32_t offset)
     }
 }
 
-bool read_prog_headers(ELF_HEADER *elf)
-{
-    // Validate the number of headers
-    if(elf->e_phnum > EXE_MAX_HEADERS || elf->e_phnum < 0)
-        return false;
-    
-    // Get pointer to the first program header
-    ELF_PROG_HEADER *prog_head = (ELF_PROG_HEADER *)(elf + elf->e_phoff);
-    if (prog_head == 0)
-        return false;
-
-    // Get pointer to the last program header
-    ELF_PROG_HEADER *last_prog_head = (ELF_PROG_HEADER *)(prog_head + elf->e_phnum);
-    if (last_prog_head == 0)
-        return false;
-
-    // Read each of the program header
-    for(; prog_head < last_prog_head; prog_head++){
-        // read each prog_header
-        read_prog_header(prog_head->p_paddr, prog_head->p_filesz);
-    }
-    return true;
-}
-
-
 ELF_HEADER *read_elf_header()
 {
     ELF_HEADER *elf_head = (ELF_HEADER *)0x10000;
-    dump_address(0x1234BEEF);
-    asm volatile("hlt");
     
     uint32_t start_sector = 5;
 
@@ -81,8 +54,9 @@ ELF_HEADER *read_elf_header()
     insw(0x1F0, (byte *)elf_head, 512/2);
 
     // Confirm its an elf header
-    if(elf_head->ei_magic != ELF_MAGIC)
+    if(elf_head->ei_magic != ELF_MAGIC){
         return NULL;
+    }
 
     return elf_head;
 }
@@ -91,10 +65,32 @@ ELF_HEADER *read_elf_header()
 bool read_kernel()
 {
     bool bRet = false;
-    ELF_HEADER *elf_head = NULL;
 
-    if((elf_head = read_elf_header()) == NULL)
+    ELF_HEADER *elf_head = read_elf_header();
+
+    if(elf_head  == NULL)
         return bRet;
+
+    // Validate the number of headers
+    if(elf_head->e_phnum > EXE_MAX_HEADERS || elf_head->e_phnum < 0)
+        return false;
+
+    // Get pointer to the first program header
+    ELF_PROG_HEADER *prog_head = (ELF_PROG_HEADER *)(elf_head + elf_head->e_phoff);
+    if (prog_head == 0)
+        return false;
+
+    // Get pointer to the last program header
+    ELF_PROG_HEADER *last_prog_head = (ELF_PROG_HEADER *)(prog_head + elf_head->e_phnum);
+    if (last_prog_head == 0)
+        return false;
+
+    // Read each of the program header
+    for(; prog_head < last_prog_head; prog_head++){
+        // read each prog_header
+        read_prog_header(prog_head->p_paddr, prog_head->p_filesz);
+    }
+    return true;
 
     if (!read_prog_headers(elf_head))
         return bRet;
@@ -107,8 +103,6 @@ void
 boot_main()
 {
     if(!read_kernel()){
-        char *c = "We done goofed up";
-        print_string(c);
     }
     while(1);
 }

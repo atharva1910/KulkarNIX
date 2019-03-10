@@ -16,11 +16,11 @@ __start:
     mov     ss, ax
     mov     es, ax
     mov     sp, 07c00h
-    mov     si, WelcomeString
     call    boot_main
     hlt
     hlt
 
+%if 0
     global PPrintString
 PPrintString:   
     pusha
@@ -41,4 +41,4 @@ PPrintString:
     section .data
 WelcomeString: db "Welcome to the Kernel",0
 TestSting: db "After read",0
-
+%endif
