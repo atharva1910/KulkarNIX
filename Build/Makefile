@@ -14,5 +14,5 @@ write:
 	dd if=$(kernel) of=$(outfile) bs=512 seek=5
 
 clean:
-	rm -f *.bin *.img *.sym
+	rm -f *.bin *.img *.sym *.iso
 
