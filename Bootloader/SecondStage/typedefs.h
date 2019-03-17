@@ -4,10 +4,10 @@
 // NULL
 #define NULL 0
 // ASM
-typedef char byte;
-typedef short word;
+typedef char BYTE;
+typedef short WORD;
 // BOOL
-typedef byte bool;
+typedef BYTE BOOL;
 #define true 1
 #define false 0
 // uint

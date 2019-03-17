@@ -11,12 +11,12 @@
  */
 typedef struct _ELF_HEADER{
     uint32_t ei_magic;       // Magic number
-    byte     ei_class;       // Class x86 or x64
-    byte     ei_data;        // Endianness
-    byte     ei_version;     // Version
-    byte     ei_osabi;       // System V ABI 0x00
-    byte     ei_abiver;      // ABI version
-    byte     ei_pad[7];      // Unused
+    BYTE     ei_class;       // Class x86 or x64
+    BYTE     ei_data;        // Endianness
+    BYTE     ei_version;     // Version
+    BYTE     ei_osabi;       // System V ABI 0x00
+    BYTE     ei_abiver;      // ABI version
+    BYTE     ei_pad[7];      // Unused
     uint16_t e_type;         // Object file id
     uint16_t e_machine;      // Instruction set
     uint32_t e_version;      // Is set to 1

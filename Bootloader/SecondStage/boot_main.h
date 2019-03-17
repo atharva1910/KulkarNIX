@@ -12,6 +12,4 @@
 #include "Debug.h"
 #endif
 
-bool blank();
-
 #endif

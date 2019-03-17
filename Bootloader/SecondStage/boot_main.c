@@ -29,15 +29,15 @@ void read_sector(uint32_t sector)
   Mod the offset, so we either get 0 (the offset lies on the KERNEL_START_SECT sector) or some sector number, then we read that sector.
  */
 void
-read_prog_header(uint32_t addr, uint32_t offset)
+read_prog_header(uint32_t addr, uint32_t filesz, uint32_t offset)
 {
     uint32_t end_segment = addr + offset; // Points to the last address for segment
-    uint32_t sect        = (offset % SECTOR_SIZE) + KERNEL_START_SECT; // Sector to read
+    uint32_t sect        = (offset / SECTOR_SIZE) + KERNEL_START_SECT; // Sector to read
 
     for(; addr < end_segment; sect++){
         read_sector(sect);
         ata_disk_wait();
-        insw(0x1F0, (byte *)addr, 512/2);
+        insw(0x1F0, (BYTE *)addr, 512/2);
         addr += SECTOR_SIZE;
     }
 }
@@ -51,7 +51,7 @@ ELF_HEADER *read_elf_header()
     // Read the first sector
     read_sector(start_sector);
     ata_disk_wait();
-    insw(0x1F0, (byte *)elf_head, 512/2);
+    insw(0x1F0, (BYTE *)elf_head, 512/2);
 
     // Confirm its an elf header
     if(elf_head->ei_magic != ELF_MAGIC){
@@ -62,9 +62,9 @@ ELF_HEADER *read_elf_header()
 }
 
 
-bool read_kernel()
+BOOL read_kernel()
 {
-    bool bRet = false;
+    BOOL bRet = false;
 
     ELF_HEADER *elf_head = read_elf_header();
 
@@ -76,7 +76,7 @@ bool read_kernel()
         return false;
 
     // Get pointer to the first program header
-    ELF_PROG_HEADER *prog_head = (ELF_PROG_HEADER *)(elf_head + elf_head->e_phoff);
+    ELF_PROG_HEADER *prog_head = (ELF_PROG_HEADER *)((BYTE *)elf_head + elf_head->e_phoff);
     if (prog_head == 0)
         return false;
 
@@ -88,13 +88,9 @@ bool read_kernel()
     // Read each of the program header
     for(; prog_head < last_prog_head; prog_head++){
         // read each prog_header
-        read_prog_header(prog_head->p_paddr, prog_head->p_filesz);
+        read_prog_header(prog_head->p_paddr, prog_head->p_filesz, prog_head->p_offset);
     }
-    return true;
 
-    if (!read_prog_headers(elf_head))
-        return bRet;
-    
     bRet = true;
     return bRet;
 }
