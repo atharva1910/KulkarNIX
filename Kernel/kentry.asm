@@ -10,6 +10,8 @@ __start:
     ;mov     ds, eax
     ;mov     ss, eax
     ;mov     es, eax
+    hlt
+    hlt
     cli
     mov     ds, ax
     mov     ss, ax

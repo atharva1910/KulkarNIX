@@ -76,12 +76,12 @@ print_hex(uint32_t addr)
 void
 read_prog_header(uint32_t addr, uint32_t filesz, uint32_t offset)
 {
-    print_hex(addr);
     uint32_t end_segment = addr + filesz; // Points to the last address for segment
     uint32_t sect        = (offset / SECTOR_SIZE) + KERNEL_START_SECT; // Sector to read
     addr -= (offset % SECTOR_SIZE); // Get to sector boundary 
 
     for(; addr < end_segment; sect++){
+        read_sector(sect);
         ata_disk_wait();
         insw(0x1F0, (BYTE *)addr, 512/2);
         addr += SECTOR_SIZE;
