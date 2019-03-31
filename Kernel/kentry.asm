@@ -10,8 +10,9 @@ __start:
     ;mov     ds, eax
     ;mov     ss, eax
     ;mov     es, eax
+    hlt
+    hlt
     cli
-    pop     ax
     mov     ds, ax
     mov     ss, ax
     mov     es, ax
@@ -20,6 +21,7 @@ __start:
     hlt
     hlt
 
+    %if 0
     global PPrintString
 PPrintString:   
     pusha
@@ -40,4 +42,4 @@ PPrintString:
     section .data
 WelcomeString: db "Welcome to the Kernel",0
 TestSting: db "After read",0
-
+    %endif
