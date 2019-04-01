@@ -1,6 +1,27 @@
 #include "boot_main.h"
 
-static uint32_t vga_addr = 0xb8000;
+static inline void
+print_char(char *address, char c, BYTE bg_color)
+{
+    address[1] = bg_color;
+    address[0] = c;
+}
+
+
+static inline void
+print_string(char *string)
+{
+    BYTE bgcolor = 0x07;
+    char *vga_buffer = (char *)0xb8000;
+    char c = 0;
+    uint32_t pos = 0;
+    while((c = string[pos++]) != '\0'){
+        print_char(vga_buffer, c, 0x07);
+        vga_buffer += 2;
+    }
+}
+
+
 
 void ata_disk_wait()
 {
@@ -17,48 +38,6 @@ void read_sector(uint32_t sector)
     outb(0x1F5, sector >> 16);
     // Make a read call
     outb(0x1F7, 0x20);
-}
-
-void
-print_char(char *address, char c, BYTE bg_color)
-{
-    address[1] = bg_color;
-    address[0] = c;
-}
-
-void
-print_string(char *string)
-{
-    BYTE bgcolor = 0x07;
-    char c = 0;
-    uint32_t pos = 0;
-    while((c = string[pos++]) != '\0'){
-        print_char(vga_addr, c, 0x07);
-        vga_addr += 2;
-    }
-}
-
-
-void
-print_hex(uint32_t addr)
-{
-    uint32_t address = addr;
-    char hex_val[12] = {0};
-    hex_val[0] = '0';
-    hex_val[1] = 'x';
-
-    for(uint16_t i = 9; i >= 2; i--){
-        uint8_t half_byte = address & 0xf;
-        if (half_byte >= 0 && half_byte <= 9)
-            half_byte += 48;
-        else
-            half_byte += 55;
-        hex_val[i] = half_byte;
-        address = address >> 4;
-    }
-    hex_val[10] = 32; //space
-    hex_val[11] = '\0';
-    print_string(hex_val);
 }
 
 /*
@@ -135,7 +114,6 @@ BOOL read_kernel()
         prog_head++;
     }
 
-    print_hex(elf_head->e_entry);
     entry = (void (*)(void))(elf_head->e_entry);
     entry();
 
@@ -148,7 +126,8 @@ boot_main()
 {
     //print_hex(0xABC);
      if(!read_kernel()){
-         // print error
+         char *c = "Error reading Kernel :(";
+         print_string(c);
      }
     while(1);
 }

@@ -1,6 +1,7 @@
     .section .text
     .global __start
     .type   __start, @function
+
 __start:
     # We have jumped here from the bootloader
     # Set back the segment registers, set up the stack

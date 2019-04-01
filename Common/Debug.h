@@ -3,16 +3,15 @@
 #include "typedefs.h"
 
 void
-print_char(char *address, char c, byte bg_color)
+print_char(char *address, char c, BYTE bg_color)
 {
     address[1] = bg_color;
     address[0] = c;
 }
 
 void
-print_string(char *string)
+print_string(const char *string)
 {
-    byte bgcolor = 0x07;
     char *vga_buffer = (char *)0xb8000;
     char c = 0;
     uint32_t pos = 0;
@@ -22,18 +21,17 @@ print_string(char *string)
     }
 }
 
-#if 0
 void
 dump_address(uint32_t address)
 {
-    char hex_addr[11] = "0x";
+    char hex_addr[12] = "0x";
     uint32_t val = address;
-    for(int i = 9; i >= 2; i--){
+    for(int i = 10; i >= 2; i--){
         uint8_t lower = val & 0xF;
-        if (lower >= 0 && lower <= 9)  lower += 48;
-        else                           lower += 55; 
+        if (lower <= 9)  lower += 48;
+        else             lower += 55; 
         hex_addr[i] = lower;
-        val       = val >> 4;
+        val         = val >> 4;
     }
     print_string(hex_addr);
     while(1);
@@ -43,7 +41,6 @@ dump_address(uint32_t address)
 void
 print_hex(char *addr)
 {
-    char *address = addr;
     char hex_val[5] = "0x";
 
     char c = (addr[0] >> 4) & 0x0f;
@@ -61,8 +58,8 @@ void
 clrscr()
 {
     uint32_t x = 80, y = 25;
-    byte *vga_buffer = (byte *)0xb8000;
-    char c = ' '; byte bg = 0x07;
+    BYTE *vga_buffer = (BYTE *)0xb8000;
+    char c = ' '; BYTE bg = 0x07;
     uint32_t pos = 0;
     while(pos < x* y){
         vga_buffer[pos++] = c;
@@ -87,6 +84,4 @@ itoa(uint32_t number, char *buffer)
 
     buffer[i] = '\0';
 }
-#endif
-
 #endif

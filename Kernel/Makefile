@@ -4,6 +4,7 @@ CC		= i686-elf-g++
 CCFLAGS = -ffreestanding -O2 -Wall -Wextra -fno-exceptions -fno-rtti
 LDFLAGS = -ffreestanding -nostdlib 
 LDFILE  = linker.ld
+INCLUDES = -I../Common
 
 
 all: kentry.o kernel.o 
@@ -13,7 +14,7 @@ kentry.o:
 	$(ASMCC) kentry.asm -o kentry.o
 
 kernel.o: 
-	$(CC) -c kernel.cpp $(CCFLAGS)
+	$(CC) -c kernel.cpp $(CCFLAGS) $(INCLUDES)
 
 clean:
 	rm -f *.o *.bin *.img
