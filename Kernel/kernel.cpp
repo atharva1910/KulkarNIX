@@ -8,9 +8,8 @@ print_char(char *address, char c, BYTE bg_color)
 }
 
 void
-print_string(char *string)
+print_string(const char *string)
 {
-    BYTE bgcolor = 0x07;
     char *vga_buffer = (char *)0xb8000;
     char c = 0;
     int pos = 0;
@@ -21,10 +20,10 @@ print_string(char *string)
 }
 
 
-void
-kernel_main()
+extern "C"
+void kernel_main()
 {
-    char *c = "Welcome to the kernel";
+    char const *c = "Welcome to the kernel";
     print_string(c);
     while(1);
 }
