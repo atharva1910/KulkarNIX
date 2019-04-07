@@ -1,3 +1,4 @@
+    %if 0
 IsA20GateEnabled:
     ;; compare the boot signature (0000:7DFE) with (FFFF:7DFE)
     ;; Output -> set carry flag if a20 gate is enabled
@@ -19,6 +20,7 @@ IsA20GateEnabled:
     ;; This could be pure luck, change the signaature and test again!!
 .end:
     ret
+    %endif
 
     ;; Enable 21st bit addressing
     ;; NOTE NOTE NOTE: not tested

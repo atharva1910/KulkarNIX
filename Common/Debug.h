@@ -34,7 +34,6 @@ dump_address(uint32_t address)
         val         = val >> 4;
     }
     print_string(hex_addr);
-    while(1);
 }
 
 

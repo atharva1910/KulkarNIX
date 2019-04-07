@@ -20,15 +20,14 @@ __start:
 %endif
     %include "Globals.asm"
     %include "A20.asm"
+    %include "MMap.asm"
 
 boot:
     mov     al, dl              
     mov     [boot_drive], al    ; save our boot drive number
-    call    IsA20GateEnabled
-    jc      .skipA20enable
     call    EnableA20Gate       
-.skipA20enable:
-    mov     dx, 3               ; Read 3 sectors
+    call    GetMemMap
+    mov     dx, IISTAGE_SECTORS ; Read 3 sectors
     call    Read2ndStageToMem
     call    SwitchToPMode
 .end:
@@ -41,7 +40,7 @@ Read2ndStageToMem:
     ;; bx -> number of sectors to read
     pusha
     mov     cx, 02h             ; start from 2n sector
-    mov     bx, KERNEL_ADDRESS  ; initial address
+    mov     bx, IISTAGE_ADDRESS ; initial address
     xor     ax, ax
 .loop:   
     call    ReadSector
@@ -118,7 +117,7 @@ SwitchToPMode:
     mov     cr0, eax
     ;; jump to kernel
     push    (DATA_SEGMENT << 3)
-    jmp     (CODE_SEGMENT << 3):KERNEL_ADDRESS ; since each entry is 8 bytes
+    jmp     (CODE_SEGMENT << 3):IISTAGE_ADDRESS ; since each entry is 8 bytes
      
 .end:
 	;; ERROR: perofrm a warm boot
