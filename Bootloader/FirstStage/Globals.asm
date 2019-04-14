@@ -6,7 +6,6 @@
 %define DATA_SEGMENT    2
 %define IISTAGE_ADDRESS  07E00h
 %define IISTAGE_SECTORS  3
-%define MMAP_ADDRESS  08000h
     
 boot_drive:  db 0
 WelcomeMessage: db "Welcome to KulkarNix",0

@@ -22,7 +22,7 @@ print_string(const char *string)
 }
 
 void
-dump_address(uint32_t address)
+dump_address(uintptr_t address)
 {
     char hex_addr[12] = "0x";
     uint32_t val = address;

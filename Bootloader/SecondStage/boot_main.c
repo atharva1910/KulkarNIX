@@ -87,15 +87,14 @@ ELF_HEADER *read_elf_header()
 }
 
 
-BOOL read_kernel()
+uint32_t read_kernel()
 {
     BOOL bRet = false;
-    void (*entry)(void);
 
     ELF_HEADER *elf_head = read_elf_header();
 
     if(elf_head  == NULL)
-        return bRet;
+        return NULL;
 
     // Validate the number of headers
     if(elf_head->e_phnum > EXE_MAX_HEADERS || elf_head->e_phnum < 0)
@@ -113,21 +112,22 @@ BOOL read_kernel()
         // read next program header
         prog_head++;
     }
-
-    entry = (void (*)(void))(elf_head->e_entry);
-    entry();
-
-    bRet = true;
-    return bRet;
+    return elf_head->e_entry;
 }
 
 void
 boot_main()
 {
+    void *kernel_entry = NULL;
+    void (*entry)(void);
+
     //print_hex(0xABC);
-     if(!read_kernel()){
+    if((kernel_entry = (void *)read_kernel()) == NULL){
          char *c = "Error reading Kernel :(";
          print_string(c);
      }
+
+    entry = (void (*)(void))(kernel_entry);
+    entry();    // Should never return
     while(1);
 }

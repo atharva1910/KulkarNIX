@@ -8,6 +8,7 @@ __start:
     # call C++ code
     cli
     mov     $stack_top, %esp
+    push    $0x9000             #Memory map pointer
     call    kernel_main
     hlt
     hlt

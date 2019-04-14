@@ -26,7 +26,8 @@ boot:
     mov     al, dl              
     mov     [boot_drive], al    ; save our boot drive number
     call    EnableA20Gate       
-    call    GetMemMap
+    call    GetMemMap           
+    jc      .end
     mov     dx, IISTAGE_SECTORS ; Read 3 sectors
     call    Read2ndStageToMem
     call    SwitchToPMode
