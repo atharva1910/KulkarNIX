@@ -4,7 +4,7 @@ ASMCC   = nasm
 CCFLAGS = -ffreestanding -fno-exceptions -O2 -g
 LDFLAGS = -ffreestanding -nostdlib 
 LDFILE  = linker.ld
-INCLUDES = -I../../Common
+INCLUDES = -I../../Common -I../../HAL
 
 
 all: IIStageBootloader.o boot_main.o
