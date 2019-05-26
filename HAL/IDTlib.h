@@ -1,5 +1,5 @@
-#ifndef _IDT_H
-#define _IDT_H
+#ifndef _IDT_LIB_H
+#define _IDT_LIB_H
 #include "typedefs.h"
 
 #define IDT_MAX_INTERRUPTS 256
@@ -16,16 +16,9 @@ struct idt_entry{
 // The structure to be loaded using lidt
 struct idtr{
   uint16_t limit;       // Size of IDT
-  uint32_t base;        // Start address of IDT
+  uintptr_t base;        // Start address of IDT
 }__attribute__((packed));
-
-idt_entry IDT[256];
 
 static void init_idt();
 static void load_idt();
-
-
-
-// Global
-void LoadIDT();
 #endif
