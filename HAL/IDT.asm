@@ -2,7 +2,7 @@
 asm_load_idt:
     # This loads the empty IDT 
     pusha
-    lidt (__idtr)
+    lidt (_idtr)
     popa
     ret
     

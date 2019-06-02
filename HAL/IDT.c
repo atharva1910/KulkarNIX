@@ -21,7 +21,7 @@ void LoadEmptyIDT()
 //                Local functions                   //
 //////////////////////////////////////////////////////
 
-static struct idtr      _idtr;
+struct idtr      _idtr;
 static struct idt_entry IDT[IDT_MAX_INTERRUPTS];
 
 static void init_idt()

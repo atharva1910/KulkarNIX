@@ -17,3 +17,8 @@ void asm_insw(uint16_t port, BYTE *address, uint32_t count)
 {
   asm volatile("cld; rep insw":"+D"(address), "+c"(count):"d"(port): "memory");
 }
+
+void asm_enable_interrupts()
+{
+  asm volatile("sti");
+}
