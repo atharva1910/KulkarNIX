@@ -5,4 +5,12 @@ asm_load_idt:
     lidt (_idtr)
     popa
     ret
+
+    .global DefaultIDTfun
+DefaultIDTfun:
+    # This loads the empty IDT 
+    pusha
+    hlt
+    iret
+ 
     

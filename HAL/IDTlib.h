@@ -7,7 +7,7 @@
 // Each entry in the IDT
 struct idt_entry{
   uint16_t offset_1;    // 0...15
-  uint16_t selector;    // code segment 0x10 maybe?
+  uint16_t selector;    // code segment 0x8 maybe?
   uint8_t  zero;        // 0
   uint8_t  type_attr;   // type and attr
   uint16_t offset_2;    // 16...31
@@ -19,6 +19,8 @@ struct idtr{
   uintptr_t base;        // Start address of IDT
 }__attribute__((packed));
 
-static void init_idt();
-static void load_idt();
+static void InitIDT();
+static void LoadIDT();
+static void LoadDefaultIDT();
+static void AddIDTEntry(uint8_t num, uintptr_t function);
 #endif

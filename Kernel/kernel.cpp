@@ -15,5 +15,6 @@ extern "C"
 void kernel_main(void *memory_map)
 {
   SetupIDT();
+  asm_enable_interrupts();
   while(1);
 }
