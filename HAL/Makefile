@@ -13,13 +13,14 @@ all: LibIDT Libx86
 
 # IDT static library
 LibIDT: IDTelf32.o IDT.o
-	ar rcs $(LIBLOC)/libIDT.a $(BUILDLOC)/IDTelf32.o $(BUILDLOC)/IDT.o 
+	ar rcs $(LIBLOC)/libIDT.a $(BUILDLOC)/IDTelf32.o $(BUILDLOC)/IDT.o $(BUILDLOC)/Interrupts.o 
 
 IDTelf32.o:
 	$(ASMCC) IDT.asm -o $(BUILDLOC)/IDTelf32.o
 
 IDT.o: 
 	$(CC) -c IDT.c $(CCFLAGS) $(INCLUDES) -o $(BUILDLOC)/IDT.o
+	$(CC) -c Interrupts.c $(CCFLAGS) $(INCLUDES) -o $(BUILDLOC)/Interrupts.o
 
 # inline assembly lib
 Libx86: x86.o

@@ -10,7 +10,7 @@ asm_load_idt:
 DefaultIDTfun:
     # This loads the empty IDT 
     pusha
-    hlt
+    call    DefaultFunction
     iret
  
     

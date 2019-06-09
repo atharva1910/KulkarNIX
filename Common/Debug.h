@@ -43,11 +43,17 @@ print_hex(char *addr)
     char hex_val[5] = "0x";
 
     char c = (addr[0] >> 4) & 0x0f;
-    (c >= 0 || c <= 9) ? c += 48 : c += 55; 
+    if (c >= 0 || c <= 9)
+      c += 48 ;
+    else
+      c += 55; 
     hex_val[2] = c;
 
     c = addr[0] & 0x0f;
-    (c >= 0 || c <= 9) ? c += 48 : c += 55; 
+    if (c >= 0 || c <= 9)
+      c += 48;
+    else
+      c += 55; 
     hex_val[3] = c;
     print_string(hex_val);
 }

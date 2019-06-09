@@ -21,6 +21,6 @@ struct idtr{
 
 static void InitIDT();
 static void LoadIDT();
-static void LoadDefaultIDT();
+static void InitDefaultIDT();
 static void AddIDTEntry(uint8_t num, uintptr_t function);
 #endif

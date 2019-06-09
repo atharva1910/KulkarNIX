@@ -6,15 +6,15 @@ extern "C" {
 }
 
 void
-SetupIDT()
+InitInterrupts()
 {
   LoadEmptyIDT();
+  asm_enable_interrupts();
 }
 
 extern "C"
 void kernel_main(void *memory_map)
 {
-  SetupIDT();
-  asm_enable_interrupts();
+  InitInterrupts();
   while(1);
 }

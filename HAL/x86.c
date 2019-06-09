@@ -22,3 +22,9 @@ void asm_enable_interrupts()
 {
   asm volatile("sti");
 }
+
+void asm_disable_interrupts()
+{
+  asm volatile("sti");
+}
+

@@ -14,7 +14,7 @@ void LoadEmptyIDT()
   InitIDT();
 
   // Load defualt IDT
-  LoadDefaultIDT();
+  InitDefaultIDT();
 
   // Load the empty idt
   LoadIDT();
@@ -42,9 +42,9 @@ static void LoadIDT()
   asm_load_idt();
 }
 
-static void LoadDefaultIDT()
+static void InitDefaultIDT()
 {
-  for (uint16_t i = 20; i < IDT_MAX_INTERRUPTS; i++){
+  for (uint16_t i = 0; i < IDT_MAX_INTERRUPTS; i++){
     AddIDTEntry(i, (uintptr_t)DefaultIDTfun);
   }
 }
