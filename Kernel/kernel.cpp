@@ -8,7 +8,7 @@ extern "C" {
 void
 InitInterrupts()
 {
-  LoadEmptyIDT();
+  SetupInterrupts();
   asm_enable_interrupts();
 }
 

@@ -27,4 +27,5 @@ clean:
 	$(MAKE) -C Kernel/ clean
 	$(MAKE) -C Bootloader/FirstStage clean
 	$(MAKE) -C Bootloader/SecondStage clean
+	$(MAKE) -C HAL/ clean
 

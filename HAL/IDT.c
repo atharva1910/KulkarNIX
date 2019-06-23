@@ -5,9 +5,7 @@
 //                Global functions                  //
 //////////////////////////////////////////////////////
 
-extern void asm_load_idt();
-extern void DefaultIDTfun();
-
+#if DEBUG
 void LoadEmptyIDT()
 {
   // Init the empty idt
@@ -19,7 +17,15 @@ void LoadEmptyIDT()
   // Load the empty idt
   LoadIDT();
 }
+#endif
 
+void SetupInterrupts()
+{
+  InitIDT();
+  InitDefaultIDT(); // for testing
+  FillIDT();
+  LoadIDT();
+}
 
 
 //////////////////////////////////////////////////////
@@ -47,6 +53,21 @@ static void InitDefaultIDT()
   for (uint16_t i = 0; i < IDT_MAX_INTERRUPTS; i++){
     AddIDTEntry(i, (uintptr_t)DefaultIDTfun);
   }
+}
+
+static void FillIDT()
+{
+    AddIDTEntry(0, (uintptr_t)Interrupt000);
+    AddIDTEntry(1, (uintptr_t)Interrupt001);
+    AddIDTEntry(2, (uintptr_t)Interrupt002);
+    AddIDTEntry(3, (uintptr_t)Interrupt003);
+    AddIDTEntry(4, (uintptr_t)Interrupt004);
+    AddIDTEntry(5, (uintptr_t)Interrupt005);
+    AddIDTEntry(6, (uintptr_t)Interrupt006);
+    AddIDTEntry(7, (uintptr_t)Interrupt007);
+    AddIDTEntry(8, (uintptr_t)Interrupt008);
+    //    AddIDTEntry(9, (uintptr_t)Interrupt09);
+    //    AddIDTEntry(10, (uintptr_t)Interrupt10);
 }
 
 static void AddIDTEntry(uint8_t num, uintptr_t function)

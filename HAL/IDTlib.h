@@ -1,6 +1,7 @@
 #ifndef _IDT_LIB_H
 #define _IDT_LIB_H
 #include "typedefs.h"
+#include "Interrupts.h"
 
 #define IDT_MAX_INTERRUPTS 256
 
@@ -19,8 +20,10 @@ struct idtr{
   uintptr_t base;        // Start address of IDT
 }__attribute__((packed));
 
+extern void asm_load_idt();
 static void InitIDT();
 static void LoadIDT();
+static void FillIDT();
 static void InitDefaultIDT();
 static void AddIDTEntry(uint8_t num, uintptr_t function);
 #endif
