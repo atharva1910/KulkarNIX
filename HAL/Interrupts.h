@@ -1,13 +1,13 @@
 #ifndef _IDT_INTS_H
 #define _IDT_INTS_H
 extern void DefaultIDTfun();
-extern void Interrupt00();
-extern void Interrupt01();
-extern void Interrupt02();
-extern void Interrupt03();
-extern void Interrupt04();
-extern void Interrupt05();
-extern void Interrupt06();
-extern void Interrupt07();
-extern void Interrupt08();
+extern void Interrupt000();
+extern void Interrupt001();
+extern void Interrupt002();
+extern void Interrupt003();
+extern void Interrupt004();
+extern void Interrupt005();
+extern void Interrupt006();
+extern void Interrupt007();
+extern void Interrupt008();
 #endif

@@ -1,4 +1,4 @@
-CC		= i686-elf-gcc
+CC	= i686-elf-g++
 ASMCC   = nasm
 
 CCFLAGS = -ffreestanding -fno-exceptions -O2 -g
@@ -17,7 +17,7 @@ IIStageBootloader.o: IIStageBootloader.asm
 	$(ASMCC) -f elf32 IIStageBootloader.asm -o IIStageBootloader.o
 
 boot_main.o: 
-	$(CC) -c boot_main.c $(CCFLAGS) $(INCLUDES)
+	$(CC) -c boot_main.cpp $(CCFLAGS) $(INCLUDES)
 
 clean:
 	rm -f *.o *.bin *.img

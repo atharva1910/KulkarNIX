@@ -9,9 +9,10 @@ release:clean all
 
 build:clean all
 
-all: FirstStage SecondStage kernel WriteImage
+all: Lib FirstStage SecondStage kernel WriteImage
 
 FirstStage:
+	$(MAKE) -C HAL/ 
 	$(MAKE) -C Bootloader/FirstStage
 SecondStage:
 	$(MAKE) -C Bootloader/SecondStage

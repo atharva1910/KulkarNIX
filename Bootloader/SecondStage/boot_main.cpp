@@ -115,16 +115,16 @@ uint32_t read_kernel()
     return elf_head->e_entry;
 }
 
-void
-boot_main()
+extern "C"
+void boot_main()
 {
     void *kernel_entry = NULL;
     void (*entry)(void);
 
     //print_hex(0xABC);
     if((kernel_entry = (void *)read_kernel()) == NULL){
-         char *c = "Error reading Kernel :(";
-         print_string(c);
+         const char *c = "Error reading Kernel :(";
+         print_string((char *)c);
      }
 
     entry = (void (*)(void))(kernel_entry);

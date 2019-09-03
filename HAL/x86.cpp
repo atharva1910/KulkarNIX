@@ -27,4 +27,3 @@ void asm_disable_interrupts()
 {
   asm volatile("sti");
 }
-
