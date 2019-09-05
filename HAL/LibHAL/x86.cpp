@@ -30,4 +30,9 @@ void DisableInterrupts()
   asm volatile("cli");
 }
 
+void LoadIDT(BYTE *idt)
+{
+    asm volatile("lidt %0"::"m"(*idt));
+}
+
 } // namespace x86

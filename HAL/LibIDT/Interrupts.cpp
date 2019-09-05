@@ -5,13 +5,16 @@
   The asm functions jump to these Cpp functions to perform the interrupt
 */
 
-extern "C"
-void DefaultFunction()
-{
-    print_string("This is a default interrupt");
-    while(true);
-}
+// This macro creates an asm interrupt routine which calls the C++ code
+#define ISR(NUM) \
+    __asm__ (\
+        ".global Interrupt"#NUM"\n"\
+        "Interrupt"#NUM":\n"\
+        "   call KInterrupt"#NUM"\n"\
+        "   iret\n"\
+             );    \
 
+ISR(000)
 extern "C"
 void KInterrupt000()
 {
@@ -19,6 +22,7 @@ void KInterrupt000()
     while(true);
 }
 
+ISR(001)
 extern "C"
 void KInterrupt001()
 {
@@ -26,6 +30,7 @@ void KInterrupt001()
     while(true);
 }
 
+ISR(002)
 extern "C"
 void KInterrupt002()
 {
@@ -33,6 +38,7 @@ void KInterrupt002()
     while(true);
 }
 
+ISR(003)
 extern "C"
 void KInterrupt003()
 {
@@ -40,6 +46,7 @@ void KInterrupt003()
     while(true);
 }
 
+ISR(004)
 extern "C"
 void KInterrupt004()
 {
@@ -47,6 +54,7 @@ void KInterrupt004()
     while(true);
 }
 
+ISR(005)
 extern "C"
 void KInterrupt005()
 {
@@ -54,6 +62,7 @@ void KInterrupt005()
     while(true);
 }
 
+ISR(006)
 extern "C"
 void KInterrupt006()
 {
@@ -61,6 +70,7 @@ void KInterrupt006()
     while(true);
 }
 
+ISR(007)
 extern "C"
 void KInterrupt007()
 {
@@ -68,6 +78,7 @@ void KInterrupt007()
     while(true);
 }
 
+ISR(008)
 extern "C"
 void KInterrupt008()
 {
@@ -75,4 +86,16 @@ void KInterrupt008()
     while(true);
 }
 
+__asm__(
+        ".global DefaultISR\n"
+        "DefaultISR:\n"
+        "   call KDefault;\n"
+        "   iret"
+        );
+extern "C"
+void KDefault()
+{
+    print_string("This is a default interrupt");
+    while(true);
+}
 

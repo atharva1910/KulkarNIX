@@ -22,9 +22,7 @@ struct idtr{
   uintptr_t base;        // Start address of IDT
 }__attribute__((packed));
 
-extern "C" void asm_load_idt();
 static void InitIDT();
-static void LoadIDT();
 static void FillIDT();
 static void InitDefaultIDT();
 static void AddIDTEntry(uint8_t num, uintptr_t function);

@@ -12,5 +12,6 @@ uint8_t inb(uint16_t port);
 void insw(uint16_t port, BYTE *address, uint32_t count);
 void EnableInterrupts();
 void DisableInterrupts();
+void LoadIDT(BYTE *);
 } //namespace x86
 #endif

@@ -1,6 +1,6 @@
 #ifndef _IDT_INTS_H
 #define _IDT_INTS_H
-extern void DefaultIDTfun();
+extern void DefaultISR();
 extern void Interrupt000();
 extern void Interrupt001();
 extern void Interrupt002();

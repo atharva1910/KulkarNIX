@@ -2,29 +2,6 @@
 #include "HAL/x86.h"
 #include "IDTlib.h"
 
-//////////////////////////////////////////////////////
-//                Global functions                  //
-//////////////////////////////////////////////////////
-
-namespace PIC {
- /*
-SetupInterrupts
-Description: This function sets up the IDT and Enables the Interrupts
-
-Arguments: 
-  None
-*/
-void SetupAndEnableInterrupts()
-{
-  InitIDT();
-  InitDefaultIDT(); // for testing
-  FillIDT();
-  LoadIDT();
-  x86::EnableInterrupts();
-}
-
-} // namespace PIC
-
 
 //////////////////////////////////////////////////////
 //                Local functions                   //
@@ -37,19 +14,12 @@ static void InitIDT()
 {
   _idtr.limit = sizeof(struct idt_entry) * IDT_MAX_INTERRUPTS - 1; //This can really be a constexpr
   _idtr.base  = (uintptr_t)&IDT[0];
-
-  // for(int i = 0; i < IDT_MAX_INTERRUPTS; i++) IDT[i] = {0}; // Kinda unecessary since satic global
-}
-
-static void LoadIDT()
-{
-  asm_load_idt();
 }
 
 static void InitDefaultIDT()
 {
   for (uint16_t i = 0; i < IDT_MAX_INTERRUPTS; i++){
-    AddIDTEntry(i, (uintptr_t)DefaultIDTfun);
+    AddIDTEntry(i, (uintptr_t)DefaultISR);
   }
 }
 
@@ -76,3 +46,30 @@ static void AddIDTEntry(uint8_t num, uintptr_t function)
   IDT[num].offset_2 = ((function >> 16) & 0xffff);
   IDT[num].type_attr = 0x8e; // TODOTODOTODO this is temp
 }
+
+//////////////////////////////////////////////////////
+//                Global functions                  //
+//////////////////////////////////////////////////////
+
+namespace PIC {
+ /*
+SetupInterrupts
+Description: This function sets up the IDT and Enables the Interrupts
+This function sets up 256 entries of IDT fills them with defined interrupts
+and fills the rest with Default IDT entry.
+Then loads the entry
+
+Arguments: 
+  None
+*/
+void SetupAndEnableInterrupts()
+{
+  InitIDT();
+  InitDefaultIDT(); // for testing
+  FillIDT();
+  x86::LoadIDT(reinterpret_cast<BYTE *>(&_idtr));
+  x86::EnableInterrupts();
+}
+
+} // namespace PIC
+
