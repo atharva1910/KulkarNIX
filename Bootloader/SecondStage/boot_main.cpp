@@ -25,19 +25,18 @@ print_string(char *string)
 
 void ata_disk_wait()
 {
-  while((asm_inb(0x1F7) & 0xC0) != 0x40);
+    while((x86::inb(0x1F7) & 0xC0) != 0x40);
 }
 
 void read_sector(uint32_t sector)
 {
     ata_disk_wait(); // wait BSY to 0 and RDY to 1
-    asm_outb(0x1F6, sector >> 24 | 0xE0);// Master drive
-    asm_outb(0x1F2, 1); // Read one sector
-    asm_outb(0x1F3, sector);
-    asm_outb(0x1F4, sector >> 8);
-    asm_outb(0x1F5, sector >> 16);
-    // Make a read call
-    asm_outb(0x1F7, 0x20);
+    x86::outb(0x1F6, sector >> 24 | 0xE0);// Master drive
+    x86::outb(0x1F2, 1); // Read one sector
+    x86::outb(0x1F3, sector);
+    x86::outb(0x1F4, sector >> 8);
+    x86::outb(0x1F5, sector >> 16);
+    x86::outb(0x1F7, 0x20); // Make a read call
 }
 
 /*
@@ -62,7 +61,7 @@ read_prog_header(uint32_t addr, uint32_t filesz, uint32_t offset)
     for(; addr < end_segment; sect++){
         read_sector(sect);
         ata_disk_wait();
-        asm_insw(0x1F0, (BYTE *)addr, 512/2);
+        x86::insw(0x1F0, (BYTE *)addr, 512/2);
         addr += SECTOR_SIZE;
     }
 }
@@ -76,7 +75,7 @@ ELF_HEADER *read_elf_header()
     // Read the first sector
     read_sector(start_sector);
     ata_disk_wait();
-    asm_insw(0x1F0, (BYTE *)elf_head, 512/2);
+    x86::insw(0x1F0, (BYTE *)elf_head, 512/2);
 
     // Confirm its an elf header
     if(elf_head->ei_magic != ELF_MAGIC){

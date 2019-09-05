@@ -1,7 +1,6 @@
 #ifndef _IDT_H
 #define _IDT_H
-#if DEBUG
-void LoadEmptyIDT();
-#endif
-void SetupInterrupts();
+namespace PIC{
+void SetupAndEnableInterrupts();
+} // namespace PIC
 #endif

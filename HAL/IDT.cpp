@@ -1,31 +1,29 @@
 #include "HAL/IDT.h"
+#include "HAL/x86.h"
 #include "IDTlib.h"
 
 //////////////////////////////////////////////////////
 //                Global functions                  //
 //////////////////////////////////////////////////////
 
-#if DEBUG
-void LoadEmptyIDT()
-{
-  // Init the empty idt
-  InitIDT();
+namespace PIC {
+ /*
+SetupInterrupts
+Description: This function sets up the IDT and Enables the Interrupts
 
-  // Load defualt IDT
-  InitDefaultIDT();
-
-  // Load the empty idt
-  LoadIDT();
-}
-#endif
-
-void SetupInterrupts()
+Arguments: 
+  None
+*/
+void SetupAndEnableInterrupts()
 {
   InitIDT();
   InitDefaultIDT(); // for testing
   FillIDT();
   LoadIDT();
+  x86::EnableInterrupts();
 }
+
+} // namespace PIC
 
 
 //////////////////////////////////////////////////////
