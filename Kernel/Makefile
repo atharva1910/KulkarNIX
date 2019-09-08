@@ -9,7 +9,7 @@ LINCLUDES = ../Lib/HAL
 
 
 all: kentry.o kernel.o
-	$(CC) -T $(LDFILE) -o ../Build/Kernel.bin $(LDFLAGS) $^ -lgcc $(LINCLUDES)/libIDT.a $(LINCLUDES)/libx86.a
+	$(CC) -T $(LDFILE) -o ../Build/Kernel.bin $(LDFLAGS) $^ -lgcc $(LINCLUDES)/libIDT.a
 	objcopy --only-keep-debug ../Build/Kernel.bin ../Build/Kernel.sym
 
 kentry.o:

@@ -1,7 +1,7 @@
-#include "HAL/x86.h"
+#include "HAL/HAL.h"
 //#include "x86lib.h"
 
-namespace x86 {
+namespace HAL {
 void outb(uint16_t port, uint8_t command)
 {
   asm volatile("outb %0, %1":: "a"(command), "d"(port));

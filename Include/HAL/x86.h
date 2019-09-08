@@ -6,12 +6,12 @@
   The kernel will and should never use this lib directly. This should be used only by drivers for device like PIC, HDDs etc
   The Bootloader will include this directly since it is system dependant
  */
-namespace x86 {
+namespace HAL{
 void outb(uint16_t port, uint8_t command);
 uint8_t inb(uint16_t port);
 void insw(uint16_t port, BYTE *address, uint32_t count);
 void EnableInterrupts();
 void DisableInterrupts();
 void LoadIDT(BYTE *);
-} //namespace x86
+}
 #endif

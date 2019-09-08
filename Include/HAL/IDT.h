@@ -1,6 +1,6 @@
 #ifndef _IDT_H
 #define _IDT_H
-namespace PIC{
+namespace HAL{
 void SetupAndEnableInterrupts();
-} // namespace PIC
+}
 #endif

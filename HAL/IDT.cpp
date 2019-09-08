@@ -1,5 +1,4 @@
-#include "HAL/IDT.h"
-#include "HAL/x86.h"
+#include "HAL/HAL.h"
 #include "IDTlib.h"
 
 
@@ -51,7 +50,7 @@ static void AddIDTEntry(uint8_t num, uintptr_t function)
 //                Global functions                  //
 //////////////////////////////////////////////////////
 
-namespace PIC {
+namespace HAL {
  /*
 SetupInterrupts
 Description: This function sets up the IDT and Enables the Interrupts
@@ -67,8 +66,8 @@ void SetupAndEnableInterrupts()
   InitIDT();
   InitDefaultIDT(); // for testing
   FillIDT();
-  x86::LoadIDT(reinterpret_cast<BYTE *>(&_idtr));
-  x86::EnableInterrupts();
+  HAL::LoadIDT(reinterpret_cast<BYTE *>(&_idtr));
+  HAL::EnableInterrupts();
 }
 
 } // namespace PIC

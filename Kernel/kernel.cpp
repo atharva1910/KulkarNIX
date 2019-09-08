@@ -1,10 +1,10 @@
 #include "typedefs.h"
-#include "HAL/IDT.h"
+#include "HAL/HAL.h"
 
 void
 InitInterrupts()
 {
-    PIC::SetupAndEnableInterrupts();
+    HAL::SetupAndEnableInterrupts();
 }
 
 extern "C"
