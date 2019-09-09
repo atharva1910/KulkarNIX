@@ -61,7 +61,7 @@ Then loads the entry
 Arguments: 
   None
 */
-void SetupAndEnableInterrupts()
+void SetupInterrupts()
 {
   InitIDT();
   InitDefaultIDT(); // for testing

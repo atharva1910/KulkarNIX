@@ -12,9 +12,9 @@ print_char(char *address, char c, BYTE bg_color)
 void
 print_string(const char *string)
 {
-    char *vga_buffer = (char *)0xb8000;
     char c = 0;
     uint32_t pos = 0;
+    char *vga_buffer = (char *)0xb8000;
     while((c = string[pos++]) != '\0'){
         print_char(vga_buffer, c, 0x07);
         vga_buffer += 2;

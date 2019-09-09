@@ -18,8 +18,5 @@ kentry.o:
 kernel.o: 
 	$(CC) -c kernel.cpp $(CCFLAGS) $(INCLUDES)
 
-phyMM.o: 
-	$(CC) -c phyMM.cpp $(CCFLAGS) $(INCLUDES)
-
 clean:
 	rm -f *.o *.bin *.img

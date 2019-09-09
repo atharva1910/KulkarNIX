@@ -4,7 +4,8 @@
 void
 InitInterrupts()
 {
-    HAL::SetupAndEnableInterrupts();
+    HAL::SetupInterrupts();
+    HAL::EnableInterrupts();
 }
 
 extern "C"
