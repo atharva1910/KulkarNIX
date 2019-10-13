@@ -18,7 +18,7 @@ class PIC : public PIO {
     void AddIDTEntry(uint8_t num, uintptr_t function);
     void LoadIDT(BYTE *idt);
 
- private:
+ public:
     // Each entry in the IDT
     struct idt_entry{
       uint16_t offset_1;    // 0...15
@@ -34,8 +34,9 @@ class PIC : public PIO {
       uintptr_t base;        // Start address of IDT
     }__attribute__((packed));
 
+ private:
     struct idtr      _idtr;
-    struct idt_entry IDT[IDT_MAX_INTERRUPTS];
+    static struct idt_entry IDT[IDT_MAX_INTERRUPTS];
 };
 
 #endif

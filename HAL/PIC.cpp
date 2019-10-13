@@ -3,6 +3,8 @@ extern "C"{
 #include "Interrupts.h"
 }
 
+PIC::idt_entry PIC::IDT[] = {0};
+
 void PIC::LoadIDT(BYTE *idt)
 {
     asm volatile("lidt %0"::"m"(*idt));
