@@ -4,7 +4,9 @@
 void
 InitInterrupts()
 {
-    HAL::SetupInterrupts();
+    PIC pic;
+    pic.Remap8259();
+    pic.SetupInterrupts();
     HAL::EnableInterrupts();
 }
 

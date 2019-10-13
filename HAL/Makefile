@@ -10,11 +10,11 @@ LIBLOC   = ../Lib/HAL
 
 
 # IDT static library
-LibIDT: IDT.o x86.o
-	ar rcs $(LIBLOC)/libIDT.a $(BUILDLOC)/IDT.o $(BUILDLOC)/Interrupts.o $(BUILDLOC)/x86.o
+LibIDT: PIC.o x86.o
+	ar rcs $(LIBLOC)/libIDT.a $(BUILDLOC)/PIC.o $(BUILDLOC)/Interrupts.o $(BUILDLOC)/x86.o
 
-IDT.o: 
-	$(CC) -c IDT.cpp $(CCFLAGS) $(INCLUDES) -o $(BUILDLOC)/IDT.o
+PIC.o: 
+	$(CC) -c PIC.cpp $(CCFLAGS) $(INCLUDES) -o $(BUILDLOC)/PIC.o
 	$(CC) -c Interrupts.cpp $(CCFLAGS) $(INCLUDES) -o $(BUILDLOC)/Interrupts.o
 
 x86.o:

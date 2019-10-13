@@ -3,6 +3,6 @@
 
 // Main include for HAL
 #include "x86.h"
-#include "IDT.h"
+#include "PIC.h"
 
 #endif

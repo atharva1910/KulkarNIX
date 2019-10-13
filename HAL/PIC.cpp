@@ -1,28 +1,28 @@
 #include "HAL/HAL.h"
-#include "IDTlib.h"
+extern "C"{
+#include "Interrupts.h"
+}
+
+void PIC::LoadIDT(BYTE *idt)
+{
+    asm volatile("lidt %0"::"m"(*idt));
+}
 
 
-//////////////////////////////////////////////////////
-//                Local functions                   //
-//////////////////////////////////////////////////////
-
-struct idtr      _idtr;
-static struct idt_entry IDT[IDT_MAX_INTERRUPTS];
-
-static void InitIDT()
+void PIC::InitIDT()
 {
   _idtr.limit = sizeof(struct idt_entry) * IDT_MAX_INTERRUPTS - 1; //This can really be a constexpr
   _idtr.base  = (uintptr_t)&IDT[0];
 }
 
-static void InitDefaultIDT()
+void PIC::InitDefaultIDT()
 {
   for (uint16_t i = 0; i < IDT_MAX_INTERRUPTS; i++){
     AddIDTEntry(i, (uintptr_t)DefaultISR);
   }
 }
 
-static void FillIDT()
+void PIC::FillIDT()
 {
     AddIDTEntry(0, (uintptr_t)Interrupt000);
     AddIDTEntry(1, (uintptr_t)Interrupt001);
@@ -37,7 +37,7 @@ static void FillIDT()
     //    AddIDTEntry(10, (uintptr_t)Interrupt10);
 }
 
-static void AddIDTEntry(uint8_t num, uintptr_t function)
+void PIC::AddIDTEntry(uint8_t num, uintptr_t function)
 {
   IDT[num].selector = 0x08;
   IDT[num].zero  = 0;
@@ -46,11 +46,6 @@ static void AddIDTEntry(uint8_t num, uintptr_t function)
   IDT[num].type_attr = 0x8e; // TODOTODOTODO this is temp
 }
 
-//////////////////////////////////////////////////////
-//                Global functions                  //
-//////////////////////////////////////////////////////
-
-namespace HAL {
  /*
 SetupInterrupts
 Description: This function sets up the IDT and Enables the Interrupts
@@ -61,14 +56,24 @@ Then loads the entry
 Arguments: 
   None
 */
-void SetupInterrupts()
+void PIC::SetupInterrupts()
 {
   InitIDT();
   InitDefaultIDT(); // for testing
   FillIDT();
-  HAL::LoadIDT(reinterpret_cast<BYTE *>(&_idtr));
-  HAL::EnableInterrupts();
+  LoadIDT(reinterpret_cast<BYTE *>(&_idtr));
 }
 
-} // namespace PIC
+/*
+Remap8059
+Description: This function remaps the interrupts of the 8059 PIC away from the processor interrupts
+Arguments : None
+Return    : None
+*/
+void PIC::Remap8259()
+{
+}
+
+PIC::PIC() {}
+PIC::~PIC() {}
 
