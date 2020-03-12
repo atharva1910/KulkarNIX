@@ -37,6 +37,12 @@ class PIC : public PIO {
  private:
     struct idtr      _idtr;
     static struct idt_entry IDT[IDT_MAX_INTERRUPTS];
+
+    const uint32_t master_command = 0x20;
+    const uint32_t salve_command  = 0xA0;
+    const uint32_t master_data    = 0x21;
+    const uint32_t salve_data     = 0xA1;
+
 };
 
 #endif

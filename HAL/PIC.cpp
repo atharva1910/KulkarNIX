@@ -55,8 +55,8 @@ This function sets up 256 entries of IDT fills them with defined interrupts
 and fills the rest with Default IDT entry.
 Then loads the entry
 
-Arguments: 
-  None
+Arguments: None
+Return   : None
 */
 void PIC::SetupInterrupts()
 {
@@ -68,12 +68,13 @@ void PIC::SetupInterrupts()
 
 /*
 Remap8059
-Description: This function remaps the interrupts of the 8059 PIC away from the processor interrupts
+Description: This function remaps the interrupts of the 8059 PIC away from the processor interrupts (0x00 - 0x1F)
 Arguments : None
 Return    : None
 */
 void PIC::Remap8259()
 {
+
 }
 
 PIC::PIC() {}
