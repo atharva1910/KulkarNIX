@@ -1,5 +1,10 @@
 #include "boot_main.h"
 
+/*
+  This file contains the main secondary boot loader and a bare bones ATA driver
+  It reads the Kernel from the disk to location 0x10000 and jumps to the kernel entry point
+ */
+
 static inline void
 print_char(char *address, char c, BYTE bg_color)
 {

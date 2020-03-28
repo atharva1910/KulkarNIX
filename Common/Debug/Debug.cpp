@@ -1,6 +1,4 @@
-#ifndef _DEBUG_H
-#define _DEBUG_H
-#include "typedefs.h"
+#include "Debug.h"
 
 void
 print_char(char *address, char c, BYTE bg_color)
@@ -89,4 +87,3 @@ itoa(uint32_t number, char *buffer)
 
     buffer[i] = '\0';
 }
-#endif

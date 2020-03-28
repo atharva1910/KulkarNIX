@@ -20,3 +20,11 @@ make all-gcc
 make all-target-libgcc
 make install-gcc
 make install-target-libgcc
+
+#install qemu
+#For ubuntu based systems
+sudo apt-get install qemu
+
+#Building and running Kulkarnix
+#go to the root directory
+make release

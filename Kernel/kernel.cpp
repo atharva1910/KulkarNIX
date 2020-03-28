@@ -1,5 +1,6 @@
 #include "typedefs.h"
 #include "HAL/HAL.h"
+#include "Debug/Debug.h"
 
 void
 InitInterrupts()
@@ -13,6 +14,10 @@ InitInterrupts()
 extern "C"
 void kernel_main(void *memory_map)
 {
-    InitInterrupts();
+    //    InitInterrupts();
+    if(HAL::CheckIfApicExists())
+        print_string("Exists");
+    else
+        print_string("Nope");
     while(1);
 }

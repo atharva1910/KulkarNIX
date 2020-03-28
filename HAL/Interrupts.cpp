@@ -1,5 +1,4 @@
-#include "Debug.h"
-
+#include "Debug/Debug.h"
 /*
   This file conatins the code for all the interrupts in the IDT
   The asm functions jump to these Cpp functions to perform the interrupt

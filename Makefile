@@ -1,7 +1,7 @@
 output = Build/KulkarNIX.bin
 
 #This is the default option
-debug:clean all
+debug:clean Debug all
 	qemu-system-x86_64 -s -S -drive file=$(output),media=disk,format=raw
 
 release:clean all
@@ -11,6 +11,8 @@ build:clean all
 
 all: KLibs FirstStage SecondStage kernel WriteImage
 
+Debug:
+	$(MAKE) -C Common/Debug
 KLibs:
 	$(MAKE) -C HAL/
 FirstStage:
@@ -30,5 +32,6 @@ clean:
 	$(MAKE) -C Bootloader/FirstStage clean
 	$(MAKE) -C Bootloader/SecondStage clean
 	$(MAKE) -C HAL/ clean
+	$(MAKE) -C Common/Debug clean
 
 

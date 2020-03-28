@@ -1,0 +1,13 @@
+* KulkarNIX
+* Bootloader
+** Currently KulkarNIX only supports Legacy systems booting from BIOS
+** First Stage Bootloader
+*** Enable A20 line
+*** Set up GDT for protected mode
+*** Use interrupts for read Second Stage Bootloader from Harddisk
+*** Jump to protected mode
+*** Jump to Second Stage Bootloader
+** Second Stage Bootloader
+*** Read ELF header from harddisk
+*** Read Kernel from hardisk to 0x10000h
+*** Jump to kernel

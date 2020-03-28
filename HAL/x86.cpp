@@ -21,4 +21,10 @@ BOOL CheckIfApicExists()
     return false;
 
 }
+
+BOOL CheckIfCpuidExists()
+{
+    BOOL bRet = true;
+    return bRet;
+}
 } // namespace x86
