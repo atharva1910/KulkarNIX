@@ -1,17 +1,16 @@
-ASMCC   = i686-elf-as
-CC	= i686-elf-g++
-
-CCFLAGS = -ffreestanding -O2 -Wall -Wextra 
-LDFLAGS = -ffreestanding -nostdlib 
-LDFILE  = linker.ld
+ASMCC    = i686-elf-as
+CC	 = i686-elf-g++
+CCFLAGS  = -ffreestanding -O2 -Wall -Wextra 
+LDFLAGS  = -ffreestanding -nostdlib 
+LDFILE   = linker.ld
 INCLUDES = -I../Common -I../Include/
 BUILDLOC = ../Build
 LIBLOC   = ../Lib/HAL
 
 
 # IDT static library
-LibIDT: PIC.o x86.o
-	ar rcs $(LIBLOC)/libIDT.a $(BUILDLOC)/PIC.o $(BUILDLOC)/Interrupts.o $(BUILDLOC)/x86.o $(BUILDLOC)/Debug.o
+LibIDT: PIC.o x86.o Paging.o
+	ar rcs $(LIBLOC)/KLibHAL.a $(BUILDLOC)/PIC.o $(BUILDLOC)/Interrupts.o $(BUILDLOC)/x86.o $(BUILDLOC)/Paging.o
 
 PIC.o: 
 	$(CC) -c PIC.cpp $(CCFLAGS) $(INCLUDES) -o $(BUILDLOC)/PIC.o
@@ -19,6 +18,9 @@ PIC.o:
 
 x86.o:
 	$(CC) -c x86.cpp $(CCFLAGS) $(INCLUDES) -o $(BUILDLOC)/x86.o
+
+Paging.o:
+	$(CC) -c Paging.cpp $(CCFLAGS) $(INCLUDES) -o $(BUILDLOC)/Paging.o
 
 clean:
 	rm -f $(BUILDLOC)/*.o

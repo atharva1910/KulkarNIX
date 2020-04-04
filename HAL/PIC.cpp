@@ -41,10 +41,11 @@ void PIC::FillIDT()
 
 void PIC::AddIDTEntry(uint8_t num, uintptr_t function)
 {
+  uint32_t fun = reinterpret_cast<uint32_t>(function);
   IDT[num].selector = 0x08;
   IDT[num].zero  = 0;
-  IDT[num].offset_1 = (function & 0xffff);
-  IDT[num].offset_2 = ((function >> 16) & 0xffff);
+  IDT[num].offset_1 = (fun & 0xffff);
+  IDT[num].offset_2 = ((fun >> 16) & 0xffff);
   IDT[num].type_attr = 0x8e; // TODOTODOTODO this is temp
 }
 

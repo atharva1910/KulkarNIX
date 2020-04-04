@@ -11,9 +11,17 @@ InitInterrupts()
     HAL::EnableInterrupts();
 }
 
+void
+SetupPaging()
+{
+    print_string("Setting up paging for x86");
+    SetupX86Paging();
+}
+
 extern "C"
 void kernel_main(void *memory_map)
 {
+    SetupPaging();
     //    InitInterrupts();
     if(HAL::CheckIfApicExists())
         print_string("Exists");

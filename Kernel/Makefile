@@ -5,11 +5,11 @@ CCFLAGS = -ffreestanding -O2 -Wall -Wextra -fno-exceptions -fno-rtti -g
 LDFLAGS = -ffreestanding -nostdlib 
 LDFILE  = linker.ld
 INCLUDES = -I../Common -I../Include
-LINCLUDES = ../Lib/HAL
+LINCLUDES = ../Lib/
 
 
 all: kentry.o kernel.o
-	$(CC) -T $(LDFILE) -o ../Build/Kernel.bin $(LDFLAGS) $^ -lgcc $(LINCLUDES)/libIDT.a
+	$(CC) -T $(LDFILE) -o ../Build/Kernel.bin $(LDFLAGS) $^ -lgcc $(LINCLUDES)/HAL/KLibHAL.a  $(LINCLUDES)/KDebugPrints.o
 	objcopy --only-keep-debug ../Build/Kernel.bin ../Build/Kernel.sym
 
 kentry.o:
