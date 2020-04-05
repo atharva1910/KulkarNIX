@@ -12,6 +12,7 @@ class KPageTable{
 
     void      EmptyPageTable();
     uintptr_t GetPageTableAddress();
+    void      CreatePageTableEntry(uint idx, uint32_t address);
  private:
     uint32_t *PT = nullptr;
 };
@@ -21,7 +22,7 @@ class KPageDir{
     KPageDir(uint32_t addr);
     ~KPageDir();
 
-    void CreatePageTableEntry(uint idx, KPageTable &pageTable);
+    void CreatePageDirEntry(uint idx, KPageTable &pageTable);
  private:
     uint32_t *PDT = nullptr;
 };

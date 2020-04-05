@@ -25,6 +25,7 @@ extern "C"
 void KInterrupt001()
 {
     print_string("This is a KInterrupt001");
+    asm volatile("hlt");
 }
 
 ISR(002)
@@ -86,5 +87,6 @@ extern "C"
 void KDefault()
 {
     print_string("This is a default interrupt");
+    asm volatile("hlt");
 }
 

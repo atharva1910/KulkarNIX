@@ -27,4 +27,15 @@ BOOL CheckIfCpuidExists()
     BOOL bRet = true;
     return bRet;
 }
+
+void EnablePaging(uint32_t PDT)
+{
+    // Set the pointer to PDT in CR3
+    asm volatile("mov %0, %%cr3"::"r"(PDT));
+    // Enable flag in CR0
+    //    asm volatile("mov %%cr0, %%eax\n\t    \
+                  or  $0x80000001, %%eax\n\t\
+                  mov %%eax, %%cr0" :::"%eax");
+}
+
 } // namespace x86

@@ -6,7 +6,7 @@ void
 InitInterrupts()
 {
     PIC pic;
-    pic.Remap8259();
+    //pic.Remap8259();
     pic.SetupInterrupts();
     HAL::EnableInterrupts();
 }
@@ -21,11 +21,14 @@ SetupPaging()
 extern "C"
 void kernel_main(void *memory_map)
 {
+    HAL::DisableInterrupts();
     SetupPaging();
-    //    InitInterrupts();
-    if(HAL::CheckIfApicExists())
-        print_string("Exists");
-    else
-        print_string("Nope");
+    InitInterrupts();
+    uintptr_t abc = reinterpret_cast<uintptr_t>(0xFFFFFFF);
+    *abc = 9;
+    // if(HAL::CheckIfApicExists())
+    //     print_string("Exists");
+    // else
+    //     print_string("Nope");
     while(1);
 }
