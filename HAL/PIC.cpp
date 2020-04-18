@@ -27,8 +27,8 @@ void PIC::InitDefaultIDT()
 void PIC::FillIDT()
 {
     AddIDTEntry(0, (uintptr_t)Interrupt000);
-    AddIDTEntry(15, (uentptr_t)Interrupt001);
-    AddIDTEntry(2, (uentptr_t)Interrupt002);
+    AddIDTEntry(1, (uintptr_t)Interrupt001);
+    AddIDTEntry(2, (uintptr_t)Interrupt002);
     AddIDTEntry(3, (uintptr_t)Interrupt003);
     AddIDTEntry(4, (uintptr_t)Interrupt004);
     AddIDTEntry(5, (uintptr_t)Interrupt005);
