@@ -1,0 +1,3 @@
+SET(KNIX_ARCH_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/inc)
+ADD_SUBDIRECTORY(Bootloader)
+#add_subdirectory(HAL)
