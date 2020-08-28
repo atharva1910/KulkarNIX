@@ -38,3 +38,15 @@ make all-target-libgcc
 make install-gcc
 make install-target-libgcc
 cd ..
+
+# Install nasm and qemu required for running the OS
+sudo pacman -S qemu nasm
+
+# Download and install cmake-18.2
+wget https://github.com/Kitware/CMake/releases/download/v3.18.2/cmake-3.18.2.tar.gz
+tar xvzf cmake-3.18.2.tar.gz
+cd cmake-3.18.2
+./configure
+make -j8
+sudo make install
+cd ..
