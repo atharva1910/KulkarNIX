@@ -123,15 +123,18 @@ extern "C"
 void boot_main()
 {
     void *kernel_entry = NULL;
+    const char *c = NULL;
     void (*entry)(void);
 
     //print_hex(0xABC);
     if((kernel_entry = (void *)read_kernel()) == NULL){
-         const char *c = "Error reading Kernel :(";
+         c = "Error reading Kernel :(";
          print_string((char *)c);
      }
 
     entry = (void (*)(void))(kernel_entry);
     entry();    // Should never return
-    while(1);
+
+    c = "Kernel Panic! Returned from entry()";
+    print_string((char *)c);
 }

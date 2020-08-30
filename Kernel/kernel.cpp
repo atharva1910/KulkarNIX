@@ -14,7 +14,7 @@ InitInterrupts()
 void
 SetupPaging()
 {
-    print_string("Setting up paging for x86");
+    //print_string("Setting up paging for x86");
     SetupX86Paging();
 }
 
@@ -25,10 +25,29 @@ void kernel_main(void *memory_map)
     SetupPaging();
     InitInterrupts();
     uintptr_t abc = reinterpret_cast<uintptr_t>(0xFFFFFFF);
-    *abc = 9;
-    // if(HAL::CheckIfApicExists())
-    //     print_string("Exists");
-    // else
-    //     print_string("Nope");
     while(1);
 }
+
+__asm__(
+        /* Set up the global function __start */
+    ".section .text\n"
+    ".global __start\n"
+    ".type   __start, @function\n"
+
+"__start:\n"
+"mov     $stack_top, %esp\n"
+"push    $0x9000             #Memory map pointer\n"
+"call    kernel_main\n"
+"hlt\n"
+"hlt\n"
+
+    /* Set up the stack area */
+    ".section .bss\n"
+    ".align 16\n"
+"stack_bottom:\n"
+".skip 16384\n"
+"stack_top:  \n"
+
+    /* Restore the data section */
+    ".section .text\n"
+);
