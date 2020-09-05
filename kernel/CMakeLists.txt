@@ -1,9 +1,8 @@
 ADD_EXECUTABLE(Kernel.bin kernel.cpp)
 
-TARGET_COMPILE_OPTIONS(Kernel.bin PRIVATE -ffreestanding -fno-exceptions -O2 -g)
 TARGET_INCLUDE_DIRECTORIES(Kernel.bin PRIVATE ${CMAKE_SOURCE_DIR}/inc ${KNIX_ARCH_INCLUDE})
 
-TARGET_LINK_OPTIONS(Kernel.bin PRIVATE -T ${CMAKE_CURRENT_SOURCE_DIR}/linker.ld -ffreestanding -nostdlib)
+TARGET_LINK_OPTIONS(Kernel.bin PRIVATE -T ${CMAKE_CURRENT_SOURCE_DIR}/linker.ld)
 
 ADD_CUSTOM_COMMAND(TARGET Kernel.bin
   POST_BUILD

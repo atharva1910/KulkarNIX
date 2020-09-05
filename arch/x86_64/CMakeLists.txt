@@ -1,2 +1,2 @@
-ADD_SUBDIRECTORY(Bootloader)
-#add_subdirectory(HAL)
+ADD_SUBDIRECTORY(bootloader)
+ADD_SUBDIRECTORY(HAL)

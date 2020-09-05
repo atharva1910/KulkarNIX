@@ -41,7 +41,7 @@ void PIC::FillIDT()
 
 void PIC::AddIDTEntry(uint8_t num, uintptr_t function)
 {
-  uint32_t fun = reinterpret_cast<uint32_t>(function);
+  uint64_t fun = reinterpret_cast<uint64_t>(function);
   IDT[num].selector = 0x08;
   IDT[num].zero  = 0;
   IDT[num].offset_1 = (fun & 0xffff);

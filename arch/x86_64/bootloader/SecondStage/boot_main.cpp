@@ -138,3 +138,18 @@ void boot_main()
     c = "Kernel Panic! Returned from entry()";
     print_string((char *)c);
 }
+
+__asm__(
+    ".section .text\n"
+    ".global __start\n"
+    ".type   __start, @function\n\n"
+"__start:\n"
+    "cli\n"
+    "pop     %ax\n"
+    "mov     %ax, %ds\n"
+    "mov     %ax, %ss\n"
+    "mov     %ax, %es\n"
+    "mov     $0x07c00, %sp\n"
+    "call    boot_main\n"
+    "hlt\n"
+);
