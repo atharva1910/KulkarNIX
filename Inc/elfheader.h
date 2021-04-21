@@ -7,7 +7,7 @@
 
 /*
   Header taken: https://en.wikipedia.org/wiki/Executable_and_Linkable_Format
-  This is puerly a x86 header
+  This is puerly a x86_64 header
  */
 typedef struct _ELF_HEADER{
     uint32_t ei_magic;       // Magic number
@@ -20,9 +20,9 @@ typedef struct _ELF_HEADER{
     uint16_t e_type;         // Object file id
     uint16_t e_machine;      // Instruction set
     uint32_t e_version;      // Is set to 1
-    uint32_t e_entry;        // Entry point
-    uint32_t e_phoff;        // Offset to program header
-    uint32_t e_shoff;        // Offset to section header
+    uint64_t e_entry;        // Entry point
+    uint64_t e_phoff;        // Offset to program header
+    uint64_t e_shoff;        // Offset to section header
     uint32_t e_flags;        // Depends upon arc type
     uint16_t e_ehsize;       // size of this header
     uint16_t e_phentsize;    // Size of program header table
@@ -34,12 +34,12 @@ typedef struct _ELF_HEADER{
 
 typedef struct ELF_PROG_HEADER{
     uint32_t p_type;         // Type of segment
-    uint32_t p_offset;       // Offset of segment
-    uint32_t p_vaddr;        // Virtual address of segment
-    uint32_t p_paddr;        // Physical address of segment
-    uint32_t p_filesz;       // Size of segment in file mem
-    uint32_t p_memsz;        // Size of segment in mem
-    uint32_t p_flags;        // Segment-dependant flag
-    uint32_t p_align;        // Allignment
+    uint32_t p_flags;        // Segment dependent flags
+    uint64_t p_offset;       // Offset of segment
+    uint64_t p_vaddr;        // Virtual address of segment
+    uint64_t p_paddr;        // Physical address of segment
+    uint64_t p_filesz;       // Size of segment in file mem
+    uint64_t p_memsz;        // Size of segment in mem
+    uint64_t p_align;        // Allignment
 }ELF_PROG_HEADER;
 #endif

@@ -7,24 +7,24 @@ void SetupX86Paging();
 
 class KPageTable{
  public:
-    KPageTable(uint32_t addr);
+    KPageTable(uint64_t addr);
     ~KPageTable();
 
     void      EmptyPageTable();
     uintptr_t GetPageTableAddress();
-    void      CreatePageTableEntry(uint idx, uint32_t address);
+    void      CreatePageTableEntry(uint32_t idx, uint64_t address);
  private:
-    uint32_t *PT = nullptr;
+    uint64_t *PT = nullptr;
 };
 
 class KPageDir{
  public:
-    KPageDir(uint32_t addr);
+    KPageDir(uint64_t addr);
     ~KPageDir();
 
-    void CreatePageDirEntry(uint idx, KPageTable &pageTable);
+    void CreatePageDirEntry(uint32_t idx, KPageTable &pageTable);
  private:
-    uint32_t *PDT = nullptr;
+    uint64_t *PDT = nullptr;
 };
 
 #endif

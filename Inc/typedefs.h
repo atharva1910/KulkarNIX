@@ -13,12 +13,10 @@ typedef BYTE BOOL;
 // uint
 typedef unsigned int uint32_t;
 typedef unsigned long uint64_t;
-typedef unsigned int uint32_t;
-typedef unsigned int uint;
 typedef unsigned char uint8_t;
 typedef unsigned short int uint16_t;
 // pointers
-typedef uint32_t* uintptr_t;
+typedef uint64_t* uintptr_t;
 
 
 #endif

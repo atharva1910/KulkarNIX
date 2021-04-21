@@ -2,14 +2,14 @@
 #include "HAL/x86.h"
 
 // Page Dirs
-KPageDir::KPageDir(uint32_t addr)
+KPageDir::KPageDir(uint64_t addr)
 {
     PDT = reinterpret_cast<uintptr_t>(addr);
     for(int i = 0; i < 1024; i++)
         PDT[i] = 0;
 }
 
-void KPageDir::CreatePageDirEntry(uint idx, KPageTable &pageTable)
+void KPageDir::CreatePageDirEntry(uint32_t idx, KPageTable &pageTable)
 {
     PDT[idx] = reinterpret_cast<uint64_t>(pageTable.GetPageTableAddress()) | 0x3;   // r/w, P
 }
@@ -18,7 +18,7 @@ KPageDir::~KPageDir() {}
 
 // Page Table
 
-KPageTable::KPageTable(uint32_t addr)
+KPageTable::KPageTable(uint64_t addr)
 {
     PT = reinterpret_cast<uintptr_t>(addr);
 }
@@ -34,7 +34,7 @@ uintptr_t KPageTable::GetPageTableAddress()
     return PT;
 }
 
-void KPageTable::CreatePageTableEntry(uint idx, uint32_t address)
+void KPageTable::CreatePageTableEntry(uint32_t idx, uint64_t address)
 {
     if (address & 0xFFF){
         // should really throw an error here
@@ -51,8 +51,8 @@ KPageTable::~KPageTable() {}
 void IdentityMap2MB(KPageTable &pageTable)
 {
     // Each page holds 4KB, at each index store increments of 4KB
-    uint32_t address = 0;
-    for(uint i = 0; i < 512; i++, address += 0x1000){
+    uint64_t address = 0;
+    for(uint32_t i = 0; i < 512; i++, address += 0x1000){
         pageTable.CreatePageTableEntry(i, address);
     }
 }
