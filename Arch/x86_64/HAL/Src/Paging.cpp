@@ -11,7 +11,7 @@ KPageDir::KPageDir(uint32_t addr)
 
 void KPageDir::CreatePageDirEntry(uint idx, KPageTable &pageTable)
 {
-    PDT[idx] = reinterpret_cast<uint32_t>(pageTable.GetPageTableAddress()) | 0x3;   // r/w, P
+    PDT[idx] = reinterpret_cast<uint64_t>(pageTable.GetPageTableAddress()) | 0x3;   // r/w, P
 }
 
 KPageDir::~KPageDir() {}

@@ -16,7 +16,6 @@ print_char(char *address, char c, BYTE bg_color)
 static inline void
 print_string(char *string)
 {
-    BYTE bgcolor = 0x07;
     char *vga_buffer = (char *)0xb8000;
     char c = 0;
     uint32_t pos = 0;
@@ -93,8 +92,6 @@ ELF_HEADER *read_elf_header()
 
 uint32_t read_kernel()
 {
-    BOOL bRet = false;
-
     ELF_HEADER *elf_head = read_elf_header();
 
     if(elf_head  == NULL)
