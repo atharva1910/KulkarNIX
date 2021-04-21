@@ -1,7 +1,7 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.8)
 PROJECT(KulkarNIX)
 
-# setup the correct compiler
+# Setup the correct compiler
 SET(CMAKE_CXX_COMPILER "x86_64-elf-g++")
 
 # Create Output directory
@@ -28,17 +28,11 @@ ADD_LINK_OPTIONS(
     "$<$<LINK_LANGUAGE:CXX>:${CXX_LINKER_FLAGS}>"
 )
 
-# Set up the config variables
-SET(KARCH x64 CACHE STRING "Arch config")
-
 # Set up variables for whole project
 SET(KNIX_ROOT_INC ${CMAKE_SOURCE_DIR}/Inc)
 
-IF(KARCH STREQUAL x64)
-	SET(KNIX_ARCH_INCLUDE ${CMAKE_SOURCE_DIR}/Inc/Arch/x86_64)
-ELSE()
-    MESSAGE("Bad Arch config: ${KARCH}")
-ENDIF()
+# Set up include directories for the project
+SET(KNIX_ARCH_INCLUDE ${CMAKE_SOURCE_DIR}/Inc/Arch/x86_64)
 
 # Add projects
 ADD_SUBDIRECTORY(Arch)
