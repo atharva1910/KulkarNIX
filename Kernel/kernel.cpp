@@ -24,7 +24,6 @@ void kernel_main(void *memory_map)
     HAL::DisableInterrupts();
     SetupPaging();
     InitInterrupts();
-    uintptr_t abc = reinterpret_cast<uintptr_t>(0xFFFFFFF);
     while(1);
 }
 
