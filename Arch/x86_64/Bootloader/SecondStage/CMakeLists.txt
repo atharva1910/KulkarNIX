@@ -6,4 +6,8 @@ TARGET_LINK_OPTIONS(IIStageBootloader.bin PRIVATE -T ${CMAKE_CURRENT_SOURCE_DIR}
 
 ADD_CUSTOM_COMMAND(TARGET IIStageBootloader.bin
   POST_BUILD
-  COMMAND mv IIStageBootloader.bin ${KNIX_OUTPUT_DIR})
+  COMMAND objcopy --only-keep-debug IIStageBootloader.bin ${KNIX_OUTPUT_DIR}/IIStageBootloader.sym)
+
+ADD_CUSTOM_COMMAND(TARGET IIStageBootloader.bin
+  POST_BUILD
+  COMMAND objcopy -O binary IIStageBootloader.bin ${KNIX_OUTPUT_DIR}/IIStageBootloader.bin)

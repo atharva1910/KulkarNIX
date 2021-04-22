@@ -23,7 +23,7 @@ void
 dump_address(uintptr_t address)
 {
     char hex_addr[12] = "0x";
-    uint32_t val = reinterpret_cast<uint32_t>(address);
+    uint32_t val = reinterpret_cast<uint64_t>(address) & 0xffff;
     for(int i = 10; i >= 2; i--){
         uint8_t lower = val & 0xF;
         if (lower <= 9)  lower += 48;
