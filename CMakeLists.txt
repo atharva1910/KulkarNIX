@@ -6,10 +6,18 @@ SET(CMAKE_CXX_COMPILER "x86_64-elf-g++")
 
 # Create Output directory
 SET(KOUTPUT_DIR Bin)
+SET(KSYMBOL_DIR Sym)
 EXECUTE_PROCESS(
     COMMAND mkdir ${KOUTPUT_DIR}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
+# Create Symbol directory
+EXECUTE_PROCESS(
+    COMMAND mkdir ${KOUTPUT_DIR}/${KSYMBOL_DIR}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+# Symbol directory path
+SET(KNIX_SYMBOL_DIR_PATH ${CMAKE_SOURCE_DIR}/${KOUTPUT_DIR}/${KSYMBOL_DIR})
 
 # Setup output directories
 SET(KNIX_OUTPUT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/${KOUTPUT_DIR})
@@ -18,7 +26,7 @@ SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${KNIX_OUTPUT_DIR})
 SET(CMAKE_BINARY_OUTPUT_DIRECTORY  ${KNIX_OUTPUT_DIR}) 
 
 # Global Compiler and linker flags
-SET(CXX_COMPILE_FLAGS -ffreestanding;-fno-exceptions;-O2;-g;-Wall;-Wpedantic)
+SET(CXX_COMPILE_FLAGS -ffreestanding;-fno-exceptions;-02;-g;-Wall;-Wpedantic)
 ADD_COMPILE_OPTIONS(
     "$<$<COMPILE_LANGUAGE:CXX>:${CXX_COMPILE_FLAGS}>"
 )

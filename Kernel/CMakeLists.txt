@@ -8,4 +8,8 @@ TARGET_LINK_LIBRARIES(Kernel.bin KLibHAL KDebug)
 
 ADD_CUSTOM_COMMAND(TARGET Kernel.bin
   POST_BUILD
+  COMMAND objcopy --only-keep-debug Kernel.bin ${KNIX_OUTPUT_DIR}/Kernel.sym)
+
+ADD_CUSTOM_COMMAND(TARGET Kernel.bin
+  POST_BUILD
   COMMAND mv Kernel.bin ${KNIX_OUTPUT_DIR})

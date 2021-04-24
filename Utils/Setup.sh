@@ -18,7 +18,7 @@ export PREFIX="$HOME/opt/cross"
 export TARGET=x86_64-elf
 export PATH="$PREFIX/bin:$PATH"
 
-# Install binuitls
+# Install binuitls for x86_64
 tar -xvf binutils-2.34.tar.xz
 mkdir build-binutils
 cd build-binutils
@@ -27,7 +27,7 @@ make
 sudo make install
 cd ..
 
-# Install gcc
+# Install gcc for x86_64
 which -- $TARGET-as || echo $TARGET-as is not in the PATH
 tar xvzf gcc-10.2.0.tar.gz
 mkdir build-gcc
@@ -39,7 +39,29 @@ make install-gcc
 make install-target-libgcc
 cd ..
 
-# Install nasm and qemu required for running the OS
+export TARGET=i686-elf
+# Install binutils for i686
+rm -rf build-binutils
+mkdir build-binutils
+cd build-binutils
+../binutils-2.34/configure --target=$TARGET --prefix="$PREFIX" --with-sysroot --disable-nls --disable-werror
+make
+sudo make install
+cd ..
+
+# Install gcc for i686
+rm -rf build-gcc
+mkdir build-gcc
+cd build-gcc
+../gcc-10.2.0/configure --target=$TARGET --prefix="$PREFIX" --disable-nls --enable-languages=c,c++ --without-headers
+make all-gcc
+make all-target-libgcc
+make install-gcc
+make install-target-libgcc
+cd ..
+
+
+ Install nasm and qemu required for running the OS
 sudo pacman -S qemu nasm
 
 # Download and install cmake-18.2
