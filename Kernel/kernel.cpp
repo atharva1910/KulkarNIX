@@ -21,11 +21,9 @@ SetupPaging()
 extern "C"
 void kernel_main(void *memory_map)
 {
-    const char *c = "Hello from Kernel";
-    print_string(c);
-    //HAL::DisableInterrupts();
-    //SetupPaging();
-    //InitInterrupts();
+    HAL::DisableInterrupts();
+    SetupPaging();
+    InitInterrupts();
     while(1);
 }
 
