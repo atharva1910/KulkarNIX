@@ -2,6 +2,7 @@
 #include "HAL/HAL.h"
 #include "Debug/Debug.h"
 
+#if 0
 void
 InitInterrupts()
 {
@@ -14,16 +15,17 @@ InitInterrupts()
 void
 SetupPaging()
 {
-    //print_string("Setting up paging for x86");
     SetupX86Paging();
 }
+#endif
 
 extern "C"
 void kernel_main(void *memory_map)
 {
-    HAL::DisableInterrupts();
-    SetupPaging();
-    InitInterrupts();
+    //HAL::DisableInterrupts();
+    //SetupPaging();
+    //InitInterrupts();
+    print_string("Hello From Kernel");
     while(1);
 }
 

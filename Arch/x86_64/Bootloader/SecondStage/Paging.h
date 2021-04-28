@@ -67,7 +67,7 @@ typedef struct  __attribute__((packed)) _PTE{
             uint8_t pke:4;
             uint8_t nx:1;
         }u;
-        uint64_t ui64_pml4e;
+        uint64_t ui64_pte;
     };
 }PTE, *PPTE;
 

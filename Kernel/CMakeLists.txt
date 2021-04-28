@@ -4,11 +4,11 @@ TARGET_INCLUDE_DIRECTORIES(Kernel.bin PRIVATE ${CMAKE_SOURCE_DIR}/Inc ${KNIX_ARC
 
 TARGET_LINK_OPTIONS(Kernel.bin PRIVATE -T ${CMAKE_CURRENT_SOURCE_DIR}/linker.ld)
 
-TARGET_LINK_LIBRARIES(Kernel.bin KLibHAL KDebug)
+TARGET_LINK_LIBRARIES(Kernel.bin KDebug)
 
 ADD_CUSTOM_COMMAND(TARGET Kernel.bin
   POST_BUILD
-  COMMAND objcopy --only-keep-debug Kernel.bin ${KNIX_OUTPUT_DIR}/Kernel.sym)
+  COMMAND objcopy --only-keep-debug Kernel.bin ${KNIX_SYMBOL_DIR_PATH}/Kernel.sym)
 
 ADD_CUSTOM_COMMAND(TARGET Kernel.bin
   POST_BUILD
