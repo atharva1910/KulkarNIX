@@ -230,6 +230,16 @@ SetupKernelPages()
        The only problem is this address is strange to remember will do this later*/
 }
 
+void
+SetupLongModeKernelPaging()
+{
+    SetupKernelPages();
+    SetupCR3PageAddress();
+    SetCR4PAE();
+    SetPagingMsr();
+    EnablePaging();
+}
+
 extern "C"
 void boot_main()
 {
@@ -242,15 +252,7 @@ void boot_main()
          print_string((char *)c);
     }
 
-    SetupKernelPages();
-
-    SetupCR3PageAddress();
-
-    SetCR4PAE();
-
-    SetPagingMsr();
-
-    EnablePaging();
+    SetupLongModeKernelPaging();
 
     /* We are now ok to jump to kernel */
     entry = (void (*)(void))(kernel_entry);
