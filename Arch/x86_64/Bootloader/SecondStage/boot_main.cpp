@@ -1,5 +1,4 @@
 #include "boot_main.h"
-#include "Paging.h"
 
 /*
   This file contains the main secondary boot loader and a bare bones ATA driver
@@ -135,7 +134,7 @@ SetCR4PAE()
 void
 SetPagingMsr()
 {
-    asm volatile("mov $0xC0000080, %%ecx\n"
+    asm volatile("movl $0xC0000080, %%ecx\n"
                  "rdmsr\n"
                  "orl $(1<<8), %%eax\n"
                  "wrmsr\n":::"%eax", "%ecx");
@@ -144,9 +143,9 @@ SetPagingMsr()
 void
 EnablePaging()
 {
-    asm volatile("mov %%cr0, %%eax\n"
+    asm volatile("movl %%cr0, %%eax\n"
                  "orl $(1<<31), %%eax\n"
-                 "mov %%eax, %%cr0":::"%eax");
+                 "movl %%eax, %%cr0":::"%eax");
 }
 
 void
@@ -166,25 +165,29 @@ SetupKernelPages()
 
     /* Clear Memory */
     for (uint32_t *pageAddr = (uint32_t *)KNIX_START_PAGE_ADDR;
-         pageAddr <= (uint32_t *)KNIX_END_PAGE_ADDR;
+         pageAddr < (uint32_t *)KNIX_END_PAGE_ADDR;
          pageAddr += sizeof(uint32_t)){
         *pageAddr = 0x0;
     }
 
-    uint64_t ui64TableSize = sizeof(uint64_t) * 512;
+    uint64_t ui64TableSize = 512;
 
-    /* Allocate space for one PML4T */
     uint64_t *pml4t = (uint64_t *)KNIX_START_PAGE_ADDR;
 
+    /* Allocate space for one PML4T */
+    uint64_t *pdpt  = (uint64_t*)(pml4t + ui64TableSize);
+
     /* Allocate space for one PDPT */
-    uint64_t  *pdpt  = (uint64_t*)(pml4t + ui64TableSize);
+    uint64_t *pdt   = (uint64_t*)(pdpt + ui64TableSize);
+ 
+    /* Allocate space for three  PDT */
+    uint64_t *pt    = (uint64_t*)(pdt + 3 * ui64TableSize);
 
-    /* Allocate space for 3 PDT */
-    uint64_t   *pdt   = (uint64_t*)(pdpt + 3 * ui64TableSize);
+    pml4t[0] = (uint64_t)pdpt | 0x3;
+    pdpt[0]  = (uint64_t)pdt  | 0x3;
+    pdt[0]   = (uint64_t)pt   | 0x3;
 
-    /* Point to PT Array */
-    uint64_t    *pt   = (uint64_t*)(pdt + ui64TableSize);
-
+#if 1
     /* Identity map the first MB */
     uint64_t vAddress = 0x00 | 0x3;
     for(uint32_t pteIdx = 0; pteIdx < 256; pteIdx++){
@@ -196,29 +199,29 @@ SetupKernelPages()
     vAddress = KERNEL_START_PADDR | 0x3;
 
     pdt = pdt + ui64TableSize; 
-    pdpt[0x3] = (uint64_t)pdt;
+    pdpt[0x3] = (uint64_t)pdt | 0x3;
 
     /* Map the 1 GB to 3GB-4GB address */
-    for (uint32_t pdtIdx = 0; pdtIdx < 512; pdtIdx++){
+    for (uint32_t pdtIdx = 0; pdtIdx < 512; pdtIdx++) {
         pt  = pt  + ui64TableSize;
-        pdt[pdtIdx] = (uint64_t)pt;
-        for (uint32_t ptIdx = 0; ptIdx < 512; ptIdx++){
+        pdt[pdtIdx] = (uint64_t)pt | 0x3;
+        for (uint32_t ptIdx = 0; ptIdx < 512; ptIdx++) {
             pt[ptIdx] = vAddress;
             vAddress += 0x1000;
         }
     }
 
     pdt = pdt + ui64TableSize; 
-    pdpt[0x4] = (uint64_t)pdt;
+    pdpt[0x4] = (uint64_t)pdt | 0x3;
 
     /* Map the 1 GB to 4GB-5GB address 
        Since the kernel is mapped starting from 6MB
        We will over shoot the 2GB mark if we map the entire thing
        So we dont map the last 4 MB */
-    for (uint32_t pdtIdx = 0; pdtIdx < 510; pdtIdx++){
+    for (uint32_t pdtIdx = 0; pdtIdx < 510; pdtIdx++) {
         pt  = pt  + ui64TableSize;
-        pdt[pdtIdx] = (uint64_t)pt;
-        for (uint32_t ptIdx = 0; ptIdx < 512; ptIdx++){
+        pdt[pdtIdx] = (uint64_t)pt | 0x3;
+        for (uint32_t ptIdx = 0; ptIdx < 512; ptIdx++) {
             pt[ptIdx] = vAddress;
             vAddress += 0x1000;
         }
@@ -228,6 +231,23 @@ SetupKernelPages()
        Its not really 4 MB. We need 5MB worth of tables to map kernel tables into itself
        So we use the remaining 4 MB and one MB from the mapped space.
        The only problem is this address is strange to remember will do this later*/
+#else
+    uint64_t vAddress = 0x00 | 0x3;
+
+    for (uint32_t pdptIdx = 0; pdptIdx < 3; pdptIdx++){
+        for (uint32_t pdtIdx = 0; pdtIdx < 512; pdtIdx++){
+            for(uint32_t pteIdx = 0; pteIdx < 512; pteIdx++){
+                pt[pteIdx] = vAddress;
+                vAddress  += 0x1000;
+            }
+            pdt[pdtIdx] = (uint64_t)pt | 0x3;
+            pt  = pt  + ui64TableSize;
+        }
+        pdpt[pdptIdx] = (uint64_t)pdt | 0x3;
+        pdt = pdt + ui64TableSize; 
+    }
+
+#endif
 }
 
 void
@@ -238,6 +258,8 @@ SetupLongModeKernelPaging()
     SetCR4PAE();
     SetPagingMsr();
     EnablePaging();
+    print_string("OK ALL DONE");
+    asm volatile("hlt");
 }
 
 extern "C"
@@ -250,6 +272,7 @@ void boot_main()
     if((kernel_entry = (void *)read_kernel()) == NULL){
          c = "Error reading Kernel :(";
          print_string((char *)c);
+         asm volatile("hlt");
     }
 
     SetupLongModeKernelPaging();
