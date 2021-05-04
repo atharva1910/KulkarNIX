@@ -1,4 +1,5 @@
 #include "boot_main.h"
+#include "Paging.h"
 
 /*
   This file contains the main secondary boot loader and a bare bones ATA driver
@@ -170,24 +171,22 @@ SetupKernelPages()
         *pageAddr = 0x0;
     }
 
-    uint64_t ui64TableSize = 512;
-
-    uint64_t *pml4t = (uint64_t *)KNIX_START_PAGE_ADDR;
+    PPageMapLevel4Table pml4t = (PPageMapLevel4Table )KNIX_START_PAGE_ADDR;
 
     /* Allocate space for one PML4T */
-    uint64_t *pdpt  = (uint64_t*)(pml4t + ui64TableSize);
+    PPageDirPtrTable pdpt     = (PPageDirPtrTable )(pml4t + 1);
 
     /* Allocate space for one PDPT */
-    uint64_t *pdt   = (uint64_t*)(pdpt + ui64TableSize);
+    PPageDirTable pdt         = (PPageDirTable )(pdpt + 1);
  
     /* Allocate space for three  PDT */
-    uint64_t *pt    = (uint64_t*)(pdt + 3 * ui64TableSize);
+    PPageTable pt             = (PPageTable )(pdt + 3);
 
-    pml4t[0] = (uint64_t)pdpt | 0x3;
-    pdpt[0]  = (uint64_t)pdt  | 0x3;
-    pdt[0]   = (uint64_t)pt   | 0x3;
+    pml4t->pml4e[0].ui64pml4Entry = (uint64_t)pdpt| 0x3;
+    pdpt->pdpe[0].ui64pdpEntry    = (uint64_t)pdt | 0x3;
+    pdt->pde[0].ui64pdEntry       = (uint64_t)pt  | 0x3;
 
-#if 1
+#if 0
     /* Identity map the first MB */
     uint64_t vAddress = 0x00 | 0x3;
     for(uint32_t pteIdx = 0; pteIdx < 256; pteIdx++){
@@ -237,14 +236,14 @@ SetupKernelPages()
     for (uint32_t pdptIdx = 0; pdptIdx < 3; pdptIdx++){
         for (uint32_t pdtIdx = 0; pdtIdx < 512; pdtIdx++){
             for(uint32_t pteIdx = 0; pteIdx < 512; pteIdx++){
-                pt[pteIdx] = vAddress;
+                pt->pte[pteIdx].ui64ptEntry = vAddress;
                 vAddress  += 0x1000;
             }
-            pdt[pdtIdx] = (uint64_t)pt | 0x3;
-            pt  = pt  + ui64TableSize;
+            pdt->pde[pdtIdx].ui64pdEntry = (uint64_t)pt | 0x3;
+            pt++;
         }
-        pdpt[pdptIdx] = (uint64_t)pdt | 0x3;
-        pdt = pdt + ui64TableSize; 
+        pdpt->pdpe[pdptIdx].ui64pdpEntry = (uint64_t)pdt | 0x3;
+        pdt++; 
     }
 
 #endif
