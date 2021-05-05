@@ -182,46 +182,46 @@ SetupKernelPages()
     /* Allocate space for three  PDT */
     PPageTable pt             = (PPageTable )(pdt + 3);
 
-    pml4t->pml4e[0].ui64pml4Entry = (uint64_t)pdpt| 0x3;
-    pdpt->pdpe[0].ui64pdpEntry    = (uint64_t)pdt | 0x3;
-    pdt->pde[0].ui64pdEntry       = (uint64_t)pt  | 0x3;
+    pml4t->pageMapLevel4Entry[0].ui64pml4Entry = (uint64_t)pdpt| 0x3;
+    pdpt->pageDirPtrEntry[0].ui64pdpEntry    = (uint64_t)pdt | 0x3;
+    pdt->pageDirEntry[0].ui64pdEntry       = (uint64_t)pt  | 0x3;
 
-#if 0
+#if 1
     /* Identity map the first MB */
     uint64_t vAddress = 0x00 | 0x3;
     for(uint32_t pteIdx = 0; pteIdx < 256; pteIdx++){
-        pt[pteIdx] = vAddress;
+        pt->pageTableEntry[pteIdx].ui64ptEntry = vAddress;
         vAddress  += 0x1000;
     }
 
     /* The kernel will be mapped from 3GB to 5GB */
     vAddress = KERNEL_START_PADDR | 0x3;
 
-    pdt = pdt + ui64TableSize; 
-    pdpt[0x3] = (uint64_t)pdt | 0x3;
+    pdt++; 
+    pdpt->pageDirPtrEntry[0x3].ui64pdpEntry = (uint64_t)pdt | 0x3;
 
     /* Map the 1 GB to 3GB-4GB address */
     for (uint32_t pdtIdx = 0; pdtIdx < 512; pdtIdx++) {
-        pt  = pt  + ui64TableSize;
-        pdt[pdtIdx] = (uint64_t)pt | 0x3;
+        pt++;
+        pdt->pageDirEntry[pdtIdx].ui64pdpEntry = (uint64_t)pt | 0x3;
         for (uint32_t ptIdx = 0; ptIdx < 512; ptIdx++) {
-            pt[ptIdx] = vAddress;
+            pt->pageTableEntry[ptIdx].ui64ptEntry = vAddress;
             vAddress += 0x1000;
         }
     }
 
-    pdt = pdt + ui64TableSize; 
-    pdpt[0x4] = (uint64_t)pdt | 0x3;
+    pdt++;
+    pdpt->pageDirPtrEntry[0x4].ui64pdpEntry = (uint64_t)pdt | 0x3;
 
     /* Map the 1 GB to 4GB-5GB address 
        Since the kernel is mapped starting from 6MB
        We will over shoot the 2GB mark if we map the entire thing
        So we dont map the last 4 MB */
     for (uint32_t pdtIdx = 0; pdtIdx < 510; pdtIdx++) {
-        pt  = pt  + ui64TableSize;
-        pdt[pdtIdx] = (uint64_t)pt | 0x3;
+        pt++;
+        pdt->pageDirEntry[pdtIdx].ui64pdpEntry = (uint64_t)pt | 0x3;
         for (uint32_t ptIdx = 0; ptIdx < 512; ptIdx++) {
-            pt[ptIdx] = vAddress;
+            pt->pageTableEntry[ptIdx].ui64ptEntry = vAddress;
             vAddress += 0x1000;
         }
     }
@@ -229,8 +229,9 @@ SetupKernelPages()
     /* We need to map the page tables to in the above hole of 4 MB 
        Its not really 4 MB. We need 5MB worth of tables to map kernel tables into itself
        So we use the remaining 4 MB and one MB from the mapped space.
-       The only problem is this address is strange to remember will do this later*/
+       The only problem is this address is strange to remember will do this later */
 #else
+    /* Identity mapping for testing */
     uint64_t vAddress = 0x00 | 0x3;
 
     for (uint32_t pdptIdx = 0; pdptIdx < 3; pdptIdx++){
