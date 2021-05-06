@@ -258,8 +258,6 @@ SetupLongModeKernelPaging()
     SetCR4PAE();
     SetPagingMsr();
     EnablePaging();
-    print_string("OK ALL DONE");
-    asm volatile("hlt");
 }
 
 extern "C"
