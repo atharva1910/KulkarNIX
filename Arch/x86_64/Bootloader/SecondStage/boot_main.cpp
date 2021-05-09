@@ -1,6 +1,9 @@
 #include "boot_main.h"
 #include "Paging.h"
 
+GDT gdt = {0};
+GDTDescriptor gdtDescriptor = {0};
+
 /*
   This file contains the main secondary boot loader and a bare bones ATA driver
   It reads the Kernel from the disk to location 0x10000 and jumps to the kernel entry point
@@ -251,6 +254,48 @@ SetupKernelPages()
 }
 
 void
+SetupGDTforLongMode()
+{
+
+    /* code segment */
+    gdt.codeSegment = {0};
+
+    /* Set access byte */
+    gdt.codeSegment.accByte.a       = 0;
+    gdt.codeSegment.accByte.rw      = 1;
+    gdt.codeSegment.accByte.ce      = 0;
+    gdt.codeSegment.accByte.type    = 1;
+    gdt.codeSegment.accByte.resrved = 1;
+    gdt.codeSegment.accByte.privl   = 00;
+    gdt.codeSegment.accByte.present = 1;
+
+    /* Set flags */
+    gdt.codeSegment.flags.avl       = 0;
+    gdt.codeSegment.flags.lng       = 1;
+    gdt.codeSegment.flags.big       = 0;
+    gdt.codeSegment.flags.grn       = 1;
+
+    gdt.codeSegment.limit1          = 0xF;
+
+    /* data segment */
+    gdt.dataSegment = {0};
+
+    /* Set access byte */
+    gdt.dataSegment.accByte.a       = 0;
+    gdt.dataSegment.accByte.rw      = 1;
+    gdt.dataSegment.accByte.ce      = 0;
+    gdt.dataSegment.accByte.type    = 0;
+    gdt.dataSegment.accByte.resrved = 1;
+    gdt.dataSegment.accByte.privl   = 00;
+    gdt.dataSegment.accByte.present = 1;
+
+    gdtDescriptor.sizeOfGDT = sizeof(gdt) - 1;
+    gdtDescriptor.gdtPtr    = (uint32_t)&gdt;
+
+    asm volatile("lgdt (%0)"::"r" (gdtDescriptor):);
+}
+
+void
 SetupLongModeKernelPaging()
 {
     SetupKernelPages();
@@ -258,6 +303,8 @@ SetupLongModeKernelPaging()
     SetCR4PAE();
     SetPagingMsr();
     EnablePaging();
+    print_string("ALL DONE");
+    asm("hlt");
 }
 
 extern "C"
@@ -274,6 +321,7 @@ void boot_main()
     }
 
     SetupLongModeKernelPaging();
+
 
     /* We are now ok to jump to kernel */
     entry = (void (*)(void))(kernel_entry);
