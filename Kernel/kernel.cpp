@@ -1,6 +1,24 @@
 #include "typedefs.h"
-#include "HAL/HAL.h"
-#include "Debug/Debug.h"
+
+static inline void
+PrintChar(char *address, char c, BYTE bg_color)
+{
+    address[1] = bg_color;
+    address[0] = c;
+}
+
+
+static inline void
+PrintString(char *string)
+{
+    char *vga_buffer = (char *)0xb8000;
+    char c = 0;
+    uint32_t pos = 0;
+    while((c = string[pos++]) != '\0'){
+        PrintChar(vga_buffer, c, 0x07);
+        vga_buffer += 2;
+    }
+}
 
 #if 0
 void
@@ -20,13 +38,9 @@ SetupPaging()
 #endif
 
 extern "C"
-void kernel_main(void *memory_map)
+void kernel_main()
 {
-    //HAL::DisableInterrupts();
-    //SetupPaging();
-    //InitInterrupts();
-    print_string("Hello From Kernel");
-    while(1);
+    asm("hlt");
 }
 
 __asm__(
@@ -37,9 +51,8 @@ __asm__(
 
 "__start:\n"
 "mov     $stack_top, %esp\n"
-"push    $0x9000             #Memory map pointer\n"
 "call    kernel_main\n"
-"hlt\n"
+"ret\n"
 "hlt\n"
 
     /* Set up the stack area */

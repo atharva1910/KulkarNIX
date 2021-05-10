@@ -76,7 +76,8 @@ read_prog_header(uint32_t addr, uint32_t filesz, uint32_t offset)
 
 ELF_HEADER *read_elf_header()
 {
-    ELF_HEADER *elf_head = (ELF_HEADER *)KERNEL_START_PADDR;
+    /* Read the header to the first stage bootloader */
+    ELF_HEADER *elf_head = (ELF_HEADER *)0x7d00;
     
     uint32_t start_sector = 5;
 
@@ -258,9 +259,6 @@ SetupGDTforLongMode()
 {
 
     /* code segment */
-    gdt.codeSegment = {0};
-
-    /* Set access byte */
     gdt.codeSegment.accByte.a       = 0;
     gdt.codeSegment.accByte.rw      = 1;
     gdt.codeSegment.accByte.ce      = 0;
@@ -269,7 +267,6 @@ SetupGDTforLongMode()
     gdt.codeSegment.accByte.privl   = 00;
     gdt.codeSegment.accByte.present = 1;
 
-    /* Set flags */
     gdt.codeSegment.flags.avl       = 0;
     gdt.codeSegment.flags.lng       = 1;
     gdt.codeSegment.flags.big       = 0;
@@ -278,9 +275,6 @@ SetupGDTforLongMode()
     gdt.codeSegment.limit1          = 0xF;
 
     /* data segment */
-    gdt.dataSegment = {0};
-
-    /* Set access byte */
     gdt.dataSegment.accByte.a       = 0;
     gdt.dataSegment.accByte.rw      = 1;
     gdt.dataSegment.accByte.ce      = 0;
@@ -292,7 +286,7 @@ SetupGDTforLongMode()
     gdtDescriptor.sizeOfGDT = sizeof(gdt) - 1;
     gdtDescriptor.gdtPtr    = (uint32_t)&gdt;
 
-    asm volatile("lgdt (%0)"::"r" (gdtDescriptor):);
+    asm volatile("lgdt (%0)\n" ::"m" (gdtDescriptor) :);
 }
 
 void
@@ -303,25 +297,27 @@ SetupLongModeKernelPaging()
     SetCR4PAE();
     SetPagingMsr();
     EnablePaging();
-    print_string("ALL DONE");
-    asm("hlt");
 }
 
 extern "C"
 void boot_main()
 {
-    void *kernel_entry = NULL;
+    uint32_t kernel_entry = NULL;
     const char *c = NULL;
     void (*entry)(void);
 
-    if((kernel_entry = (void *)read_kernel()) == NULL){
+    /* Setup Paging first for correct offset translation of kernel */
+    SetupLongModeKernelPaging();
+
+    /* Read kernel now that paging is setup */
+    if((kernel_entry = read_kernel()) == NULL){
          c = "Error reading Kernel :(";
          print_string((char *)c);
          asm volatile("hlt");
     }
 
-    SetupLongModeKernelPaging();
-
+    /* Setup GDT with long mode flags */
+    SetupGDTforLongMode();
 
     /* We are now ok to jump to kernel */
     entry = (void (*)(void))(kernel_entry);
@@ -341,7 +337,7 @@ __asm__(
     "mov     %ax, %ds\n"
     "mov     %ax, %ss\n"
     "mov     %ax, %es\n"
-    "mov     $0x07c00, %sp\n"
+    "mov     $0x07cff, %sp\n"
     "call    boot_main\n"
     "hlt\n"
 );
