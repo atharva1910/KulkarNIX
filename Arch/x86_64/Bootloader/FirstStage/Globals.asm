@@ -4,8 +4,8 @@
 %define GDT_EXECUTE     8
 %define CODE_SEGMENT    1
 %define DATA_SEGMENT    2
-%define IISTAGE_ADDRESS  07E00h
-%define IISTAGE_SECTORS  3
+%define IISTAGE_ADDRESS  0500h
+%define IISTAGE_SECTORS  4
     
 boot_drive:  db 0
 WelcomeMessage: db "Welcome to KulkarNix",0

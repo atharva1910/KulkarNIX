@@ -1,5 +1,5 @@
 #include "HAL/Paging.h"
-#include "HAL/x86.h"
+#include "x86.h"
 
 // Page Dirs
 KPageDir::KPageDir(uint64_t addr)

@@ -1,5 +1,6 @@
 #include "boot_main.h"
 #include "Paging.h"
+#include "GDT.h"
 
 GDT gdt = {0};
 GDTDescriptor gdtDescriptor = {0};
@@ -62,7 +63,7 @@ void read_sector(uint32_t sector)
 void
 read_prog_header(uint32_t addr, uint32_t filesz, uint32_t offset)
 {
-    uint32_t end_segment = addr + filesz; // Points to the last address for segment
+    uint64_t end_segment = addr + filesz; // Points to the last address for segment
     uint32_t sect        = (offset / SECTOR_SIZE) + KERNEL_START_SECT; // Sector to read
     addr -= (offset % SECTOR_SIZE); // Get to sector boundary 
 
@@ -77,7 +78,7 @@ read_prog_header(uint32_t addr, uint32_t filesz, uint32_t offset)
 ELF_HEADER *read_elf_header()
 {
     /* Read the header to the first stage bootloader */
-    ELF_HEADER *elf_head = (ELF_HEADER *)0x7d00;
+    ELF_HEADER *elf_head = (ELF_HEADER *)0x5000;
     
     uint32_t start_sector = 5;
 
@@ -304,7 +305,6 @@ void boot_main()
 {
     uint32_t kernel_entry = NULL;
     const char *c = NULL;
-    void (*entry)(void);
 
     /* Setup Paging first for correct offset translation of kernel */
     SetupLongModeKernelPaging();
@@ -313,18 +313,16 @@ void boot_main()
     if((kernel_entry = read_kernel()) == NULL){
          c = "Error reading Kernel :(";
          print_string((char *)c);
-         asm volatile("hlt");
+         asm("hlt");
     }
 
     /* Setup GDT with long mode flags */
     SetupGDTforLongMode();
 
-    /* We are now ok to jump to kernel */
-    entry = (void (*)(void))(kernel_entry);
-    entry();    // Should never return
-
-    c = "Kernel Panic! Returned from entry()";
-    print_string((char *)c);
+    /* We are now ok to long jump to kernel */
+    asm volatile("pushl $0x8\n"
+                 "pushl %0\n"
+                 "retf\n":: "r" (kernel_entry):);
 }
 
 __asm__(
@@ -337,7 +335,7 @@ __asm__(
     "mov     %ax, %ds\n"
     "mov     %ax, %ss\n"
     "mov     %ax, %es\n"
-    "mov     $0x07cff, %sp\n"
+    "mov     $0x7BFF, %sp\n"
     "call    boot_main\n"
     "hlt\n"
 );

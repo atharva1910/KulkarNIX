@@ -1,5 +1,4 @@
-#include "HAL/x86.h"
-//#include "x86lib.h"
+#include "x86.h"
 
 namespace HAL {
 void outb(uint16_t port, uint8_t command)

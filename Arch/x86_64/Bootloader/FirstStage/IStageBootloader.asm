@@ -28,7 +28,7 @@ boot:
     call    EnableA20Gate       
     call    GetMemMap           
     jc      .end
-    mov     dx, IISTAGE_SECTORS ; Read 3 sectors
+    mov     dx, IISTAGE_SECTORS ; Read sectors
     call    Read2ndStageToMem
     call    SwitchToPMode
 .end:
