@@ -22,12 +22,12 @@ typedef union  __attribute__((packed)) _PML4E{
         uint8_t  NX        :1;
     }u;
     uint64_t ui64pml4Entry;
-}PageMapLevel4Entry, *PPageMapLevel4Entry;
+}PML4E;
 
 /* PML4 table */
 typedef struct _PML4T{
-    PageMapLevel4Entry pageMapLevel4Entry[512];
-}PageMapLevel4Table, *PPageMapLevel4Table;
+    PML4E pml4e[512];
+}PML4T;
 
 /* PDP entry & PD entry */
 typedef union  __attribute__((packed)) _PDPE{
@@ -50,15 +50,15 @@ typedef union  __attribute__((packed)) _PDPE{
         uint64_t ui64pdpEntry;
         uint64_t ui64pdEntry;
     };
-}PageDirPtrEntry, *PPageDirPtrEntry, PageDirEntry, *PPageDirEntry;
+}PDPE, PDE;
 
 /* PDP & PD table */
 typedef struct _PDPT{
     union{
-        PageDirPtrEntry pageDirPtrEntry[512];
-        PageDirEntry    pageDirEntry[512];
+        PDPE pdpe[512];
+        PDE  pde[512];
     };
-}PageDirPtrTable, *PPageDirPtrTable, PageDirTable, *PPageDirTable;
+}PDPT, PDT;
 
 /* PT Entry */
 typedef union  __attribute__((packed)) _PTE{
@@ -79,11 +79,11 @@ typedef union  __attribute__((packed)) _PTE{
         uint8_t  NX        :1;
     }u;
     uint64_t ui64ptEntry;
-}PageTableEntry, *PPageTableEntry;
+}PTE;
 
 /* PT table */
 typedef struct _PTT{
-    PageTableEntry pageTableEntry[512];
-}PageTable, *PPageTable;
+    PTE pte[512];
+}PT;
 
 #endif

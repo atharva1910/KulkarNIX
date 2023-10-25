@@ -1,5 +1,5 @@
 # Install wget
-sudo pacman -S wget
+sudo apt install wget build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo
 
 # Create working Directory
 mkdir KSetup
@@ -10,8 +10,8 @@ wget https://ftp.gnu.org/gnu/binutils/binutils-2.34.tar.xz
 wget https://ftp.gnu.org/gnu/gcc/gcc-10.2.0/gcc-10.2.0.tar.gz
 
 # Install dependencies
-sudo pacman -S base-devel
-sudo pacman -S gmp libmpc mpfr
+sudo apt install base-devel
+sudo apt install gmp libmpc mpfr
 
 # Variables for cross compiling
 export PREFIX="$HOME/opt/cross"
@@ -62,7 +62,7 @@ cd ..
 
 
  Install nasm and qemu required for running the OS
-sudo pacman -S qemu nasm
+sudo apt install qemu nasm
 
 # Download and install cmake-18.2
 wget https://github.com/Kitware/CMake/releases/download/v3.18.2/cmake-3.18.2.tar.gz

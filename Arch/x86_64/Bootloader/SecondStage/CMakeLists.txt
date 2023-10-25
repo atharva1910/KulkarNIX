@@ -1,9 +1,9 @@
-ADD_EXECUTABLE(IIStageBootloader.bin boot_main.cpp x86.cpp)
+SET(CMAKE_CXX_COMPILER "i686-elf-g++")
+SET(SOURCES boot_main.cpp x86.cpp boot_main.s)
+SET_PROPERTY(SOURCE boot_main.s SET PROPERTY LANGUAGE CXX)
+ADD_EXECUTABLE(IIStageBootloader.bin ${SOURCES})
 
 TARGET_INCLUDE_DIRECTORIES(IIStageBootloader.bin PRIVATE ${KNIX_ARCH_INCLUDE} ${KNIX_ROOT_INC})
-
-# Setup the correct compiler
-SET(CMAKE_CXX_COMPILER "i686-elf-g++")
 
 TARGET_COMPILE_OPTIONS(IIStageBootloader.bin PRIVATE)
 
