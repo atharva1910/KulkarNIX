@@ -9,7 +9,7 @@ PrintChar(char *address, char c, BYTE bg_color)
 
 
 static inline void
-PrintString(char *string)
+PrintString(const char *string)
 {
     char *vga_buffer = (char *)0xb8000;
     char c = 0;
@@ -40,6 +40,7 @@ SetupPaging()
 extern "C"
 void kernel_main()
 {
+    PrintString("HELLO FROM KERNEL");
     asm("hlt");
 }
 

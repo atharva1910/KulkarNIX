@@ -1,7 +1,6 @@
 #include "boot_main.h"
 #include "Paging.h"
 #include "SegmentDescriptor.h"
-
 /*
  *  This file contains the main secondary boot loader and a bare bones ATA driver
  *  It reads the Kernel from the disk to location 0x10000 and jumps to the kernel entry point
@@ -44,44 +43,65 @@ PrintString(char *string)
 void
 InitAndLoadGDT()
 {
-    auto segment = &globalGDT.segment[1];
+    auto segment = &globalGDT.segment[0];
 
-    /* code segment */
-    segment->limit           = 0xFF;
-    segment->base            = 0xFF;
-    segment->base1           = 0;
-    segment->accByte.a       = 0;
-    segment->accByte.rw      = 1;
-    segment->accByte.ce      = 0;
-    segment->accByte.type    = 1;
-    segment->accByte.resrved = 1;
-    segment->accByte.privl   = 00;
-    segment->accByte.present = 1;
-    segment->limit1          = 0xF;
-    segment->flags.avl       = 0;
-    segment->flags.lng       = 1;
-    segment->flags.big       = 0;
-    segment->flags.grn       = 1;
-    segment->base2           = 0;
+    /* Clear first entry */
+    segment->limit   = 0;
+    segment->base    = 0;
+    segment->base1   = 0;
+    segment->a       = 0;
+    segment->rw      = 0;
+    segment->ce      = 0;
+    segment->type    = 0;
+    segment->resrved = 0;
+    segment->privl   = 0;
+    segment->present = 0;
+    segment->limit1  = 0;
+    segment->avl     = 0;
+    segment->lng     = 0;
+    segment->big     = 0;
+    segment->grn     = 0;
+    segment->base2   = 0;
+
+
+    segment = &globalGDT.segment[1];
+
+    /* Code segment */
+    segment->limit   = 0xFF;
+    segment->base    = 0xFF;
+    segment->base1   = 0;
+    segment->a       = 0;
+    segment->rw      = 1;
+    segment->ce      = 0;
+    segment->type    = 1;
+    segment->resrved = 1;
+    segment->privl   = 00;
+    segment->present = 1;
+    segment->limit1  = 0xF;
+    segment->avl     = 0;
+    segment->lng     = 1;
+    segment->big     = 0;
+    segment->grn     = 1;
+    segment->base2   = 0;
 
     segment = &globalGDT.segment[2];
 
     /* data segment */
-    segment->limit           = 0xFF;
-    segment->base            = 0xFF;
-    segment->base1           = 0;
-    segment->accByte.a       = 0;
-    segment->accByte.rw      = 1;
-    segment->accByte.ce      = 0;
-    segment->accByte.type    = 1;
-    segment->accByte.resrved = 1;
-    segment->accByte.privl   = 00;
-    segment->accByte.present = 1;
-    segment->limit1          = 0xF;
-    segment->flags.avl       = 0;
-    segment->flags.lng       = 0;
-    segment->flags.big       = 1;
-    segment->flags.grn       = 1;
+    segment->limit   = 0xFF;
+    segment->base    = 0xFF;
+    segment->base1   = 0;
+    segment->a       = 0;
+    segment->rw      = 1;
+    segment->ce      = 0;
+    segment->type    = 1;
+    segment->resrved = 1;
+    segment->privl   = 00;
+    segment->present = 1;
+    segment->limit1  = 0xF;
+    segment->avl     = 0;
+    segment->lng     = 0;
+    segment->big     = 1;
+    segment->grn     = 1;
 
     globalGDTDescriptor.sizeOfGDT = sizeof(globalGDT) - 1;
     globalGDTDescriptor.gdtPtr    = (uint32_t)&globalGDT;
@@ -203,7 +223,7 @@ SetupKernelPages()
     for (uint64_t *pageAddr = (uint64_t *)KNIX_START_PAGE_ADDR;
          pageAddr < (uint64_t *)KNIX_END_PAGE_ADDR;
          pageAddr++) {
-        *pageAddr = 0x2;
+        *pageAddr = 0x0;
     }
 
     PML4T *pml4t = (PML4T *)KNIX_START_PAGE_ADDR;
@@ -269,7 +289,7 @@ SetupKernelPages()
     /* Identity mapping 4GB for testing */
     uint64_t vAddress = 0x00 | 0x3;
 
-    for (uint32_t pdptIdx = 0; pdptIdx < 4; pdptIdx++){
+    for (uint32_t pdptIdx = 0; pdptIdx < 3; pdptIdx++){
         for (uint32_t pdtIdx = 0; pdtIdx < 512; pdtIdx++){
             for(uint32_t pteIdx = 0; pteIdx < 512; pteIdx++){
                 pt->pte[pteIdx].ui64ptEntry = vAddress;
@@ -309,11 +329,10 @@ void SecondStageMain()
     /* Setup GDT with long mode flags */
     InitAndLoadGDT();
 
-    /* We are now ok to long jump to kernel
+    /* We are now ok to long jump to kernel */
     asm volatile("pushl $0x8\n"
                  "pushl %0\n"
-                 "retf\n":: "r"(kernel_entry):);*/
-    //asm volatile("jmp 8:%0"::"m"(kernel_entry):);
+                 "retf\n":: "r"(kernel_entry):);
 }
 
 __asm__(

@@ -1,5 +1,4 @@
-#ifndef _KPAGING_H
-#define _KPAGING_H
+#pragma once
 #include "typedefs.h"
 
 #define LONG_MODE_TABLE_SIZE 512
@@ -85,5 +84,3 @@ typedef union  __attribute__((packed)) _PTE{
 typedef struct _PTT{
     PTE pte[512];
 }PT;
-
-#endif
