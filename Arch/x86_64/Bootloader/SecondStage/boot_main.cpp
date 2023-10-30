@@ -1,22 +1,11 @@
 #include "boot_main.h"
-#include "Paging.h"
-#include "SegmentDescriptor.h"
 /*
  *  This file contains the main secondary boot loader and a bare bones ATA driver
  *  It reads the Kernel from the disk to location 0x10000 and jumps to the kernel entry point
  */
 
 extern "C" void SetupPagingAsm();
-
-struct GDT {
-    SegmentDescriptor segment[3];
-} __attribute__ ((packed));
-
-struct GDTDescriptor {
-    uint16_t sizeOfGDT;
-    uint32_t gdtPtr;
-} __attribute__((packed));
-
+extern "C" void LoadGDTAsm();
 
 static GDT globalGDT;
 static GDTDescriptor globalGDTDescriptor;
@@ -29,7 +18,7 @@ PrintChar(char *address, char c, BYTE bg_color)
 }
 
 static inline void
-PrintString(char *string)
+PrintString(const char *string)
 {
     char *vga_buffer = (char *)0xb8000;
     char c = 0;
@@ -104,7 +93,7 @@ InitAndLoadGDT()
     segment->grn     = 1;
 
     globalGDTDescriptor.sizeOfGDT = sizeof(globalGDT) - 1;
-    globalGDTDescriptor.gdtPtr    = (uint32_t)&globalGDT;
+    globalGDTDescriptor.gdtPtr    = (uint64_t)&globalGDT;
 
     asm volatile("lgdt (%0)\n" ::"g" (globalGDTDescriptor));
 }
@@ -201,6 +190,7 @@ uint32_t ReadKernel()
         /* read next program header */
         prog_head++;
     }
+
     return elf_head->e_entry;
 }
 
@@ -234,8 +224,8 @@ SetupKernelPages()
     /* Allocate space for one PDPT */
     PDT *pdt     = (PDT *)(pdpt + 1);
 
-    /* Allocate space for three  PDT */
-    PT *pt       = (PT *)(pdt + 3);
+    /* Allocate space for 4  PDT */
+    PT *pt       = (PT *)(pdt + 4);
 
     pml4t->pml4e[0].ui64pml4Entry = (uint64_t)pdpt| 0x3;
     pdpt->pdpe[0].ui64pdpEntry    = (uint64_t)pdt | 0x3;
@@ -287,12 +277,12 @@ SetupKernelPages()
        The only problem is this address is strange to remember will do this later */
 #else
     /* Identity mapping 4GB for testing */
-    uint64_t vAddress = 0x00 | 0x3;
+    uint64_t vAddress = 0x00;
 
-    for (uint32_t pdptIdx = 0; pdptIdx < 3; pdptIdx++){
+    for (uint32_t pdptIdx = 0; pdptIdx < 4; pdptIdx++){
         for (uint32_t pdtIdx = 0; pdtIdx < 512; pdtIdx++){
             for(uint32_t pteIdx = 0; pteIdx < 512; pteIdx++){
-                pt->pte[pteIdx].ui64ptEntry = vAddress;
+                pt->pte[pteIdx].ui64ptEntry = vAddress | 0x3;
                 vAddress  += 0x1000;
             }
             pdt->pde[pdtIdx].ui64pdEntry = (uint64_t)pt | 0x3;
@@ -317,17 +307,18 @@ void SecondStageMain()
 {
     uint32_t kernel_entry = NULL;
 
-    /* Read kernel now that paging is setup */
-    if((kernel_entry = ReadKernel()) == NULL) {
-        //PrintString("Error reading Kernel :(");
-        asm("hlt");
-    }
-
     /* Setup Paging first for correct offset translation of kernel */
     SetupLongModeKernelPaging();
 
     /* Setup GDT with long mode flags */
-    InitAndLoadGDT();
+    //InitAndLoadGDT();
+    LoadGDTAsm();
+
+   /* Read kernel now that paging is setup */
+    if((kernel_entry = ReadKernel()) == NULL) {
+        PrintString("Error reading Kernel :(");
+        asm("hlt");
+    }
 
     /* We are now ok to long jump to kernel */
     asm volatile("pushl $0x8\n"

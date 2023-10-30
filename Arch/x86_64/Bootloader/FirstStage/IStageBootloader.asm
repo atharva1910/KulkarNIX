@@ -8,7 +8,7 @@ __start:
     cli
     xor     ax, ax
     ;; Clear all the segment register, since we cannot garuntee what the BIOS has done
-    mov     ds, ax              
+    mov     ds, ax
     mov     es, ax
     mov     ss, ax
     mov     sp, 07BFFh          ; set up the real mode stack
@@ -23,10 +23,10 @@ __start:
     %include "MMap.asm"
 
 boot:
-    mov     al, dl              
+    mov     al, dl
     mov     [boot_drive], al    ; save our boot drive number
-    call    EnableA20Gate       
-    call    GetMemMap           
+    call    EnableA20Gate
+    call    GetMemMap
     jc      .end
     mov     dx, IISTAGE_SECTORS ; Read sectors
     call    Read2ndStageToMem
@@ -43,7 +43,7 @@ Read2ndStageToMem:
     mov     cx, 02h             ; start from 2n sector
     mov     bx, IISTAGE_ADDRESS ; initial address
     xor     ax, ax
-.loop:   
+.loop:
     call    ReadSector
     inc     ax
     cmp     ax, dx
@@ -62,9 +62,10 @@ ReadSector:
     mov     dl, [boot_drive]
     mov     ax, 0201h
     int     13h
-.end:    
+.end:
     popa
     ret
+
 %if UNREAL
 EnableBigSegments:
     ;; Switch to Unreal mode
@@ -85,7 +86,7 @@ EnableBigSegments:
     mov     es, eax
     mov     gs, eax
     mov     fs, eax
-    
+
     ;; switch back to real mode
     mov     eax, cr0
     and     eax, 0x7FFFFFFe	; Disable paging bit & disable 16-bit pmode.
@@ -94,15 +95,15 @@ EnableBigSegments:
     xor     eax, eax
     mov     ds, eax
     mov     cs, eax
-    mov     ss, eax 
+    mov     ss, eax
     mov     es, eax
     jmp     .switchback
     bits    16
-.switchback:   
+.switchback:
     xor     eax, eax
     mov     ds, eax
     mov     cs, eax
-    mov     ss, eax 
+    mov     ss, eax
     mov     sp, 07BFFh          ; set up the real mode stack
     lgdt    [RealModeGDT]
 .end:
@@ -119,7 +120,7 @@ SwitchToPMode:
     ;; jump to kernel
     push    (DATA_SEGMENT << 3)
     jmp     (CODE_SEGMENT << 3):IISTAGE_ADDRESS ; since each entry is 8 bytes
-     
+
 .end:
 	;; ERROR: perofrm a warm boot
     ;;  jump to reset vector
