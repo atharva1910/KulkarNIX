@@ -1,5 +1,34 @@
 #include "typedefs.h"
 
+__asm__(
+    /* Set up the global function __start */
+    ".section .text\n"
+    ".global __start\n"
+    ".type   __start, @function\n"
+
+"__start:\n"
+    "cli\n"
+    "mov $0x0, %eax\n"
+    "mov %ax, %ds\n"
+    "mov %ax, %ss\n"
+    "mov %ax, %es\n"
+    "mov $stack_top, %esp\n"
+    "call kernel_main\n"
+    "ret\n"
+    "hlt\n"
+
+    /* Set up the stack area */
+    ".section .bss\n"
+    ".align 16\n"
+
+"stack_bottom:\n"
+    ".skip 16384\n"
+"stack_top:  \n"
+
+    /* Restore the data section */
+    ".section .text\n"
+);
+
 static inline void
 PrintChar(char *address, char c, BYTE bg_color)
 {
@@ -43,32 +72,3 @@ void kernel_main()
     PrintString("HELLO FROM KERNEL");
     asm("hlt");
 }
-
-__asm__(
-    /* Set up the global function __start */
-    ".section .text\n"
-    ".global __start\n"
-    ".type   __start, @function\n"
-
-"__start:\n"
-    "cli\n"
-    "mov $0x0, %eax\n"
-    "mov %ax, %ds\n"
-    "mov %ax, %ss\n"
-    "mov %ax, %es\n"
-    "mov $stack_top, %esp\n"
-    "call kernel_main\n"
-    "ret\n"
-    "hlt\n"
-
-    /* Set up the stack area */
-    ".section .bss\n"
-    ".align 16\n"
-
-"stack_bottom:\n"
-    ".skip 16384\n"
-"stack_top:  \n"
-
-    /* Restore the data section */
-    ".section .text\n"
-);

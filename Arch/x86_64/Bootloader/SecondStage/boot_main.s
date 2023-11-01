@@ -17,7 +17,6 @@ GDT:
 Code:
     .long 0xFFFF
     .byte 0
-    .byte 0
     .byte ((1 << 7) | (1 << 4) | (1 << 3) | (1 << 1))
     .byte ((1 << 7) | (1 << 5) | 0xF)
     .byte 0

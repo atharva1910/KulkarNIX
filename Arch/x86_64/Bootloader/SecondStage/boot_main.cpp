@@ -6,9 +6,25 @@
 
 extern "C" void SetupPagingAsm();
 extern "C" void LoadGDTAsm();
+extern "C" void SecondStageMain();
 
 static GDT globalGDT;
 static GDTDescriptor globalGDTDescriptor;
+
+__asm__(
+    ".section .text\n"
+    ".global __start\n"
+    ".type   __start, @function\n\n"
+"__start:\n"
+    "cli\n"
+    "pop     %ax\n"
+    "mov     %ax, %ds\n"
+    "mov     %ax, %ss\n"
+    "mov     %ax, %es\n"
+    "mov     $0x7BFF, %sp\n"
+    "call    SecondStageMain\n"
+    "hlt\n"
+);
 
 static inline void
 PrintChar(char *address, char c, BYTE bg_color)
@@ -209,12 +225,12 @@ SetupKernelPages()
      which comes around to just above 4MB so we clear out 5 MB
      space starting from 1MB to 6MB.*/
 
-    /* Clear Memory */
+    /* Clear Memory
     for (uint64_t *pageAddr = (uint64_t *)KNIX_START_PAGE_ADDR;
          pageAddr < (uint64_t *)KNIX_END_PAGE_ADDR;
          pageAddr++) {
         *pageAddr = 0x0;
-    }
+    }*/
 
     PML4T *pml4t = (PML4T *)KNIX_START_PAGE_ADDR;
 
@@ -325,18 +341,3 @@ void SecondStageMain()
                  "pushl %0\n"
                  "retf\n":: "r"(kernel_entry):);
 }
-
-__asm__(
-    ".section .text\n"
-    ".global __start\n"
-    ".type   __start, @function\n\n"
-"__start:\n"
-    "cli\n"
-    "pop     %ax\n"
-    "mov     %ax, %ds\n"
-    "mov     %ax, %ss\n"
-    "mov     %ax, %es\n"
-    "mov     $0x7BFF, %sp\n"
-    "call    SecondStageMain\n"
-    "hlt\n"
-);
