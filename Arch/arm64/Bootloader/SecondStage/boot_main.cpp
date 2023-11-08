@@ -6,22 +6,32 @@
 
 extern "C" void SetupPagingAsm();
 extern "C" void LoadGDTAsm();
-extern "C" void SecondStageMain();
-
-static GDT globalGDT;
-static GDTDescriptor globalGDTDescriptor;
+extern "C" void SecondStageMain(uint32_t mmapAddr);
 
 __asm__(
     ".section .text\n"
     ".global __start\n"
     ".type   __start, @function\n\n"
 "__start:\n"
+    /* Lets clear the interrupts just to be sure */
     "cli\n"
+
+    /* The first stage should have pushed datasegment and mmap address in that order */
     "pop     %ax\n"
+    "pop     %bx\n"
     "mov     %ax, %ds\n"
     "mov     %ax, %ss\n"
     "mov     %ax, %es\n"
-    "mov     $0x7BFF, %sp\n"
+
+    /* Lets setup out stack */
+    "mov     $0x7BFF, %ax\n"
+    "xor     %sp, %sp\n"
+    "xor     %bp, %bp\n"
+    "mov     %ax, %sp\n"
+    "mov     %ax, %bp\n"
+
+    /* Call the Second stage bootloader */
+    "push    %ebx\n"
     "call    SecondStageMain\n"
     "hlt\n"
 );
@@ -44,76 +54,6 @@ PrintString(const char *string)
         vga_buffer += 2;
     }
 }
-
-void
-InitAndLoadGDT()
-{
-    auto segment = &globalGDT.segment[0];
-
-    /* Clear first entry */
-    segment->limit   = 0;
-    segment->base    = 0;
-    segment->base1   = 0;
-    segment->a       = 0;
-    segment->rw      = 0;
-    segment->ce      = 0;
-    segment->type    = 0;
-    segment->resrved = 0;
-    segment->privl   = 0;
-    segment->present = 0;
-    segment->limit1  = 0;
-    segment->avl     = 0;
-    segment->lng     = 0;
-    segment->big     = 0;
-    segment->grn     = 0;
-    segment->base2   = 0;
-
-
-    segment = &globalGDT.segment[1];
-
-    /* Code segment */
-    segment->limit   = 0xFF;
-    segment->base    = 0xFF;
-    segment->base1   = 0;
-    segment->a       = 0;
-    segment->rw      = 1;
-    segment->ce      = 0;
-    segment->type    = 1;
-    segment->resrved = 1;
-    segment->privl   = 00;
-    segment->present = 1;
-    segment->limit1  = 0xF;
-    segment->avl     = 0;
-    segment->lng     = 1;
-    segment->big     = 0;
-    segment->grn     = 1;
-    segment->base2   = 0;
-
-    segment = &globalGDT.segment[2];
-
-    /* data segment */
-    segment->limit   = 0xFF;
-    segment->base    = 0xFF;
-    segment->base1   = 0;
-    segment->a       = 0;
-    segment->rw      = 1;
-    segment->ce      = 0;
-    segment->type    = 1;
-    segment->resrved = 1;
-    segment->privl   = 00;
-    segment->present = 1;
-    segment->limit1  = 0xF;
-    segment->avl     = 0;
-    segment->lng     = 0;
-    segment->big     = 1;
-    segment->grn     = 1;
-
-    globalGDTDescriptor.sizeOfGDT = sizeof(globalGDT) - 1;
-    globalGDTDescriptor.gdtPtr    = (uint64_t)&globalGDT;
-
-    asm volatile("lgdt (%0)\n" ::"g" (globalGDTDescriptor));
-}
-
 
 void AtaDiskWait()
 {
@@ -318,19 +258,36 @@ SetupLongModeKernelPaging()
     SetupPagingAsm();
 }
 
+void
+IterateOverMMap(uint32_t mmap)
+{
+    MemoryDescriptor *pMemDesc = (MemoryDescriptor *)0xD00;
+
+    while (pMemDesc->LengthL != 0) {
+        if (pMemDesc->Type == 1) {
+            PrintString("Free Memory\n");
+        } else {
+            PrintString("Reserved Memory\n");
+        }
+        pMemDesc = (MemoryDescriptor *)((uint8_t *)pMemDesc + sizeof(MemoryDescriptor));
+
+    }
+}
+
 extern "C"
-void SecondStageMain()
+void SecondStageMain(uint32_t mmapAddr)
 {
     uint32_t kernel_entry = NULL;
+
+    IterateOverMMap(mmapAddr);
 
     /* Setup Paging first for correct offset translation of kernel */
     SetupLongModeKernelPaging();
 
     /* Setup GDT with long mode flags */
-    //InitAndLoadGDT();
     LoadGDTAsm();
 
-   /* Read kernel now that paging is setup */
+    /* Read kernel now that paging is setup */
     if((kernel_entry = ReadKernel()) == NULL) {
         PrintString("Error reading Kernel :(");
         asm("hlt");

@@ -41,7 +41,7 @@ ADD_LINK_OPTIONS(
 SET(KNIX_ROOT_INC ${CMAKE_SOURCE_DIR}/Inc)
 
 # Set up include directories for the project
-SET(KNIX_ARCH_INCLUDE ${CMAKE_SOURCE_DIR}/Inc/Arch/x86_64)
+SET(KNIX_ARCH_INCLUDE ${CMAKE_SOURCE_DIR}/Inc/Arch/arm64)
 
 # Add projects
 ADD_SUBDIRECTORY(DebugUtils)

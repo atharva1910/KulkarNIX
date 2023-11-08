@@ -18,7 +18,7 @@ __start:
 %if DEBUG
     %include "Debugging.asm"
 %endif
-    %include "Globals.asm"
+    %include "Globals.inc"
     %include "A20.asm"
     %include "MMap.asm"
 
@@ -118,6 +118,7 @@ SwitchToPMode:
     or      al, 1
     mov     cr0, eax
     ;; jump to kernel
+    push    MMAP_ADDRESS
     push    (DATA_SEGMENT << 3)
     jmp     (CODE_SEGMENT << 3):IISTAGE_ADDRESS ; since each entry is 8 bytes
 
