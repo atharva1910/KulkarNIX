@@ -4,7 +4,7 @@ ASMCC   = nasm
 CCFLAGS = -ffreestanding -fno-exceptions -O2 -g
 LDFLAGS = -ffreestanding -nostdlib
 LDFILE  = linker.ld
-INCLUDES = -I../../../../Inc/Arch/x86_64 -I../../../../Inc
+INCLUDES = -I../../../../Inc/Arch/arm64 -I../../../../Inc
 
 
 all: boot_main_asm.o boot_main.o x86.o
