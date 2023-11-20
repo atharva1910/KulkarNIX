@@ -267,7 +267,7 @@ IterateOverMMap(uint32_t mmap)
         if (pMemDesc->Type == 1) {
             PrintString("Free Memory\n");
         } else {
-            PrintString("Reserved Memory\n");
+            PrintString("Reserved/Non-Free Memory\n");
         }
         pMemDesc = (MemoryDescriptor *)((uint8_t *)pMemDesc + sizeof(MemoryDescriptor));
 

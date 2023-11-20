@@ -1,10 +1,11 @@
 ASMCC = nasm
 ASMCCFLAGS = -f bin
-OUTPUT = ../../Build/IStageBootloader.bin
+OUTPUT = IStageBootloader.bin
 INPUT = IStageBootloader.asm
 
-all: 
-	$(ASMCC) $(ASMCCFLAGS) $(INPUT) -o $(OUTPUT)
+all:
+	@echo "Building FirstStage Bootloader"
+	$(ASMCC) $(ASMCCFLAGS) $(INPUT) -o $(OUTPUT_DIR)/$(OUTPUT)
 
 clean:
 	rm -f *.o
