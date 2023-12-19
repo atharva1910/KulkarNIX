@@ -9,24 +9,58 @@ static uint32_t bufPos = 0;
 /* Allowed Log Level */
 static KPrintLevel allowedLvl = KVERBOSE;
 
+/* VGA Buffer */
+static char *vgaBuffer = (char *)0xB8000;
+
+/* VGA Buffer Size (32KB)*/
+static uint32_t vgaBufferSize = 32 * 1204;
+
+/* Screensize */
+#define MAX_PAGES 8
+#define MAX_ROWS  25
+#define MAX_COLS  80
+uint32_t col = 0;
+uint32_t row = 0;
+// TODO: When adding scrolling, for now we will keep writing to the same page
+//#define MAX_ROWS  (25 * MAX_PAGES)
+
 static inline void
-PrintChar(char *address, char c, BYTE bg_color)
+PrintCharAt(char *address, char c, BYTE bg_color)
 {
     address[1] = bg_color;
     address[0] = c;
 }
 
-
 static inline void
+PrintChar(char c, BYTE bg_color)
+{
+    uint32_t bufPos   = (row * MAX_COLS + col) * 2;
+    char     *address = vgaBuffer + bufPos;
+
+    address[1] = bg_color;
+    address[0] = c;
+
+    col++;
+    if (col >= MAX_COLS) {
+        col = 0;
+        row++;
+        if (row >= MAX_ROWS)
+            row = 0;
+    }
+}
+
+static void
 PrintString(const char *string)
 {
-    char *vga_buffer = (char *)0xb8000;
     char c = 0;
     uint32_t pos = 0;
-    while((c = string[pos++]) != '\0'){
-        PrintChar(vga_buffer, c, 0x07);
-        vga_buffer += 2;
+
+    /* Print string to screen */
+    while((c = string[pos++]) != '\0') {
+        PrintChar(c, 0x07);
     }
+
+    while(col != 0) PrintChar(0, 0x7);
 }
 
 void

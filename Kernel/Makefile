@@ -1,9 +1,9 @@
 CC = x86_64-elf-gcc
-
+KERN_DIR = $(CURDIR)
 CCFLAGS = -ffreestanding -fno-exceptions -O2 -g
 LDFLAGS = -ffreestanding -nostdlib
 LDFILE  = linker.ld
-INCLUDES = -I$(ARCH_INC_DIR) -I$(PUB_INC_DIR)
+INCLUDES = -I$(ARCH_INC_DIR) -I$(PUB_INC_DIR) -I$(KERN_DIR)
 
 
 all: KEntry.o KPrint.o

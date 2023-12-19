@@ -4,4 +4,7 @@
 *.sym
 *.a
 *.so
+*.dump
 Build/*
+Bin/*
+.vscode

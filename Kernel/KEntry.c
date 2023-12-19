@@ -1,4 +1,4 @@
-#include "KEntry.h"
+#include <KEntry.h>
 
 __asm__(
     /* Set up the global function __start */
@@ -48,6 +48,8 @@ SetupPaging()
 
 void kernel_main()
 {
-    KPrint(KVERBOSE, "TESTING");
+    for(int i = 0; i < 25; i++)
+        KPrint(KVERBOSE, "aaaaaaaaa ");
+
     asm("hlt");
 }
