@@ -1,12 +1,12 @@
-#include "boot_main.h"
+#include "SecondStage.h"
 /*
  *  This file contains the main secondary boot loader and a bare bones ATA driver
  *  It reads the Kernel from the disk to location 0x10000 and jumps to the kernel entry point
  */
 
-extern "C" void SetupPagingAsm();
-extern "C" void LoadGDTAsm();
-extern "C" void SecondStageMain(uint32_t mmapAddr);
+extern void SetupPagingAsm();
+extern void LoadGDTAsm();
+extern void SecondStageMain(uint32_t mmapAddr);
 
 __asm__(
     ".section .text\n"
@@ -57,18 +57,18 @@ PrintString(const char *string)
 
 void AtaDiskWait()
 {
-    while((HAL::inb(0x1F7) & 0xC0) != 0x40);
+    while((inb(0x1F7) & 0xC0) != 0x40);
 }
 
 void ReadSector(uint32_t sector)
 {
     AtaDiskWait(); // wait BSY to 0 and RDY to 1
-    HAL::outb(0x1F6, sector >> 24 | 0xE0);// Master drive
-    HAL::outb(0x1F2, 1); // Read one sector
-    HAL::outb(0x1F3, sector);
-    HAL::outb(0x1F4, sector >> 8);
-    HAL::outb(0x1F5, sector >> 16);
-    HAL::outb(0x1F7, 0x20); // Make a read call
+    outb(0x1F6, sector >> 24 | 0xE0);// Master drive
+    outb(0x1F2, 1); // Read one sector
+    outb(0x1F3, sector);
+    outb(0x1F4, sector >> 8);
+    outb(0x1F5, sector >> 16);
+    outb(0x1F7, 0x20); // Make a read call
 }
 
 /*
@@ -87,7 +87,7 @@ void
 ReadProgHeader(uint32_t addr, uint32_t filesz, uint32_t offset)
 {
     /* Points to the last address for segment */
-    uint64_t end_segment = addr + filesz;
+    uint32_t end_segment = addr + filesz;
 
     /* Sector to read */
     uint32_t sect = (offset / SECTOR_SIZE) + KERNEL_START_SECT;
@@ -98,7 +98,7 @@ ReadProgHeader(uint32_t addr, uint32_t filesz, uint32_t offset)
     for(; addr < end_segment; sect++){
         ReadSector(sect);
         AtaDiskWait();
-        HAL::insw(0x1F0, (BYTE *)addr, 512/2);
+        insw(0x1F0, (BYTE *)addr, 512/2);
         addr += SECTOR_SIZE;
     }
 }
@@ -113,7 +113,7 @@ ELF_HEADER *ReadElfHeader()
     /* Read the first sector */
     ReadSector(start_sector);
     AtaDiskWait();
-    HAL::insw(0x1F0, (BYTE *)elf_head, 512/2);
+    insw(0x1F0, (BYTE *)elf_head, 512/2);
 
     /* Confirm its an elf header */
     if(elf_head->ei_magic != ELF_MAGIC){
@@ -153,21 +153,23 @@ uint32_t ReadKernel()
 void
 SetupKernelPages()
 {
-    /* Before jumping to the Kernel we need to setup paging for long mode
-      - Clear memory from 1MB to 5MB for kernel page tables
-      - Create Page directory struct from 1MB to 6MB
-      - Identity map first 1MB of memory
-      - Map kernel to high memory (3GB-5GB)
-      - Map page table above kernel
-
-     At this point we assume our kernel will be of 2 GB.
-     To map 2GB worth of memory we need 1024 PT, 3 PDT, 1 PDPT and 1 PML4T
-     which comes around to just above 4MB so we clear out 5 MB
-     space starting from 1MB to 6MB.*/
+    /*
+     * Before jumping to the Kernel we need to setup paging for long mode
+     * - Clear memory from 1MB to 5MB for kernel page tables
+     * - Create Page directory struct from 1MB to 6MB
+     * - Identity map first 1MB of memory
+     * - Map kernel to high memory (3GB-5GB)
+     * - Map page table above kernel
+     *
+     * At this point we assume our kernel will be of 2 GB.
+     * To map 2GB worth of memory we need 1024 PT, 3 PDT, 1 PDPT and 1 PML4T
+     * which comes around to just above 4MB so we clear out 5 MB
+     * space starting from 1MB to 6MB.
+     */
 
     /* Clear Memory
-    for (uint64_t *pageAddr = (uint64_t *)KNIX_START_PAGE_ADDR;
-         pageAddr < (uint64_t *)KNIX_END_PAGE_ADDR;
+    for (uint32_t *pageAddr = (uint32_t *)KNIX_START_PAGE_ADDR;
+         pageAddr < (uint32_t *)KNIX_END_PAGE_ADDR;
          pageAddr++) {
         *pageAddr = 0x0;
     }*/
@@ -183,13 +185,13 @@ SetupKernelPages()
     /* Allocate space for 4  PDT */
     PT *pt       = (PT *)(pdt + 4);
 
-    pml4t->pml4e[0].ui64pml4Entry = (uint64_t)pdpt| 0x3;
-    pdpt->pdpe[0].ui64pdpEntry    = (uint64_t)pdt | 0x3;
-    pdt->pde[0].ui64pdEntry       = (uint64_t)pt  | 0x3;
+    pml4t->pml4e[0].ui64pml4Entry = (uint32_t)pdpt| 0x3;
+    pdpt->pdpe[0].ui64pdpEntry    = (uint32_t)pdt | 0x3;
+    pdt->pde[0].ui64pdEntry       = (uint32_t)pt  | 0x3;
 
 #if 0
     /* Identity map the first MB */
-    uint64_t vAddress = 0x00 | 0x3;
+    uint32_t vAddress = 0x00 | 0x3;
     for(uint32_t pteIdx = 0; pteIdx < 256; pteIdx++){
         pt->pageTableEntry[pteIdx].ui64ptEntry = vAddress;
         vAddress  += 0x1000;
@@ -199,12 +201,12 @@ SetupKernelPages()
     vAddress = KERNEL_START_PADDR | 0x3;
 
     pdt++;
-    pdpt->pageDirPtrEntry[0x3].ui64pdpEntry = (uint64_t)pdt | 0x3;
+    pdpt->pageDirPtrEntry[0x3].ui64pdpEntry = (uint32_t)pdt | 0x3;
 
     /* Map the 1 GB to 3GB-4GB address */
     for (uint32_t pdtIdx = 0; pdtIdx < 512; pdtIdx++) {
         pt++;
-        pdt->pageDirEntry[pdtIdx].ui64pdpEntry = (uint64_t)pt | 0x3;
+        pdt->pageDirEntry[pdtIdx].ui64pdpEntry = (uint32_t)pt | 0x3;
         for (uint32_t ptIdx = 0; ptIdx < 512; ptIdx++) {
             pt->pageTableEntry[ptIdx].ui64ptEntry = vAddress;
             vAddress += 0x1000;
@@ -212,7 +214,7 @@ SetupKernelPages()
     }
 
     pdt++;
-    pdpt->pageDirPtrEntry[0x4].ui64pdpEntry = (uint64_t)pdt | 0x3;
+    pdpt->pageDirPtrEntry[0x4].ui64pdpEntry = (uint32_t)pdt | 0x3;
 
     /* Map the 1 GB to 4GB-5GB address
        Since the kernel is mapped starting from 6MB
@@ -220,7 +222,7 @@ SetupKernelPages()
        So we dont map the last 4 MB */
     for (uint32_t pdtIdx = 0; pdtIdx < 510; pdtIdx++) {
         pt++;
-        pdt->pageDirEntry[pdtIdx].ui64pdpEntry = (uint64_t)pt | 0x3;
+        pdt->pageDirEntry[pdtIdx].ui64pdpEntry = (uint32_t)pt | 0x3;
         for (uint32_t ptIdx = 0; ptIdx < 512; ptIdx++) {
             pt->pageTableEntry[ptIdx].ui64ptEntry = vAddress;
             vAddress += 0x1000;
@@ -233,7 +235,7 @@ SetupKernelPages()
        The only problem is this address is strange to remember will do this later */
 #else
     /* Identity mapping 4GB for testing */
-    uint64_t vAddress = 0x00;
+    uint32_t vAddress = 0x00;
 
     for (uint32_t pdptIdx = 0; pdptIdx < 4; pdptIdx++){
         for (uint32_t pdtIdx = 0; pdtIdx < 512; pdtIdx++){
@@ -241,10 +243,10 @@ SetupKernelPages()
                 pt->pte[pteIdx].ui64ptEntry = vAddress | 0x3;
                 vAddress  += 0x1000;
             }
-            pdt->pde[pdtIdx].ui64pdEntry = (uint64_t)pt | 0x3;
+            pdt->pde[pdtIdx].ui64pdEntry = (uint32_t)pt | 0x3;
             pt++;
         }
-        pdpt->pdpe[pdptIdx].ui64pdpEntry = (uint64_t)pdt | 0x3;
+        pdpt->pdpe[pdptIdx].ui64pdpEntry = (uint32_t)pdt | 0x3;
         pdt++;
     }
 
@@ -258,28 +260,9 @@ SetupLongModeKernelPaging()
     SetupPagingAsm();
 }
 
-void
-IterateOverMMap(uint32_t mmap)
-{
-    MemoryDescriptor *pMemDesc = (MemoryDescriptor *)0xD00;
-
-    while (pMemDesc->LengthL != 0) {
-        if (pMemDesc->Type == 1) {
-            PrintString("Free Memory\n");
-        } else {
-            PrintString("Reserved/Non-Free Memory\n");
-        }
-        pMemDesc = (MemoryDescriptor *)((uint8_t *)pMemDesc + sizeof(MemoryDescriptor));
-
-    }
-}
-
-extern "C"
 void SecondStageMain(uint32_t mmapAddr)
 {
     uint32_t kernel_entry = NULL;
-
-    IterateOverMMap(mmapAddr);
 
     /* Setup Paging first for correct offset translation of kernel */
     SetupLongModeKernelPaging();

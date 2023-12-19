@@ -1,6 +1,5 @@
 #include "x86.h"
 
-namespace HAL {
 void outb(uint16_t port, uint8_t command)
 {
   asm volatile("outb %0, %1":: "a"(command), "d"(port));
@@ -33,5 +32,3 @@ void LoadIDT(BYTE *idt)
 {
     asm volatile("lidt %0"::"m"(*idt));
 }
-
-} // namespace x86

@@ -1,19 +1,21 @@
 export OUTPUT_DIR=$(CURDIR)/Bin
 export PUB_INC_DIR=$(CURDIR)/Inc
 export ARCH_INC_DIR=$(CURDIR)/Inc/Arch/arm64
-boot1=IStageBootloader.bin
-boot2=IIStageBootloader.bin
-kernel=Kernel.bin
-outfile=KulkarNIX.bin
+
+boot1=$(OUTPUT_DIR)/IStageBootloader.bin
+boot2=$(OUTPUT_DIR)/IIStageBootloader.bin
+kernel=$(OUTPUT_DIR)/Kernel.bin
+outfile=$(OUTPUT_DIR)/KulkarNIX.bin
 
 #This is the default option
-debug: clean all
-	qemu-system-x86_64 -s -S -drive file=$(output),media=disk,format=raw
+debug: clean all MakeImage
+	@echo "========== Debug Image =========="
+	qemu-system-x86_64 -s -S -drive file=$(outfile),index=0,media=disk,format=raw
 
-release: clean all
-	qemu-system-x86_64 -drive file=$(output),index=0,media=disk,format=raw
+release: clean all MakeImage
+	@echo "========== Release Image =========="
+	qemu-system-x86_64 -drive file=$(outfile),index=0,media=disk,format=raw
 
-#all: Debug KLibs FirstStage SecondStage kernel WriteImage
 all: Arch Kernel
 
 Debug:
@@ -25,6 +27,13 @@ Arch:
 Kernel:
 	$(MAKE) -C Kernel/ all
 
+MakeImage:
+	dd if=$(boot1) of=$(outfile) bs=512 seek=0
+	dd if=$(boot2) of=$(outfile) bs=512 seek=1
+	dd if=$(kernel) of=$(outfile) bs=512 seek=5
+
 clean:
+	rm $(OUTPUT_DIR)/*.sym
+	rm $(OUTPUT_DIR)/*.bin
 	$(MAKE) -C Arch/ clean
 	$(MAKE) -C Kernel/ clean

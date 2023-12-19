@@ -1,14 +1,10 @@
-#ifndef _X86_H
-#define _X86_H
+#pragma once
 #include "typedefs.h"
 
-namespace HAL{
-    void outb(uint16_t port, uint8_t command);
-    uint8_t inb(uint16_t port);
-    void insw(uint16_t port, BYTE *address, uint32_t count);
-    void EnableInterrupts();
-    void DisableInterrupts();
-    void EnablePaging(uint32_t PDT);
-    BOOL CheckIfApicExists();
-}
-#endif
+void outb(uint16_t port, uint8_t command);
+uint8_t inb(uint16_t port);
+void insw(uint16_t port, BYTE *address, uint32_t count);
+void EnableInterrupts();
+void DisableInterrupts();
+void EnablePaging(uint32_t PDT);
+BOOL CheckIfApicExists();

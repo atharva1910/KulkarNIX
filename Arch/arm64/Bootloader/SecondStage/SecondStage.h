@@ -10,5 +10,4 @@
 #include "elfheader.h"
 #include "x86.h"
 #include "Paging.h"
-#include "SegmentDescriptor.h"
 #include "MemoryMap.h"

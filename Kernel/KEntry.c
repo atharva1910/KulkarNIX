@@ -1,4 +1,4 @@
-#include "typedefs.h"
+#include "KEntry.h"
 
 __asm__(
     /* Set up the global function __start */
@@ -29,26 +29,6 @@ __asm__(
     ".section .text\n"
 );
 
-static inline void
-PrintChar(char *address, char c, BYTE bg_color)
-{
-    address[1] = bg_color;
-    address[0] = c;
-}
-
-
-static inline void
-PrintString(const char *string)
-{
-    char *vga_buffer = (char *)0xb8000;
-    char c = 0;
-    uint32_t pos = 0;
-    while((c = string[pos++]) != '\0'){
-        PrintChar(vga_buffer, c, 0x07);
-        vga_buffer += 2;
-    }
-}
-
 #if 0
 void
 InitInterrupts()
@@ -66,9 +46,8 @@ SetupPaging()
 }
 #endif
 
-extern "C"
 void kernel_main()
 {
-    PrintString("HELLO FROM KERNEL");
+    KPrint(KVERBOSE, "TESTING");
     asm("hlt");
 }

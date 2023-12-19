@@ -4,7 +4,7 @@ OUTPUT = IStageBootloader.bin
 INPUT = IStageBootloader.asm
 
 all:
-	@echo "Building FirstStage Bootloader"
+	@echo "========== Building FirstStage Bootloader =========="
 	$(ASMCC) $(ASMCCFLAGS) $(INPUT) -o $(OUTPUT_DIR)/$(OUTPUT)
 
 clean:

@@ -1,7 +1,6 @@
 #include "HAL/HAL.h"
 //#include "x86lib.h"
 
-namespace HAL {
 void EnableInterrupts()
 {
   asm volatile("sti");
@@ -37,5 +36,3 @@ void EnablePaging(uint32_t PDT)
                   or  $0x80000001, %%eax\n\t\
                   mov %%eax, %%cr0" :::"%eax");*/
 }
-
-} // namespace x86

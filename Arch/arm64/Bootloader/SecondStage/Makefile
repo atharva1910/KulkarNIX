@@ -1,4 +1,4 @@
-CC = i686-elf-g++
+CC = i686-elf-gcc
 
 CCFLAGS = -ffreestanding -fno-exceptions -O2 -g
 LDFLAGS = -ffreestanding -nostdlib
@@ -7,16 +7,16 @@ INCLUDES = -I$(ARCH_INC_DIR) -I$(PUB_INC_DIR)
 
 
 all: SecondStage.o x86.o SecondStageHelper.o
-	@echo "Building SecondStage Bootloader"
+	@echo "========== Building SecondStage Bootloader =========="
 	$(CC) -T $(LDFILE) -o Boot.bin $(LDFLAGS) $^ -lgcc
 	objcopy --only-keep-debug Boot.bin $(OUTPUT_DIR)/IIStageBootloader.sym
 	objcopy -O binary Boot.bin $(OUTPUT_DIR)/IIStageBootloader.bin
 
-SecondStage.o: SecondStage.cpp
-	$(CC) -c SecondStage.cpp $(CCFLAGS) $(INCLUDES)
+SecondStage.o: SecondStage.c
+	$(CC) -c SecondStage.c $(CCFLAGS) $(INCLUDES)
 
-x86.o: x86.cpp
-	$(CC) -c x86.cpp $(CCFLAGS) $(INCLUDES)
+x86.o: x86.c
+	$(CC) -c x86.c $(CCFLAGS) $(INCLUDES)
 
 SecondStageHelper.o: SecondStageHelper.s
 	$(CC) -c SecondStageHelper.s $(CCFLAGS) $(INCLUDES)
