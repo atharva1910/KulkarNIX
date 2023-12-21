@@ -48,8 +48,7 @@ SetupPaging()
 
 void kernel_main()
 {
-    for(int i = 0; i < 25; i++)
-        KPrint(KVERBOSE, "aaaaaaaaa ");
-
+    KPrint(KVERBOSE, "abc %d", 69);
+    KPrint(KVERBOSE, "abc %d", 42);
     asm("hlt");
 }

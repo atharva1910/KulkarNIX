@@ -3,17 +3,11 @@
 /* Save allocating on stack every instance */
 static char buffer[1024];
 
-/* Position of the cursor */
-static uint32_t bufPos = 0;
-
 /* Allowed Log Level */
 static KPrintLevel allowedLvl = KVERBOSE;
 
 /* VGA Buffer */
 static char *vgaBuffer = (char *)0xB8000;
-
-/* VGA Buffer Size (32KB)*/
-static uint32_t vgaBufferSize = 32 * 1204;
 
 /* Screensize */
 #define MAX_PAGES 8
@@ -45,6 +39,7 @@ PrintChar(char c, BYTE bg_color)
         col = 0;
         row++;
         if (row >= MAX_ROWS)
+            // TODO: Add pages and scrolling
             row = 0;
     }
 }
@@ -63,11 +58,30 @@ PrintString(const char *string)
     while(col != 0) PrintChar(0, 0x7);
 }
 
-void
+char *
+itoa(int number, char *buffer, int radix)
+{
+    if (buffer == NULL)
+        return NULL;
+
+    if (radix != 10)
+        return NULL;
+
+    do {
+        int tmp = number % 10;
+        number  = number/10;
+        *buffer = tmp + '0';
+        buffer++;
+    } while(number);
+
+    return buffer;
+}
+
+int
 vsprintf(char *buf, char *str, va_list args)
 {
     if (buf == NULL || str == NULL)
-        return;
+        return -1;
 
     char *itr = str;
     char *head = buf;
@@ -80,7 +94,23 @@ vsprintf(char *buf, char *str, va_list args)
             itr++;
             continue;
         }
+
+        /* We hit a % lets get the "type" of the argument to be printed */
+        switch(*(++itr)) {
+        case 'd': {
+            head = itoa(va_arg(args, int), head, 10);
+            if (head == NULL)
+                return -1;
+        } break;
+
+        default : {
+            return -1;
+        }
+        }
     }
+
+    *head = '\0';
+    return 0;
 }
 
 void
@@ -92,8 +122,7 @@ KPrint(KPrintLevel level, char *str, ...)
     va_list valist;
 
     va_start(valist, str);
-    vsprintf(buffer, str, valist);
+    if (vsprintf(buffer, str, valist) == 0)
+        PrintString(buffer);
     va_end(valist);
-
-    PrintString(buffer);
 }

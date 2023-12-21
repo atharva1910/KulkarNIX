@@ -1,2 +1,3 @@
 target remote localhost:1234
 add-symbol-file IIStageBootloader.sym
+add-symbol-file Kernel.sym

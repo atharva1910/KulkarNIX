@@ -1,8 +1,8 @@
 #pragma once
 
-typedef char *va_list;
+typedef __gnuc_va_list va_list;
 
-#define va_size(type) (sizeof(type))
-#define va_start(ap, last) ((ap) = (char *)&(last) + va_size(last))
-#define va_arg(ap, type) (*(type *)(ap)++)
-#define va_end(ap)
+/* This just will not work on amd64 since arguments are not passed on stack */
+#define va_start(ap, last) __builtin_va_start(ap, last)
+#define va_arg(ap, type)   __builtin_va_arg(ap, type)
+#define va_end(ap)         __builtin_va_end(ap)

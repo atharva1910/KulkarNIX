@@ -1,6 +1,6 @@
 #pragma once
 
-#include <KStdArgs.h>
+#include <stdarg.h>
 
 typedef enum _KPrintLevel {
     KVERBOSE,

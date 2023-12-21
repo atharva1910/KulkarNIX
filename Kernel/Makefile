@@ -9,6 +9,7 @@ INCLUDES = -I$(ARCH_INC_DIR) -I$(PUB_INC_DIR) -I$(KERN_DIR)
 all: KEntry.o KPrint.o
 	@echo "========== Building Kernel =========="
 	$(CC) -T $(LDFILE) -o $(OUTPUT_DIR)/Kernel.bin $(LDFLAGS) $^ -lgcc
+	objcopy --only-keep-debug $(OUTPUT_DIR)/Kernel.bin $(OUTPUT_DIR)/Kernel.sym
 
 KEntry.o: KEntry.c
 	$(CC) -c KEntry.c $(CCFLAGS) $(INCLUDES)
