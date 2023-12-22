@@ -1,21 +1,26 @@
+OUTPUT_FORMAT(elf64-x86-64)
 ENTRY(__start)
 
 SECTIONS
 {
-    . = 0x1000000;
+    . = 0x1000000000;
 
-    .text : ALIGN(4096)
+    .text BLOCK(4K) : ALIGN(4K)
     {
         *(.text)
+    }
+
+    .rodata BLOCK(4K) : ALIGN(4K)
+    {
         *(.rodata*)
     }
 
-    .data : ALIGN(4096)
+    .data BLOCK(4K) : ALIGN(4K)
     {
         *(.data)
     }
 
-    .bss : ALIGN(4096)
+    .bss BLOCK(4K) : ALIGN(4K)
     {
         *(.bss)
         *(COMMON)

@@ -3,7 +3,7 @@
 #include <stdarg.h>
 
 typedef enum _KPrintLevel {
-    KVERBOSE,
+    KVERB,
     KINFO,
     KERR,
     KCRIT,

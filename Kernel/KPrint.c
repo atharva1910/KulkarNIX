@@ -4,7 +4,7 @@
 static char buffer[1024];
 
 /* Allowed Log Level */
-static KPrintLevel allowedLvl = KVERBOSE;
+static KPrintLevel allowedLvl = KVERB;
 
 /* VGA Buffer */
 static char *vgaBuffer = (char *)0xB8000;
@@ -58,23 +58,58 @@ PrintString(const char *string)
     while(col != 0) PrintChar(0, 0x7);
 }
 
-char *
-itoa(int number, char *buffer, int radix)
+int
+reverse(int number, int radix)
 {
-    if (buffer == NULL)
-        return NULL;
+    int ret = 0;
+    while(number) {
+        ret = ret * radix + (number % radix);
+        number = number/radix;
+    }
+    return ret;
+}
 
-    if (radix != 10)
-        return NULL;
-
+char *itoa_dec(int number, char *buffer)
+{
     do {
         int tmp = number % 10;
-        number  = number/10;
+        number  = number / 10;
         *buffer = tmp + '0';
         buffer++;
     } while(number);
 
     return buffer;
+}
+
+char *itoa(int number, char *buffer, int radix)
+{
+    number = reverse(number, radix);
+    do {
+        int tmp = number % radix;
+        number  = number / radix;
+        if (tmp < 10)
+            *buffer = tmp + '0';
+        else
+            *buffer = tmp + 'a' - 10;
+        buffer++;
+    } while(number);
+
+    return buffer;
+}
+
+char *
+itoa1(int number, char *buffer, int radix)
+{
+    if (buffer == NULL)
+        return NULL;
+
+    if (radix == 10) {
+        return itoa_dec(reverse(number, radix), buffer);
+    } else if (radix == 16) {
+        //return itoa_hex(reverse(number, radix), buffer);
+    } else {
+        return NULL;
+    }
 }
 
 int
@@ -101,6 +136,14 @@ vsprintf(char *buf, char *str, va_list args)
             head = itoa(va_arg(args, int), head, 10);
             if (head == NULL)
                 return -1;
+            itr++;
+        } break;
+
+        case 'x': {
+            head = itoa(va_arg(args, int), head, 16);
+            if (head == NULL)
+                return -1;
+            itr++;
         } break;
 
         default : {

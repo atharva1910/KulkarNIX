@@ -155,16 +155,18 @@ SetupKernelPages()
 {
     /*
      * Before jumping to the Kernel we need to setup paging for long mode
-     * - Clear memory from 1MB to 5MB for kernel page tables
+     * - Clear 5MB memory for kernel page tables
      * - Create Page directory struct from 1MB to 6MB
      * - Identity map first 1MB of memory
      * - Map kernel to high memory (3GB-5GB)
      * - Map page table above kernel
      *
      * At this point we assume our kernel will be of 2 GB.
-     * To map 2GB worth of memory we need 1024 PT, 3 PDT, 1 PDPT and 1 PML4T
+     * To map 2GB worth of memory we need 1024 PT, 2 PDT, 1 PDPT and 1 PML4T
      * which comes around to just above 4MB so we clear out 5 MB
      * space starting from 1MB to 6MB.
+     * To identity map the first MB of memory we need one more PDT and one PT
+     * Which will add 12KB of extra memory
      */
 
     /* Clear Memory
@@ -174,7 +176,8 @@ SetupKernelPages()
         *pageAddr = 0x0;
     }*/
 
-    PML4T *pml4t = (PML4T *)KNIX_START_PAGE_ADDR;
+    //PML4T *pml4t = (PML4T *)KNIX_START_PAGE_ADDR;
+    PML4T *pml4t = (PML4T *)0x100000;
 
     /* Allocate space for one PML4T */
     PDPT *pdpt   = (PDPT *)(pml4t + 1);
@@ -183,56 +186,54 @@ SetupKernelPages()
     PDT *pdt     = (PDT *)(pdpt + 1);
 
     /* Allocate space for 4  PDT */
-    PT *pt       = (PT *)(pdt + 4);
+    PT *pt       = (PT *)(pdt + 2);
 
     pml4t->pml4e[0].ui64pml4Entry = (uint32_t)pdpt| 0x3;
+
+#if 1
+    /*
+     * Identity map the first MB. Each PT has 512 entries mapping 4KB each.
+     * This means we have to fill the first 256 entries with the 4KB incremental addresseses.
+     */
+    uint64_t vAddress = 0x00 | 0x3;
+
     pdpt->pdpe[0].ui64pdpEntry    = (uint32_t)pdt | 0x3;
     pdt->pde[0].ui64pdEntry       = (uint32_t)pt  | 0x3;
 
-#if 0
-    /* Identity map the first MB */
-    uint32_t vAddress = 0x00 | 0x3;
     for(uint32_t pteIdx = 0; pteIdx < 256; pteIdx++){
-        pt->pageTableEntry[pteIdx].ui64ptEntry = vAddress;
+        pt->pte[pteIdx].ui64ptEntry = vAddress;
         vAddress  += 0x1000;
     }
 
-    /* The kernel will be mapped from 3GB to 5GB */
+    /* The kernel will be mapped from 64GB to 66GB */
     vAddress = KERNEL_START_PADDR | 0x3;
 
     pdt++;
-    pdpt->pageDirPtrEntry[0x3].ui64pdpEntry = (uint32_t)pdt | 0x3;
+    pdpt->pdpe[63].ui64pdpEntry = (uint32_t)pdt | 0x3;
 
-    /* Map the 1 GB to 3GB-4GB address */
+    /* Map the 1 GB to 64GB-65GB address */
     for (uint32_t pdtIdx = 0; pdtIdx < 512; pdtIdx++) {
         pt++;
-        pdt->pageDirEntry[pdtIdx].ui64pdpEntry = (uint32_t)pt | 0x3;
+        pdt->pde[pdtIdx].ui64pdpEntry = (uint32_t)pt | 0x3;
         for (uint32_t ptIdx = 0; ptIdx < 512; ptIdx++) {
-            pt->pageTableEntry[ptIdx].ui64ptEntry = vAddress;
+            pt->pte[ptIdx].ui64ptEntry = vAddress;
             vAddress += 0x1000;
         }
     }
 
     pdt++;
-    pdpt->pageDirPtrEntry[0x4].ui64pdpEntry = (uint32_t)pdt | 0x3;
+    pdpt->pdpe[64].ui64pdpEntry = (uint32_t)pdt | 0x3;
 
-    /* Map the 1 GB to 4GB-5GB address
-       Since the kernel is mapped starting from 6MB
-       We will over shoot the 2GB mark if we map the entire thing
-       So we dont map the last 4 MB */
-    for (uint32_t pdtIdx = 0; pdtIdx < 510; pdtIdx++) {
+    /* Map the 1 GB to 4GB-5GB address */
+    for (uint32_t pdtIdx = 0; pdtIdx < 512; pdtIdx++) {
         pt++;
-        pdt->pageDirEntry[pdtIdx].ui64pdpEntry = (uint32_t)pt | 0x3;
+        pdt->pde[pdtIdx].ui64pdpEntry = (uint32_t)pt | 0x3;
         for (uint32_t ptIdx = 0; ptIdx < 512; ptIdx++) {
-            pt->pageTableEntry[ptIdx].ui64ptEntry = vAddress;
+            pt->pte[ptIdx].ui64ptEntry = vAddress;
             vAddress += 0x1000;
         }
     }
 
-    /* We need to map the page tables to in the above hole of 4 MB
-       Its not really 4 MB. We need 5MB worth of tables to map kernel tables into itself
-       So we use the remaining 4 MB and one MB from the mapped space.
-       The only problem is this address is strange to remember will do this later */
 #else
     /* Identity mapping 4GB for testing */
     uint32_t vAddress = 0x00;
