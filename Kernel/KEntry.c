@@ -32,6 +32,28 @@ __asm__(
     ".section .text\n"
 );
 
+static inline void
+PrintChar(char c, byte bg_color, uint32_t pos)
+{
+    char *address = (char *)0xB8000 + pos * 2;
+
+    address[1] = bg_color;
+    address[0] = c;
+}
+
+static void
+PrintString(const char *string)
+{
+    char c = 0;
+    uint32_t pos = 0;
+
+    /* Print string to screen */
+    while((c = string[pos]) != '\0') {
+        PrintChar(c, 0x07, pos++);
+    }
+
+}
+
 #if 0
 void
 InitInterrupts()
@@ -53,6 +75,5 @@ void kernel_main()
 {
     KPrint(KVERB, "abc 0x%x def", 42);
     KPrint(KVERB, "abc 0x%x def", (uint32_t)(kernel_main));
-    KPrint(KVERB, "abc 0x%d def", (uint32_t)(kernel_main));
     asm("hlt");
 }

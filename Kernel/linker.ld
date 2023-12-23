@@ -2,7 +2,7 @@ ENTRY(__start)
 
 SECTIONS
 {
-    . = 0xC0000000;
+    . = 0xC0300000;
 
     .text BLOCK(4K) : ALIGN(4K)
     {

@@ -1,3 +1,4 @@
+#include <typedefs.h>
 #include "KPrint.h"
 
 /* Save allocating on stack every instance */

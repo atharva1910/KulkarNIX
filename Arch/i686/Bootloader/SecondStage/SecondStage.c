@@ -6,7 +6,6 @@
  */
 
 extern void SetupPagingAsm();
-extern void LoadGDTAsm();
 extern void SecondStageMain(uint32_t mmapAddr);
 
 __asm__(
@@ -156,19 +155,20 @@ SetupKernelPages()
 {
     /*
      * Before jumping to the Kernel we need to setup paging
-     * - Clear 4MB memory for kernel page tables
+     *
+     * At this point we assume our kernel will be of 1 GB.
+     * To map 1GB worth of memory we need 1 PDT + 256 PTs (4K for each table)
+     * which comes around to just above 1MB.
+     * To identity map the first MB of memory we use the prev PDT and one more PT
+     * which will add 4KB of extra memory.
+     * Kernel cant be loaded at 3GB mark since we will have the page tables there
+     * So kernel will be loaded after the 2MB worth of page tables at 0xC0300000
+     *
+     * - Clear 2MB memory for kernel page tables from 1MB to 3MB
      * - Create Page directory struct from 1MB to 3MB
      * - Identity map first 1MB of memory
      * - Map 1GB worth of memory from 1M - 1.1G to 3GB - 4GB
-     * - Map kernel to high memory (3GB-4GB)
      *
-     * At this point we assume our kernel will be of 1 GB.
-     * To map 1GB worth of memory we need 1 PDT + 256 PTs
-     * 4KB for PDT and 256 * 4KB = 1MB for PTs
-     * which comes around to just above 1MB so we clear out 2 MB
-     * space starting from 1MB to 3MB.
-     * To identity map the first MB of memory we use the prev PDT and one more PT
-     * Which will add 8KB of extra memory
      */
 
     /* Clear Memory
@@ -178,9 +178,8 @@ SetupKernelPages()
         *pageAddr = 0x0;
     }*/
 
-    //PDT *pdt = (PDT *)KNIX_START_PAGE_ADDR;
-    PDT *pdt = (PDT *)0x100000;
-
+    /* Page directory will sit at 1MB */
+    PDT *pdt = (PDT *)KNIX_START_PAGE_ADDR;
     /* Allocate space for 1 PDT */
     PT *pt   = (PT *)(pdt + 1);
 
@@ -194,19 +193,27 @@ SetupKernelPages()
     pdt->pde[0].ui32pdEntry = (uint32_t)pt | 0x3;
 
     for(uint32_t pteIdx = 0; pteIdx < 256; pteIdx++){
-        pt->pte[pteIdx].ui32ptEntry = vAddress;
+        pt->pte[pteIdx].ui32ptEntry = vAddress | 0x3;
         vAddress  += 0x1000;
     }
 
     /* 1MB - 1.1 GB */
     vAddress = 0x100000 | 0x3;
 
-    /* Map the 1 GB to 3GB-4GB address */
-    for (uint32_t pdtIdx = 767; pdtIdx < 1024; pdtIdx++) {
+    /*
+     * Map the 1 GB to 3GB-4GB address.
+     * Each 256 entires in PDT points to 1GB worth of memory
+     * 000 - 255  = 0GB - 1GB
+     * 256 - 511  = 1GB - 2GB
+     * 512 - 767  = 2GB - 3GB
+     * 768 - 1023 = 3GB - 4GB
+     * TODO : See if we can map 1MB - 1GB instead of 1.1GB
+     */
+    for (uint32_t pdtIdx = 768; pdtIdx < 1024; pdtIdx++) {
         pt++;
         pdt->pde[pdtIdx].ui32pdEntry = (uint32_t)pt | 0x3;
         for (uint32_t ptIdx = 0; ptIdx < 1024; ptIdx++) {
-            pt->pte[ptIdx].ui32ptEntry = vAddress;
+            pt->pte[ptIdx].ui32ptEntry = vAddress | 0x3;
             vAddress += 0x1000;
         }
     }
@@ -239,6 +246,7 @@ SetupKernelPaging()
     SetupKernelPages();
     SetupPagingAsm();
 }
+
 
 void SecondStageMain(uint32_t mmapAddr)
 {
