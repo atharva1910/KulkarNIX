@@ -8,10 +8,13 @@ __asm__(
 
 "__start:\n"
     "cli\n"
-    /*"mov $0x0, %eax\n"
+    /*
+    Cannot reset ss and es for i686. For amd64 it should be 0
+    "mov $0x0, %eax\n"
     "mov %ax, %ds\n"
     "mov %ax, %ss\n"
-    "mov %ax, %es\n"*/
+    "mov %ax, %es\n"
+    */
     "mov $stack_top, %esp\n"
     "call kernel_main\n"
     "ret\n"
@@ -48,7 +51,8 @@ SetupPaging()
 
 void kernel_main()
 {
-    KPrint(KVERB, "abc %d def", 69);
     KPrint(KVERB, "abc 0x%x def", 42);
+    KPrint(KVERB, "abc 0x%x def", (uint32_t)(kernel_main));
+    KPrint(KVERB, "abc 0x%d def", (uint32_t)(kernel_main));
     asm("hlt");
 }

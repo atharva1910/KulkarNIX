@@ -155,19 +155,20 @@ void
 SetupKernelPages()
 {
     /*
-     * Before jumping to the Kernel we need to setup paging for long mode
-     * - Clear 5MB memory for kernel page tables
-     * - Create Page directory struct from 1MB to 6MB
+     * Before jumping to the Kernel we need to setup paging
+     * - Clear 4MB memory for kernel page tables
+     * - Create Page directory struct from 1MB to 3MB
      * - Identity map first 1MB of memory
-     * - Map kernel to high memory (3GB-5GB)
-     * - Map page table above kernel
+     * - Map 1GB worth of memory from 1M - 1.1G to 3GB - 4GB
+     * - Map kernel to high memory (3GB-4GB)
      *
-     * At this point we assume our kernel will be of 2 GB.
-     * To map 2GB worth of memory we need 1024 PT, 2 PDT, 1 PDPT and 1 PML4T
-     * which comes around to just above 4MB so we clear out 5 MB
-     * space starting from 1MB to 6MB.
-     * To identity map the first MB of memory we need one more PDT and one PT
-     * Which will add 12KB of extra memory
+     * At this point we assume our kernel will be of 1 GB.
+     * To map 1GB worth of memory we need 1 PDT + 256 PTs
+     * 4KB for PDT and 256 * 4KB = 1MB for PTs
+     * which comes around to just above 1MB so we clear out 2 MB
+     * space starting from 1MB to 3MB.
+     * To identity map the first MB of memory we use the prev PDT and one more PT
+     * Which will add 8KB of extra memory
      */
 
     /* Clear Memory
@@ -180,49 +181,32 @@ SetupKernelPages()
     //PDT *pdt = (PDT *)KNIX_START_PAGE_ADDR;
     PDT *pdt = (PDT *)0x100000;
 
-    /* Allocate space for 4  PDT */
+    /* Allocate space for 1 PDT */
     PT *pt   = (PT *)(pdt + 1);
 
-#if 0
+#if 1
     /*
-     * Identity map the first MB. Each PT has 512 entries mapping 4KB each.
+     * Identity map the first MB.
      * This means we have to fill the first 256 entries with the 4KB incremental addresseses.
      */
-    uint64_t vAddress = 0x00 | 0x3;
+    uint32_t vAddress = 0x00 | 0x3;
 
-    pdpt->pdpe[0].ui64pdpEntry    = (uint32_t)pdt | 0x3;
-    pdt->pde[0].ui64pdEntry       = (uint32_t)pt  | 0x3;
+    pdt->pde[0].ui32pdEntry = (uint32_t)pt | 0x3;
 
     for(uint32_t pteIdx = 0; pteIdx < 256; pteIdx++){
-        pt->pte[pteIdx].ui64ptEntry = vAddress;
+        pt->pte[pteIdx].ui32ptEntry = vAddress;
         vAddress  += 0x1000;
     }
 
-    /* The kernel will be mapped from 64GB to 66GB */
-    vAddress = KERNEL_START_PADDR | 0x3;
+    /* 1MB - 1.1 GB */
+    vAddress = 0x100000 | 0x3;
 
-    pdt++;
-    pdpt->pdpe[63].ui64pdpEntry = (uint32_t)pdt | 0x3;
-
-    /* Map the 1 GB to 64GB-65GB address */
-    for (uint32_t pdtIdx = 0; pdtIdx < 512; pdtIdx++) {
+    /* Map the 1 GB to 3GB-4GB address */
+    for (uint32_t pdtIdx = 767; pdtIdx < 1024; pdtIdx++) {
         pt++;
-        pdt->pde[pdtIdx].ui64pdpEntry = (uint32_t)pt | 0x3;
-        for (uint32_t ptIdx = 0; ptIdx < 512; ptIdx++) {
-            pt->pte[ptIdx].ui64ptEntry = vAddress;
-            vAddress += 0x1000;
-        }
-    }
-
-    pdt++;
-    pdpt->pdpe[64].ui64pdpEntry = (uint32_t)pdt | 0x3;
-
-    /* Map the 1 GB to 4GB-5GB address */
-    for (uint32_t pdtIdx = 0; pdtIdx < 512; pdtIdx++) {
-        pt++;
-        pdt->pde[pdtIdx].ui64pdpEntry = (uint32_t)pt | 0x3;
-        for (uint32_t ptIdx = 0; ptIdx < 512; ptIdx++) {
-            pt->pte[ptIdx].ui64ptEntry = vAddress;
+        pdt->pde[pdtIdx].ui32pdEntry = (uint32_t)pt | 0x3;
+        for (uint32_t ptIdx = 0; ptIdx < 1024; ptIdx++) {
+            pt->pte[ptIdx].ui32ptEntry = vAddress;
             vAddress += 0x1000;
         }
     }
@@ -250,7 +234,7 @@ SetupKernelPages()
 }
 
 void
-SetupLongModeKernelPaging()
+SetupKernelPaging()
 {
     SetupKernelPages();
     SetupPagingAsm();
@@ -261,10 +245,7 @@ void SecondStageMain(uint32_t mmapAddr)
     uint32_t kEntry = 0;
 
     /* Setup Paging first for correct offset translation of kernel */
-    //SetupLongModeKernelPaging();
-
-    /* Setup GDT */
-    //LoadGDTAsm();
+    SetupKernelPaging();
 
     /* Read kernel now that paging is setup */
     if((kEntry = ReadKernel()) == NULL) {
