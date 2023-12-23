@@ -1,9 +1,8 @@
-OUTPUT_FORMAT(elf64-x86-64)
 ENTRY(__start)
 
 SECTIONS
 {
-    . = 0x1000000000;
+    . = 10M;
 
     .text BLOCK(4K) : ALIGN(4K)
     {

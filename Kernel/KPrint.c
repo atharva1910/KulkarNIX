@@ -19,14 +19,14 @@ uint32_t row = 0;
 //#define MAX_ROWS  (25 * MAX_PAGES)
 
 static inline void
-PrintCharAt(char *address, char c, BYTE bg_color)
+PrintCharAt(char *address, char c, byte bg_color)
 {
     address[1] = bg_color;
     address[0] = c;
 }
 
 static inline void
-PrintChar(char c, BYTE bg_color)
+PrintChar(char c, byte bg_color)
 {
     uint32_t bufPos   = (row * MAX_COLS + col) * 2;
     char     *address = vgaBuffer + bufPos;

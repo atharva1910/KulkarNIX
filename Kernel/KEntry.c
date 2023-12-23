@@ -8,10 +8,10 @@ __asm__(
 
 "__start:\n"
     "cli\n"
-    "mov $0x0, %eax\n"
+    /*"mov $0x0, %eax\n"
     "mov %ax, %ds\n"
     "mov %ax, %ss\n"
-    "mov %ax, %es\n"
+    "mov %ax, %es\n"*/
     "mov $stack_top, %esp\n"
     "call kernel_main\n"
     "ret\n"

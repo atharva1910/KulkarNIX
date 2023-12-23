@@ -1,4 +1,4 @@
-CC = x86_64-elf-gcc
+CC = i686-elf-gcc
 KERN_DIR = $(CURDIR)
 CCFLAGS = -ffreestanding -fno-exceptions -O2 -g
 LDFLAGS = -ffreestanding -nostdlib

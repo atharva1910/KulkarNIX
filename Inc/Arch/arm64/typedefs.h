@@ -1,13 +1,12 @@
-#ifndef _TYPEDEFS_H
-#define _TYPEDEFS_H
+#pragma once
 
 // NULL
 #define NULL 0
 // ASM
-typedef char BYTE;
-typedef short WORD;
+typedef char byte;
+typedef short word;
 // BOOL
-typedef BYTE BOOL;
+typedef byte bool;
 #define true 1
 #define false 0
 // uint
@@ -17,6 +16,3 @@ typedef unsigned char uint8_t;
 typedef unsigned short int uint16_t;
 // pointers
 typedef uint64_t* uintptr_t;
-
-
-#endif
