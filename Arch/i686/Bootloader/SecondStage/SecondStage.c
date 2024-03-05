@@ -169,6 +169,8 @@ SetupKernelPages()
      * - Identity map first 1MB of memory
      * - Map 1GB worth of memory from 1M - 1.1G to 3GB - 4GB
      *
+     * As per the Pentium manual the code which enables the paging is identity mapped.
+     * Since the first MB is identity mapped we are okay
      */
 
     /* Clear Memory
@@ -207,12 +209,23 @@ SetupKernelPages()
      * 256 - 511  = 1GB - 2GB
      * 512 - 767  = 2GB - 3GB
      * 768 - 1023 = 3GB - 4GB
-     * TODO : See if we can map 1MB - 1GB instead of 1.1GB
+
+     * Each 256 entires in PT points to 4MB worth of memory
+     * 000 - 255  = 0GB - 1MB
+     * 256 - 511  = 1GB - 2MB
+     * 512 - 767  = 2GB - 3MB
+     * 768 - 1023 = 3GB - 4MB
      */
-    for (uint32_t pdtIdx = 768; pdtIdx < 1024; pdtIdx++) {
+    for (uint32_t pdtIdx = 768; pdtIdx < ENTRIES_PER_TABLE; pdtIdx++) {
         pt++;
         pdt->pde[pdtIdx].ui32pdEntry = (uint32_t)pt | 0x3;
-        for (uint32_t ptIdx = 0; ptIdx < 1024; ptIdx++) {
+        for (uint32_t ptIdx = 0; ptIdx < ENTRIES_PER_TABLE; ptIdx++) {
+
+            /* Dont map the last MB */
+            if (pdtIdx == ENTRIES_PER_TABLE - 1 &&
+                ptIdx > 767) {
+                break;
+            }
             pt->pte[ptIdx].ui32ptEntry = vAddress | 0x3;
             vAddress += 0x1000;
         }
@@ -247,6 +260,11 @@ SetupKernelPaging()
     SetupPagingAsm();
 }
 
+void
+GetMemoryMap()
+{
+
+}
 
 void SecondStageMain(uint32_t mmapAddr)
 {
@@ -254,6 +272,9 @@ void SecondStageMain(uint32_t mmapAddr)
 
     /* Setup Paging first for correct offset translation of kernel */
     SetupKernelPaging();
+
+    /* Get Memory Map */
+    GetMemoryMap();
 
     /* Read kernel now that paging is setup */
     if((kEntry = ReadKernel()) == NULL) {

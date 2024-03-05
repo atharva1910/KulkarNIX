@@ -10,7 +10,10 @@
 *** Jump to Second Stage Bootloader
 ** Second Stage Bootloader
 *** Read ELF header from harddisk
-*** Setup Page tables at 0x100000 - 0x600000 (1MB - 6MB)
-*** Page table will map kernel to a higher memory 0x
-*** Read Kernel from hardisk to 0x600000
+*** Setup Page tables at 0x100000 - 0x300000 (1MB - 3MB)
+*** The first 1MB is identity mapped.
+*** Map memory from 1MB - (1GB + 1 MB) to higher address space (3GB - 4GB)
+*** This means the page tables are mapped starting from 3 GB to (3GB + 3MB)
+*** The kernel is linked at 0xC0300000 to accomodate the page tables.
 *** Jump to kernel
+* Kernel

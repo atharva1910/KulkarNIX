@@ -1,7 +1,5 @@
 #pragma once
 #include "typedefs.h"
-
-#define LONG_MODE_TABLE_SIZE 512
 #define ENTRIES_PER_TABLE    1024
 
 /* PD entry */

@@ -1,5 +1,4 @@
-#ifndef _APIC_H
-#define _APIC_H
+#pragma once
 #include "typedefs.h"
 #include "PIO.h"
 #define IDT_MAX_INTERRUPTS 256
@@ -27,7 +26,7 @@ class APIC : public PIO {
       uint8_t  type_attr;   // type and attr
       uint16_t offset_2;    // 16...31
     }__attribute__((packed));
-    
+
     // The structure to be loaded using lidt
     struct idtr{
       uint16_t limit;       // Size of IDT
@@ -44,5 +43,3 @@ class APIC : public PIO {
     const uint32_t salve_data     = 0xA1;
 
 };
-
-#endif

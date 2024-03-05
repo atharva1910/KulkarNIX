@@ -16,7 +16,7 @@ __asm__(
     "mov %ax, %es\n"
     */
     "mov $stack_top, %esp\n"
-    "call kernel_main\n"
+    "call KMain\n"
     "ret\n"
     "hlt\n"
 
@@ -71,9 +71,8 @@ SetupPaging()
 }
 #endif
 
-void kernel_main()
+void KMain()
 {
     KPrint(KVERB, "abc 0x%x def", 42);
-    KPrint(KVERB, "abc 0x%x def", (uint32_t)(kernel_main));
     asm("hlt");
 }

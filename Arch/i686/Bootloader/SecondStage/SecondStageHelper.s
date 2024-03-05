@@ -37,7 +37,6 @@ Pointer:
     .text
     .global SetupPagingAsm
 SetupPagingAsm:
-    pusha
     # Point cr3 to the PDT base
     movl $0x100000, %ecx
     movl %ecx, %cr3
@@ -48,7 +47,10 @@ SetupPagingAsm:
     orl $0x80000001, %eax
     movl %eax, %cr0
 
-    popa
+    # Need to jump to enable paging
+    jmp DummyJmp
+
+DummyJmp:
     ret
 
     .global LoadGDTAsm
