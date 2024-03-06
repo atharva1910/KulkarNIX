@@ -2,18 +2,21 @@ export ARCH=i686
 export OUTPUT_DIR=$(CURDIR)/Bin
 export PUB_INC_DIR=$(CURDIR)/Inc
 export ARCH_INC_DIR=$(CURDIR)/Inc/Arch/$(ARCH)
-
-BOOT1=$(OUTPUT_DIR)/IStageBootloader.bin
-BOOT2=$(OUTPUT_DIR)/IIStageBootloader.bin
 KERNEL=$(OUTPUT_DIR)/Kernel.bin
 OUTFILE=$(OUTPUT_DIR)/KulkarNIX.bin
 
-#This is the default option
-debug: all MakeImage
+# Section : UEFI
+
+# Section : Legacy Bootloader
+
+BOOT1=$(OUTPUT_DIR)/IStageBootloader.bin
+BOOT2=$(OUTPUT_DIR)/IIStageBootloader.bin
+
+ldebug: all MakeImage
 	@echo "========== Debug Image =========="
 	qemu-system-x86_64 -s -S -drive file=$(OUTFILE),index=0,media=disk,format=raw -d cpu_reset
 
-release: all MakeImage
+lrelease: all MakeImage
 	@echo "========== Release Image =========="
 	qemu-system-x86_64 -drive file=$(OUTFILE),index=0,media=disk,format=raw -d cpu_reset
 
@@ -33,6 +36,7 @@ MakeImage:
 	dd if=$(BOOT2) of=$(OUTFILE) bs=512 seek=1
 	dd if=$(KERNEL) of=$(OUTFILE) bs=512 seek=5
 
+# Section : Clean
 clean:
 	rm $(OUTPUT_DIR)/*.sym
 	rm $(OUTPUT_DIR)/*.bin
