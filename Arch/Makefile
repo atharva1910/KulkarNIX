@@ -1,9 +1,8 @@
-arm64:
-	$(MAKE) -C arm64/ Bootloader
-#	$(MAKE) -C arm64/ HAL
+leg-i686:
+	$(MAKE) -C i686/ Legacy
 
-i686:
-	$(MAKE) -C i686/ Bootloader
+uefi-i686:
+	$(MAKE) -C i686/ UEFI
 
 clean:
 	$(MAKE) -C arm64/ clean

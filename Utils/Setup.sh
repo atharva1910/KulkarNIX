@@ -13,6 +13,9 @@ wget https://ftp.gnu.org/gnu/gcc/gcc-10.2.0/gcc-10.2.0.tar.gz
 sudo apt install base-devel
 sudo apt install gmp libmpc mpfr
 
+# UEFI
+sudo apt install ovmf binutils-mingw-w64 gcc-mingw-w64 xorriso mtools
+
 # Variables for cross compiling
 export PREFIX="$HOME/opt/cross"
 export TARGET=x86_64-elf
