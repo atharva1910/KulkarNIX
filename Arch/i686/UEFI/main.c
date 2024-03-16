@@ -10,7 +10,7 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     ST = SystemTable;
 
     /* Say hi */
-    Status = ST->ConOut->OutputString(ST->ConOut, L"Hello World\r\n"); // EFI Applications use Unicode and CRLF, a la Windows
+    Status = ST->ConOut->OutputString(ST->ConOut, L"Hello Atharva\r\n"); // EFI Applications use Unicode and CRLF, a la Windows
     if (EFI_ERROR(Status))
         return Status;
 

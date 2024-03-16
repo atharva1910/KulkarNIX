@@ -1,10 +1,11 @@
 *.bin
 *.img
-*.o
 *.sym
 *.a
 *.so
+*.o
 *.dump
+*.efi
 Build/*
 Bin/*
 .vscode
