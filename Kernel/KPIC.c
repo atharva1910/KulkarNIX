@@ -1,8 +1,31 @@
-#include "HAL/HAL.h"
-extern "C"{
-#include "Interrupts.h"
+#include "KPIC.h"
+
+typedef struct _PIC {
+}PIC, *PPIC;
+
+static PIC gPIC = {};
+
+PPIC AllocPIC()
+{
+    return &gPIC;
 }
 
+void InitPIC()
+{
+
+}
+
+void FreePIC()
+{
+}
+
+bool DoSomethingWithPic(PPIC pPic)
+{
+    // Maybe we want to protect with a lock?
+    return FALSE;
+}
+
+/*
 PIC::idt_entry PIC::IDT[] = {0};
 
 void PIC::LoadIDT(BYTE *idt)
@@ -49,16 +72,7 @@ void PIC::AddIDTEntry(uint8_t num, uintptr_t function)
   IDT[num].type_attr = 0x8e; // TODOTODOTODO this is temp
 }
 
- /*
-SetupInterrupts
-Description: This function sets up the IDT and Enables the Interrupts
-This function sets up 256 entries of IDT fills them with defined interrupts
-and fills the rest with Default IDT entry.
-Then loads the entry
 
-Arguments: None
-Return   : None
-*/
 void PIC::SetupInterrupts()
 {
   InitIDT();
@@ -67,12 +81,11 @@ void PIC::SetupInterrupts()
   LoadIDT(reinterpret_cast<BYTE *>(&_idtr));
 }
 
-/*
 Remap8059
 Description: This function remaps the interrupts of the 8059 PIC away from the processor interrupts (0x00 - 0x1F)
 Arguments : None
 Return    : None
-*/
+
 void PIC::Remap8259()
 {
 
@@ -80,4 +93,4 @@ void PIC::Remap8259()
 
 PIC::PIC() {}
 PIC::~PIC() {}
-
+*/

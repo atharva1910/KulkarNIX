@@ -1,5 +1,5 @@
-export BOOT=uefi-i686
-#export BOOT=leg-i686
+#export BOOT=arch
+export BOOT=i686
 export ARCH=i686
 export OUTPUT_DIR=$(CURDIR)/Bin
 export PUB_INC_DIR=$(CURDIR)/Inc
@@ -8,12 +8,12 @@ export UEFI_INC_DIR=$(CURDIR)/Inc/UEFI
 KERNEL=$(OUTPUT_DIR)/Kernel.bin
 OUTFILE=$(OUTPUT_DIR)/KulkarNIX.bin
 
-# Section : UEFI
-debug: UEFI Kernel MakeUEFI
+############################### Section : UEFI ###############################
+udebug: UEFI Kernel MakeUEFI
 	@echo "========== UEFI Debug Image =========="
 	qemu-system-x86_64 -s -S -bios /usr/share/ovmf/OVMF.fd -net none -drive format=raw,unit=0,file=$(OUTPUT_DIR)/UEFI.img
 
-release: UEFI Kernel MakeUEFI
+urelease: UEFI Kernel MakeUEFI
 	@echo "========== UEFI Release Image =========="
 	qemu-system-x86_64 -bios /usr/share/ovmf/OVMF.fd -net none -drive format=raw,unit=0,file=$(OUTPUT_DIR)/UEFI.img
 
@@ -49,20 +49,21 @@ MakeCleanup:
 	rm -rf $(OUTPUT_DIR)/FakeMount
 	sudo losetup -d /dev/loop42
 
-# Section : Legacy Bootloader
+############################### Section : BIOS ###############################
+
 BOOT1=$(OUTPUT_DIR)/IStageBootloader.bin
 BOOT2=$(OUTPUT_DIR)/IIStageBootloader.bin
 
-ldebug: BIOS Kernel MakeLegacy
+debug: BIOS Kernel MakeLegacy
 	@echo "========== Debug Image =========="
 	qemu-system-x86_64 -s -S -drive file=$(OUTFILE),index=0,media=disk,format=raw -d cpu_reset
 
-lrelease: BIOS Kernel MakeLegacy
+release: BIOS Kernel MakeLegacy
 	@echo "========== Release Image =========="
 	qemu-system-x86_64 -drive file=$(OUTFILE),index=0,media=disk,format=raw -d cpu_reset
 
 BIOS:
-	$(MAKE) -C Arch/
+	$(MAKE) -C Arch/ $(ARCH)
 
 MakeLegacy:
 	dd if=$(BOOT1) of=$(OUTFILE) bs=512 seek=0
@@ -77,7 +78,7 @@ KLibs:
 Kernel:
 	$(MAKE) -C Kernel/ all
 
-# Section : Clean
+############################### Section : Clean ###############################
 clean:
 	-rm $(OUTPUT_DIR)/*.sym
 	-rm $(OUTPUT_DIR)/*.bin

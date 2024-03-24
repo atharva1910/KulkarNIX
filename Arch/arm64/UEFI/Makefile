@@ -8,7 +8,7 @@ INCLUDES = -I$(UEFI_INC_DIR) -I$(UEFI_INC_DIR)/x86_64 -I$(UEFI_INC_DIR)/protocol
 
 all: data.o main.o
 	@echo "========== Building UEFI Bootloader =========="
-	$(LD) $(LDFLAGS) -Wl,-dll -shared -Wl,--subsystem,10 -e efi_main -o $(OUTPUT_DIR)/BOOTX64.EFI main.o data.o
+	$(LD) $(LDFLAGS) -Wl,-dll -shared -Wl,--subsystem,10 -e efi_main -o $(OUTPUT_DIR)/BOOTx64.EFI main.o data.o
 
 data.o:
 	$(CC) $(CCFLAGS) $(INCLUDES) -c -o data.o data.c

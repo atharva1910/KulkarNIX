@@ -1,29 +1,18 @@
-ASMCC    = i686-elf-as
-CC	 	 = i686-elf-g++
-CCFLAGS  = -ffreestanding -O2 -Wall -Wextra 
-LDFLAGS  = -ffreestanding -nostdlib 
-LDFILE   = linker.ld
-INCLUDES = -I../Common -I../Include/
-LIBLOC   = ../Lib/HAL
+AR = i686-elf-ar
+CC = i686-elf-gcc
+CCFLAGS = -ffreestanding -fno-exceptions -O2 -g
+LDFLAGS = -ffreestanding -nostdlib
+LDFILE  = linker.ld
+INCLUDES = -I$(ARCH_INC_DIR) -I$(PUB_INC_DIR)
 
 
-# IDT static library
-LibIDT: PIC.o x86.o Paging.o
-	ar rcs $(LIBLOC)/KLibHAL.a $^ Interrupts.o 
+all: x86.o
+	@echo "========== Building $(ARCH) HAL =========="
+	$(AR) rcs $(OUTPUT_DIR)/li686HAL.a $^
+	objcopy --only-keep-debug li686HAL.a $(OUTPUT_DIR)/li686HAL.sym
 
-PIC.o: 
-	$(CC) -c PIC.cpp $(CCFLAGS) $(INCLUDES) -o PIC.o
-	$(CC) -c Interrupts.cpp $(CCFLAGS) $(INCLUDES) -o Interrupts.o
-
-x86.o:
-	$(CC) -c x86.cpp $(CCFLAGS) $(INCLUDES) -o  x86.o
-
-Paging.o:
-	$(CC) -c Paging.cpp $(CCFLAGS) $(INCLUDES) -o Paging.o
+x86.o: x86.c
+	$(CC) -c x86.c $(CCFLAGS) $(INCLUDES)
 
 clean:
-	rm -f *.o
-	rm -f *.bin
-	rm -f *.img
-	rm -f *.a
-	rm -f *.so
+	-rm -f *.o *.bin *.img *.a

@@ -6,7 +6,7 @@ LDFILE  = linker.ld
 INCLUDES = -I$(ARCH_INC_DIR) -I$(PUB_INC_DIR) -I$(KERN_DIR)
 
 
-all: KEntry.o KPrint.o
+all: KEntry.o KPrint.o PIC.o
 	@echo "========== Building Kernel =========="
 	$(CC) -T $(LDFILE) -o $(OUTPUT_DIR)/Kernel.bin $(LDFLAGS) $^ -lgcc
 	objcopy --only-keep-debug $(OUTPUT_DIR)/Kernel.bin $(OUTPUT_DIR)/Kernel.sym
@@ -17,5 +17,8 @@ KEntry.o: KEntry.c
 KPrint.o: KPrint.c
 	$(CC) -c KPrint.c $(CCFLAGS) $(INCLUDES)
 
+KPIC.o: KPIC.c
+	$(CC) -c KPIC.c $(CCFLAGS) $(INCLUDES)
+
 clean:
-	rm -f *.o *.bin *.img
+	-rm -f *.o *.bin *.img

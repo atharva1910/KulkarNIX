@@ -1,4 +1,4 @@
-#include <KEntry.h>
+#include "KInclude.h"
 
 __asm__(
     /* Set up the global function __start */
@@ -32,47 +32,15 @@ __asm__(
     ".section .text\n"
 );
 
-static inline void
-PrintChar(char c, byte bg_color, uint32_t pos)
-{
-    char *address = (char *)0xB8000 + pos * 2;
-
-    address[1] = bg_color;
-    address[0] = c;
-}
-
-static void
-PrintString(const char *string)
-{
-    char c = 0;
-    uint32_t pos = 0;
-
-    /* Print string to screen */
-    while((c = string[pos]) != '\0') {
-        PrintChar(c, 0x07, pos++);
-    }
-
-}
-
-#if 0
 void
 InitInterrupts()
 {
-    PIC pic;
-    //pic.Remap8259();
-    pic.SetupInterrupts();
-    HAL::EnableInterrupts();
+    PPIC pPic = AllocPIC();
 }
-
-void
-SetupPaging()
-{
-    SetupX86Paging();
-}
-#endif
 
 void KMain()
 {
-    KPrint(KVERB, "abc 0x%x def", 42);
+    KPrint(KVERB,"TEST:");
+    InitInterrupts();
     asm("hlt");
 }
