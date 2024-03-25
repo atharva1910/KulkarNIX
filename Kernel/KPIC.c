@@ -1,25 +1,38 @@
 #include "KPIC.h"
+#include <x86.h>
+
+#define PIC1      0x20
+#define PIC1_CMD  PIC1
+#define PIC1_DATA (PIC1 + 1)
+
+#define PIC2      0xA0
+#define PIC2_CMD  PIC2
+#define PIC2_DATA (PIC2 + 1)
 
 typedef struct _PIC {
 }PIC, *PPIC;
 
 static PIC gPIC = {};
 
-PPIC AllocPIC()
-{
-    return &gPIC;
-}
-
 void InitPIC()
 {
+    /*
+     * ICW1: ((1 << 4) | 1)
+     * IC4  : 1 : ICW4 is needed
+     * SNGL : 0 : Cascade mode
+     * ADI  : 0 : Vector address interval is 4
+     * LTIM : 0 : Level Triggered
+     * RESV : 1 : Reserved
+     * A5 - A7 : 0 : Not applicable
+     * A0   : 0 : Reserved
+     */
+    outb(PIC1_CMD, ((1 << 4) | 1));
+    outb(PIC2_CMD, ((1 << 4) | 1));
+
 
 }
 
-void FreePIC()
-{
-}
-
-bool DoSomethingWithPic(PPIC pPic)
+bool DoSomethingWithPic()
 {
     // Maybe we want to protect with a lock?
     return FALSE;

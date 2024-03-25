@@ -1,8 +1,13 @@
 #pragma once
 #include "typedefs.h"
 
-struct _PIC;
-typedef struct _PIC PIC, *PPIC;
+/*
+InitPIC
 
-PPIC AllocPIC();
-void FreePIC();
+Description:
+  Intializes the master and slave 8259A PIC in cascade mode
+
+Arguments:
+  None
+*/
+void InitPIC();
