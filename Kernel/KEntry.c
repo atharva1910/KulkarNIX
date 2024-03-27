@@ -35,7 +35,6 @@ __asm__(
 void
 InitInterrupts()
 {
-    PPIC pPic = AllocPIC();
 }
 
 void KMain()

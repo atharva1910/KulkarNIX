@@ -64,7 +64,7 @@ DisablePIC()
 }
 
 void
-MaskIntr(uint32 intrLine)
+MaskIntr(uint32_t intrLine)
 {
 
 }

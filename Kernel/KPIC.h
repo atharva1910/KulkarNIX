@@ -37,4 +37,4 @@ Description:
 Arguments:
   intrLine : Interrupt line to be mased
 */
-void MaskIntr(uint32 intrLine);
+void MaskIntr(uint32_t intrLine);
