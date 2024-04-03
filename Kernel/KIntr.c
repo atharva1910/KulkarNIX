@@ -19,7 +19,6 @@ typedef struct _INTR_GATE {
 }INTR_GATE, *PINTR_GATE;
 INTR_GATE InterruptTable[256];
 
-
 void
 AddInterrupts(uint8_t idx, uint32_t address)
 {
@@ -42,4 +41,17 @@ InitInterrupts()
     /* Setup Exceptions and interrupts */
 
     /* Load IDTR */
+    HAL_LoadIDT(&idtr);
+}
+
+void
+DisableInterrupts()
+{
+    HAL_EnableInterrupts();
+}
+
+void
+EnableInterrupts()
+{
+    HAL_EnableInterrupts();
 }

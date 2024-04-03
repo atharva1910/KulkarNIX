@@ -53,6 +53,7 @@ SetupPagingAsm:
 DummyJmp:
     ret
 
+    .text
     .global LoadGDTAsm
 LoadGDTAsm:
     pusha

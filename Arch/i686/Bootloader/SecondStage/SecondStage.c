@@ -57,18 +57,18 @@ PrintString(const char *string)
 
 void AtaDiskWait()
 {
-    while((inb(0x1F7) & 0xC0) != 0x40);
+    while((HAL_inb(0x1F7) & 0xC0) != 0x40);
 }
 
 void ReadSector(uint32_t sector)
 {
     AtaDiskWait(); // wait BSY to 0 and RDY to 1
-    outb(0x1F6, sector >> 24 | 0xE0);// Master drive
-    outb(0x1F2, 1); // Read one sector
-    outb(0x1F3, sector);
-    outb(0x1F4, sector >> 8);
-    outb(0x1F5, sector >> 16);
-    outb(0x1F7, 0x20); // Make a read call
+    HAL_outb(0x1F6, sector >> 24 | 0xE0);// Master drive
+    HAL_outb(0x1F2, 1); // Read one sector
+    HAL_outb(0x1F3, sector);
+    HAL_outb(0x1F4, sector >> 8);
+    HAL_outb(0x1F5, sector >> 16);
+    HAL_outb(0x1F7, 0x20); // Make a read call
 }
 
 /*
@@ -98,7 +98,7 @@ ReadProgHeader(uint32_t addr, uint32_t filesz, uint32_t offset)
     for(; addr < end_segment; sect++){
         ReadSector(sect);
         AtaDiskWait();
-        insw(0x1F0, (byte *)addr, 512/2);
+        HAL_insw(0x1F0, (byte *)addr, 512/2);
         addr += SECTOR_SIZE;
     }
 }
@@ -113,7 +113,7 @@ ELF_HEADER *ReadElfHeader()
     /* Read the first sector */
     ReadSector(start_sector);
     AtaDiskWait();
-    insw(0x1F0, (byte *)elf_head, 512/2);
+    HAL_insw(0x1F0, (byte *)elf_head, 512/2);
 
     /* Confirm its an elf header */
     if(elf_head->ei_magic != ELF_MAGIC){

@@ -19,8 +19,8 @@ void InitPIC()
      * RESV : 1 : Reserved
      * A5 - A7 : 0 : Not applicable
      */
-    outb(PIC1_CMD, ((1 << 4) | 1));
-    outb(PIC2_CMD, ((1 << 4) | 1));
+    HAL_outb(PIC1_CMD, ((1 << 4) | 1));
+    HAL_outb(PIC2_CMD, ((1 << 4) | 1));
 
     /*
      * ICW2:
@@ -30,8 +30,8 @@ void InitPIC()
      * Master will start at Interrupt vector 32 (0x20)
      * Slave will start at Interrupt vector 40 (0x28)
      */
-    outb(PIC1_DATA, 0x20);
-    outb(PIC2_DATA, 0x28);
+    HAL_outb(PIC1_DATA, 0x20);
+    HAL_outb(PIC2_DATA, 0x28);
 
     /*
      * ICW3:
@@ -42,8 +42,8 @@ void InitPIC()
      * Slave  :
      * Will have the ID 0x2
      */
-    outb(PIC1_DATA, (1 << 2));
-    outb(PIC2_DATA, (1 << 1));
+    HAL_outb(PIC1_DATA, (1 << 2));
+    HAL_outb(PIC2_DATA, (1 << 1));
 
     /*
      * ICW4:
@@ -51,16 +51,16 @@ void InitPIC()
      * D1 - D7 : 0 : Ignored (There is some meanings to this but we
      *                        ignore it for now)
      */
-    outb(PIC1_DATA, 1);
-    outb(PIC2_DATA, 1);
+    HAL_outb(PIC1_DATA, 1);
+    HAL_outb(PIC2_DATA, 1);
 
 }
 
 void
 DisablePIC()
 {
-    outb(PIC1_DATA, 0xff);
-    outb(PIC2_DATA, 0xff);
+    HAL_outb(PIC1_DATA, 0xff);
+    HAL_outb(PIC2_DATA, 0xff);
 }
 
 void
