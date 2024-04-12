@@ -32,14 +32,8 @@ __asm__(
     ".section .text\n"
 );
 
-void
-InitInterrupts()
-{
-}
-
 void KMain()
 {
     KPrint(KVERB,"TEST:");
-    InitInterrupts();
     asm("hlt");
 }

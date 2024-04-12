@@ -1,4 +1,7 @@
 #include "KIntr.h"
+#include "KInterrupts.c"
+
+extern void KInterrupt();
 
 typedef struct _IDTR {
     uint16_t IDTRSize;
@@ -39,9 +42,12 @@ InitInterrupts()
     idtr.IDTRSize = sizeof(InterruptTable);
 
     /* Setup Exceptions and interrupts */
+    for (int i = 0; i < 32; i++) {
+        AddInterrupts(i, (uint32_t)KInterrupt);
+    }
 
     /* Load IDTR */
-    HAL_LoadIDT(&idtr);
+    HAL_LoadIDT((byte *)&idtr);
 }
 
 void
