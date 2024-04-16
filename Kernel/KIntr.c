@@ -43,7 +43,7 @@ InitInterrupts()
 
     /* Setup Exceptions and interrupts */
     for (int i = 0; i < 32; i++) {
-        AddInterrupts(i, (uint32_t)KInterrupt);
+        AddInterrupts(i, (uint32_t)KInterrupt1);
     }
 
     /* Load IDTR */
