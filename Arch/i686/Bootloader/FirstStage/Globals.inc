@@ -7,11 +7,12 @@
 %define IISTAGE_ADDRESS 0500h
 %define IISTAGE_SECTORS 4
 %define SECTOR_SIZE     0200h
-%define MMAP_ADDRESS    0D00h
+%define MMAP_ADDRESS    7E00h
 
 boot_drive:  db 0
 WelcomeMessage: db "Welcome to KulkarNix",0
 KernelReadFailStr:    db "Error while reading the second sector", 0
+MemMapFail: db "Failed to read Memory map"
 
 %macro NULLGDT_ENTRY 0
     ;; Yea yea could have been done better

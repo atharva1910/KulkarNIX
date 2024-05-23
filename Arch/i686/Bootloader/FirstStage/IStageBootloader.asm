@@ -130,6 +130,7 @@ SwitchToPMode:
     hlt
     ret
 
+
 %if DEBUG
 PrintInitMessage:
     mov     si, WelcomeMessage

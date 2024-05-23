@@ -260,21 +260,12 @@ SetupKernelPaging()
     SetupPagingAsm();
 }
 
-void
-GetMemoryMap()
-{
-
-}
-
 void SecondStageMain(uint32_t mmapAddr)
 {
     uint32_t kEntry = 0;
 
     /* Setup Paging first for correct offset translation of kernel */
     SetupKernelPaging();
-
-    /* Get Memory Map */
-    GetMemoryMap();
 
     /* Read kernel now that paging is setup */
     if((kEntry = ReadKernel()) == NULL) {

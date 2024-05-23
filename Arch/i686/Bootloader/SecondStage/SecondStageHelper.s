@@ -49,7 +49,6 @@ SetupPagingAsm:
 
     # Need to jump to enable paging
     jmp DummyJmp
-
 DummyJmp:
     ret
 

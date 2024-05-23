@@ -7,7 +7,7 @@ INCLUDES = -I$(ARCH_INC_DIR) -I$(PUB_INC_DIR) -I$(KERN_DIR)
 LINKS = $(OUTPUT_DIR)/li686HAL.a
 
 
-all: KEntry.o KPrint.o KPIC.o KIntr.o
+all: KEntry.o KPrint.o 
 	@echo "========== Building Kernel =========="
 	$(CC) -T $(LDFILE) -o $(OUTPUT_DIR)/Kernel.bin $(LDFLAGS) $^ $(LINKS)
 	objcopy --only-keep-debug $(OUTPUT_DIR)/Kernel.bin $(OUTPUT_DIR)/Kernel.sym

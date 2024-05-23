@@ -3,6 +3,7 @@ GetMemMap:
     ;; will be passed as a parameter to the kernel
     pusha
     xor ebx, ebx                ;the first call
+    xor esi, esi
     mov edi, MMAP_ADDRESS       ;dest address
 .loop:
     xor eax, eax
@@ -21,7 +22,7 @@ GetMemMap:
     add di, 24                  ;point to next location
     jmp .loop
 .failed:
-    ;; Print something?
+    hlt
     stc
 .end:
     popa

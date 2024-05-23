@@ -1,1 +1,0 @@
-%define MMAP_ADDRESS  09000h
