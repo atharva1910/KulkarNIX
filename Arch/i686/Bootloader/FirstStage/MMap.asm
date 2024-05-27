@@ -13,12 +13,13 @@ GetMemMap:
     int 15h                     ;call interrupt 15
 
     jc  .failed
-    cmp eax, edx                ;eax is set to SMAP after interrupt
-    jne .failed
-
     test ebx, ebx               ;exit condition, ebx = 0
     je  .end
 
+    cmp cx, 24
+    je .next
+    mov [edi + 20], dword 1
+.next:
     add di, 24                  ;point to next location
     jmp .loop
 .failed:
@@ -27,5 +28,3 @@ GetMemMap:
 .end:
     popa
     ret
-
-mmap_count: dd 0

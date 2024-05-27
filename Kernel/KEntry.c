@@ -32,8 +32,22 @@ __asm__(
     ".section .text\n"
 );
 
+typedef struct _MMapEntry {
+    uint32_t addr_low;
+    uint32_t addr_high;
+    uint32_t len_low;
+    uint32_t len_high;            
+    uint32_t type;
+    uint32_t acpi;    
+}MMapEntry, *PMMapEntry;
+
 void KMain()
 {
+    PMMapEntry head = (PMMapEntry)0x7E00;
+    for (int i = 0; i < 10; i++) {
+        KPrint(KVERB, "[%d] Address: 0x%x Length: 0x%x", i, head->addr_low, head->len_low);
+        head++;
+    }
     KPrint(KVERB,"TEST:");
     asm("hlt");
 }
