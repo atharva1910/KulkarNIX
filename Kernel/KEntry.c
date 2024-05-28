@@ -43,9 +43,11 @@ typedef struct _MMapEntry {
 
 void KMain()
 {
-    PMMapEntry head = (PMMapEntry)0x7E00;
-    for (int i = 0; i < 10; i++) {
-        KPrint(KVERB, "[%d] Address: 0x%x Length: 0x%x", i, head->addr_low, head->len_low);
+    uint32_t num_segments = (uint32_t)(*(uint32_t *)0x7E00);
+    KPrint(KINFO, "%d", num_segments);
+    PMMapEntry head = (PMMapEntry)0x7E10;
+    for (int i = 0; i < num_segments; i++) {
+        KPrint(KVERB, "[%d] Address Low: 0x%x  Address High: 0x%x Length: 0x%x", i, head->addr_low, head->addr_high, head->len_low);
         head++;
     }
     KPrint(KVERB,"TEST:");

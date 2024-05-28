@@ -3,8 +3,11 @@ GetMemMap:
     ;; will be passed as a parameter to the kernel
     pusha
     xor ebx, ebx                ;the first call
+    xor edx, edx                
+    
     xor esi, esi
     mov edi, MMAP_ADDRESS       ;dest address
+    add edi, 16                 ;First 16bytes will store the counter
 .loop:
     xor eax, eax
     mov eax, 0E820h             ;function
@@ -16,11 +19,17 @@ GetMemMap:
     test ebx, ebx               ;exit condition, ebx = 0
     je  .end
 
-    cmp cx, 24
+    test cx, cx                 ;Empty entry
+    je .loop
+    
+    cmp cx, 24                  ;ACPI comp
     je .next
-    mov [edi + 20], dword 1
+    mov [edi + 20], dword 1     ;Dummy ACPI
 .next:
     add di, 24                  ;point to next location
+    mov eax, [MMAP_ADDRESS]
+    inc eax
+    mov [MMAP_ADDRESS], eax
     jmp .loop
 .failed:
     hlt
@@ -28,3 +37,4 @@ GetMemMap:
 .end:
     popa
     ret
+    
