@@ -1,4 +1,6 @@
 *.bin
+*.elf
+*.pdb
 *.img
 *.sym
 *.a
@@ -9,3 +11,5 @@
 Build/*
 Bin/*
 .vscode
+.zig-cache
+zig-out
