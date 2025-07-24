@@ -41,7 +41,7 @@ pub fn SetupPaging(kAddr: [*]u8) uefi.Status {
         pt[i] = @intFromPtr(kAddr) + (i << 12) | 0x3;
     }
 
-    serial.write("Mapped Kernel from {*} to 0x{x}. PML4 Base {*}\r\n", .{ kAddr, kCompAddr, pml4.? });
+    //serial.write("Mapped Kernel from {*} to 0x{x}. PML4 Base {*}\r\n", .{ kAddr, kCompAddr, pml4.? });
     return sRet;
 }
 
@@ -69,6 +69,66 @@ pub fn DumpPageMap() void {
         return;
     }
     DumpTable(pml4.?, 0);
+}
+
+pub fn identity_map_pages(page_addr: [*]align(4096) u8, num_pages: usize) uefi.Status {
+    var sRet: uefi.Status = status.load_error;
+    if ((@intFromPtr(page_addr) & @as(u64, 0xFFF)) != 0) {
+        serial.write("Wrong alignment for page {*}", .{page_addr});
+        return sRet;
+    }
+
+    var addr = @intFromPtr(page_addr);
+    for (0..num_pages) |_| {
+        sRet = identity_map_page(addr);
+        addr += 0x1000;
+        if (sRet != status.success) return sRet;
+    }
+
+    return sRet;
+}
+
+fn identity_map_page(addr: usize) uefi.Status {
+    var sRet: uefi.Status = status.load_error;
+    var page: [*]align(4096) u64 = undefined;
+    var table: [*]align(4096) u64 = undefined;
+    if (pml4 == null) {
+        serial.write("Base page table pml4 not allocated\r\n", .{});
+        return sRet;
+    }
+
+    const pml4_idx = (addr >> 39) & maxInt(u9);
+    const pdpt_idx = (addr >> 30) & maxInt(u9);
+    const pdt_idx = (addr >> 21) & maxInt(u9);
+    const pt_idx = (addr >> 12) & maxInt(u9);
+
+    if (pml4_idx != 0) {
+        serial.write("pml4 idx {}\r\n", .{pml4_idx});
+        return sRet;
+    } else {
+        table = @ptrFromInt(pml4.?[pml4_idx] & ~@as(u64, 0x3));
+    }
+
+    if (table[pdpt_idx] == 0) {
+        sRet = mem.alloc_pages(1, @ptrCast(&page));
+        @memset(page[0..512], 0);
+        table[pdpt_idx] = @intFromPtr(page) | 0x3;
+        table = page;
+    } else {
+        table = @ptrFromInt(table[pdpt_idx] & ~@as(u64, 0x3));
+    }
+
+    if (table[pdt_idx] == 0) {
+        sRet = mem.alloc_pages(1, @ptrCast(&page));
+        @memset(page[0..512], 0);
+        table[pdt_idx] = @intFromPtr(page) | 0x3;
+        table = page;
+    } else {
+        table = @ptrFromInt(table[pdt_idx] & ~@as(u64, 0x3));
+    }
+
+    table[pt_idx] = addr | 0x3;
+    return status.success;
 }
 
 pub fn IdentityMapImage(addr: [*]u8, size: usize) uefi.Status {

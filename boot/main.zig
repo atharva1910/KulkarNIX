@@ -8,9 +8,10 @@ const paging = @import("paging.zig");
 const serial = @import("serial.zig");
 const MemoryDescriptor = @import("std").os.uefi.tables.MemoryDescriptor;
 const kCompAddr = 0x4000000000;
+
 pub var boot_services: *uefi.tables.BootServices = undefined;
-//pub const pageRoot: paging.pml4 = undefined;
 var loaded_img: *uefi.protocol.LoadedImage = undefined;
+var gop: *uefi.protocol.GraphicsOutput = undefined;
 
 fn stall(ms: u64) void {
     _ = uefi.system_table.boot_services.?.stall(ms);
@@ -83,13 +84,47 @@ fn ReadKernel(pages: [*]u8) ?u64 {
             (buf_size < p_phdr[i].p_filesz))
         {
             break;
-        } else {
-            serial.write("phdr[{}] addr {s} size 0x{x}\r\n", .{ i, &pages[buf_idx], p_phdr[i].p_filesz });
+            //} else {
+            //  serial.write("phdr[{}] addr {s} size 0x{x}\r\n", .{ i, &pages[buf_idx], p_phdr[i].p_filesz });
         }
     }
 
-    serial.write("Kernel loaded into memory at {*} entry 0x{x}!\r\n", .{ pages, retAddr.? });
     return retAddr;
+}
+
+fn init_gop() uefi.Status {
+    var sRet: uefi.Status = undefined;
+
+    sRet = boot_services.locateProtocol(&uefi.protocol.GraphicsOutput.guid, null, @ptrCast(&gop));
+    if (sRet != status.success) {
+        serial.write("Failed to load Graphics Output protocol {}\r\n", .{sRet});
+        return sRet;
+    }
+
+    var smode: u32 = undefined;
+    for (0..gop.mode.max_mode) |i| {
+        var info_size: usize = undefined;
+        var info: *uefi.protocol.GraphicsOutput.Mode.Info = undefined;
+        const mode: u32 = @intCast(i);
+        sRet = gop.queryMode(mode, &info_size, &info);
+        if (sRet != status.success) {
+            serial.write("Failed to query gop mode {} status: {}\r\n", .{ i, sRet });
+            continue;
+        }
+
+        if (info.horizontal_resolution == 800 and info.vertical_resolution == 600) {
+            smode = mode;
+            serial.write("Setting GOP mode {} {}x{}\r\n", .{ i, info.horizontal_resolution, info.vertical_resolution });
+            break;
+        }
+    }
+
+    sRet = gop.setMode(smode);
+    if (sRet != status.success) {
+        serial.write("Failed to set GOP mode{}\r\n", .{smode});
+    }
+
+    return sRet;
 }
 
 pub fn main() void {
@@ -127,13 +162,18 @@ pub fn main() void {
         stall(0xFFFFFFFFFFFFFFFF);
     }
 
+    if (status.success != init_gop()) {
+        serial.write("Failed to init gop\r\n", .{});
+        stall(0xFFFFFFFFFFFFFFFF);
+    }
+
     if (status.success != boot_services.setWatchdogTimer(0, 0, 0, null)) {
         serial.write("Failed to disable watchdog timer\r\n", .{});
         stall(0xFFFFFFFFFFFFFFFF);
     }
 
     var size: usize = 0;
-    var mmap: [*]MemoryDescriptor = undefined;
+    var mmap: [*]align(4096) MemoryDescriptor = undefined;
     var key: usize = undefined;
     var descSize: usize = undefined;
     var descVer: u32 = undefined;
@@ -149,14 +189,19 @@ pub fn main() void {
         stall(0xFFFFFFFFFFFFFFFF);
     }
 
-    serial.write("Replacing Page Tables {*} and jumping to 0x{x}\r\n", .{ paging.pml4.?, entry.? });
     asm volatile (
         \\mov %[pml4], %%rax
         \\mov %%rax, %%cr3
+        \\mov %[mmap], %%r13
+        \\mov %[size], %%r14
+        \\mov %[desc_size], %%r15
         \\jmp *%[entry]
         :
         : [pml4] "r" (paging.pml4.?),
           [entry] "r" (entry.?),
+          [mmap] "r" (mmap),
+          [desc_size] "r" (descSize),
+          [size] "r" (size),
         : "rax"
     );
 }

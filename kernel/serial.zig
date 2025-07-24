@@ -1,39 +1,23 @@
 const COM1 = 0x3F8;
 const bufPrint = @import("std").fmt.bufPrint;
-
-fn outb(comptime p: u16, c: u8) void {
-    asm volatile (
-        \\ outb %%al, %[p]
-        :
-        : [c] "{al}" (c),
-          [p] "{dx}" (p),
-    );
-}
-
-fn inb(comptime p: u16) u8 {
-    return asm volatile (
-        \\ inb %[p], %[ret]
-        : [ret] "={al}" (-> u8),
-        : [p] "{dx}" (p),
-    );
-}
+const hal = @import("hal.zig");
 
 pub fn init() bool {
-    outb(COM1 + 1, 0x0);
-    outb(COM1 + 3, 0x80);
-    outb(COM1, 0x1);
-    outb(COM1 + 1, 0x0);
-    outb(COM1 + 3, 0x03);
-    outb(COM1 + 2, 0xC7);
-    outb(COM1 + 4, 0x08);
-    outb(COM1 + 4, 0x1E);
-    outb(COM1, 0xFF);
+    hal.outb(COM1 + 1, 0x0);
+    hal.outb(COM1 + 3, 0x80);
+    hal.outb(COM1, 0x1);
+    hal.outb(COM1 + 1, 0x0);
+    hal.outb(COM1 + 3, 0x03);
+    hal.outb(COM1 + 2, 0xC7);
+    hal.outb(COM1 + 4, 0x08);
+    hal.outb(COM1 + 4, 0x1E);
+    hal.outb(COM1, 0xFF);
 
-    if (inb(COM1) != 0xFF) {
+    if (hal.inb(COM1) != 0xFF) {
         return false;
     }
 
-    outb(COM1 + 4, 0x0F);
+    hal.outb(COM1 + 4, 0x0F);
     return true;
 }
 
@@ -44,12 +28,12 @@ pub fn write(comptime str: []const u8, args: anytype) void {
     };
 
     for (u8buf) |c| {
-        outb(COM1, c);
+        hal.outb(COM1, c);
     }
 }
 
 pub fn writestr(comptime str: []const u8) void {
     for (str) |c| {
-        outb(COM1, c);
+        hal.outb(COM1, c);
     }
 }
