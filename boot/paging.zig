@@ -88,7 +88,7 @@ pub fn identity_map_pages(page_addr: [*]align(4096) u8, num_pages: usize) uefi.S
     return sRet;
 }
 
-fn identity_map_page(addr: usize) uefi.Status {
+pub fn identity_map_page(addr: usize) uefi.Status {
     var sRet: uefi.Status = status.load_error;
     var page: [*]align(4096) u64 = undefined;
     var table: [*]align(4096) u64 = undefined;

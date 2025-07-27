@@ -6,6 +6,7 @@ const screen = @import("screen.zig");
 const mem = @import("memory.zig");
 const paging = @import("paging.zig");
 const serial = @import("serial.zig");
+const kargs = @import("kargs.zig").kargs;
 const MemoryDescriptor = @import("std").os.uefi.tables.MemoryDescriptor;
 const kCompAddr = 0x4000000000;
 
@@ -140,6 +141,10 @@ pub fn main() void {
         return;
     }
 
+    var args_page: *align(4096) kargs = undefined;
+    sRet = mem.alloc_pages(1, @ptrCast(&args_page));
+    if (status.success != sRet) return;
+
     var kernel: [*]align(4096) u8 = undefined;
     sRet = mem.alloc_pages(512, &kernel);
     if (status.success != sRet) return;
@@ -159,6 +164,12 @@ pub fn main() void {
     sRet = paging.IdentityMapImage(loaded_img.image_base, loaded_img.image_size);
     if (status.success != sRet) {
         serial.write("Failed to setup Identity Map Image\r\n", .{});
+        stall(0xFFFFFFFFFFFFFFFF);
+    }
+
+    sRet = paging.identity_map_page(@intFromPtr(args_page));
+    if (status.success != sRet) {
+        serial.write("Failed to Identity Map args\r\n", .{});
         stall(0xFFFFFFFFFFFFFFFF);
     }
 
@@ -184,24 +195,26 @@ pub fn main() void {
         }
     }
 
-    if (paging.pml4 == null) {
-        serial.write("NULL PML4\r\n", .{});
-        stall(0xFFFFFFFFFFFFFFFF);
-    }
+    //var args: *kargs = @ptrCast(args_page);
+    serial.write("Kernel Arguments at {*}\r\n", .{args_page});
+    args_page.kpaddr = @intFromPtr(kernel);
+    args_page.kvaddr = entry.?;
+    args_page.ksize = 0;
+    args_page.memory_map = @intFromPtr(mmap);
+    args_page.memory_map_size = size;
+    args_page.memory_map_dsize = descSize;
+
+    serial.write("Jumping to Kernel at 0x{x}\r\n", .{args_page.kvaddr});
 
     asm volatile (
         \\mov %[pml4], %%rax
         \\mov %%rax, %%cr3
-        \\mov %[mmap], %%r13
-        \\mov %[size], %%r14
-        \\mov %[desc_size], %%r15
+        \\mov %[args], %%r13
         \\jmp *%[entry]
         :
         : [pml4] "r" (paging.pml4.?),
           [entry] "r" (entry.?),
-          [mmap] "r" (mmap),
-          [desc_size] "r" (descSize),
-          [size] "r" (size),
+          [args] "r" (args_page),
         : "rax"
     );
 }

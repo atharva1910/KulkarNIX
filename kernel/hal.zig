@@ -20,3 +20,18 @@ pub fn hlt() void {
         \\hlt
     );
 }
+
+pub fn lgdt(pgdt: u64) void {
+    asm volatile (
+        \\lgdt (%%r13)
+        :
+        : [gdtr] "r13" (pgdt),
+    );
+}
+
+pub fn sgdt() u64 {
+    return asm volatile (
+        \\sgdt (%[ret])
+        : [ret] "={rax}" (-> u64),
+    );
+}

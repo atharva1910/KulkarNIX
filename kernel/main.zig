@@ -1,7 +1,10 @@
 const serial = @import("serial.zig");
 const pmem = @import("pmem.zig");
 const hal = @import("hal.zig");
-export var stack_bytes: [1024]u64 = undefined;
+const kargs = @import("kargs.zig").kargs;
+const gdt = @import("gdt.zig");
+
+export var stack_bytes: [16 * 1024]u8 = undefined;
 
 comptime {
     asm (
@@ -21,23 +24,19 @@ comptime {
 }
 
 export fn kmain() void {
-    var mmap: ?[*]align(4096) u8 = null;
-    var desc_size: usize = undefined;
-    var mmap_size: usize = undefined;
+    defer hal.hlt();
+    var args: ?*kargs = undefined;
     asm volatile (
-        \\movq %%r13, %[mmap]
-        \\movq %%r14, %[mmap_size]            
-        \\movq %%r15, %[desc_size]
-        : [mmap] "={r13}" (mmap),
-          [desc_size] "={r15}" (desc_size),
-          [mmap_size] "={r14}" (mmap_size),
+        \\movq %%r13, %[kargs]
+        : [kargs] "={r13}" (args),
     );
 
-    if (mmap == null) {
-        serial.write("NULL MEMORY MAP\n", .{});
-        hal.hlt();
+    if (args == null) {
+        serial.write("No Arguments\n", .{});
+        return;
     }
 
-    serial.write("Welcome to the kernel", .{});
-    pmem.init(mmap, mmap_size, desc_size);
+    serial.write("Welcome to the kernel. Kernel args {*}\n", .{args});
+    gdt.init();
+    pmem.init(@ptrFromInt(args.?.memory_map), args.?.memory_map_size, args.?.memory_map_dsize);
 }
