@@ -37,6 +37,6 @@ export fn kmain() void {
     }
 
     serial.write("Welcome to the kernel. Kernel args {*}\n", .{args});
-    gdt.init();
+    //gdt.init();
     pmem.init(@ptrFromInt(args.?.memory_map), args.?.memory_map_size, args.?.memory_map_dsize);
 }
