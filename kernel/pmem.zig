@@ -1,7 +1,7 @@
 const serial = @import("serial.zig");
 const MemoryDescriptor = @import("std").os.uefi.tables.MemoryDescriptor;
 const MemoryType = @import("std").os.uefi.tables.MemoryType;
-const paging = @import("paging.zig");
+//const paging = @import("paging.zig");
 var mmap: [*]align(4096) MemoryDescriptor = undefined;
 var dsize: usize = undefined;
 var msize: usize = undefined;
@@ -17,7 +17,7 @@ pub fn init(map: ?[*]align(4096) u8, mmap_size: usize, desc_size: usize) void {
     var num_pages: u64 = 0;
     traverse_map(&min_addr, &max_addr, &num_pages);
     serial.write("min_addr: 0x{x} max_addr: 0x{x} total_pages: 0x{x}\n", .{ min_addr, max_addr, num_pages });
-    paging.init(min_addr, max_addr, num_pages);
+    //paging.init(min_addr, max_addr, num_pages);
 }
 
 fn traverse_map(min_addr: *u64, max_addr: *u64, num_pages: *u64) void {
