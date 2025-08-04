@@ -22,7 +22,7 @@ pub fn init() bool {
 }
 
 pub fn write(comptime str: []const u8, args: anytype) void {
-    var u8buf: [256]u8 = [_]u8{0} ** 256;
+    var u8buf = [_]u8{0} ** 512;
     _ = bufPrint(u8buf[0..], str, args) catch {
         return;
     };

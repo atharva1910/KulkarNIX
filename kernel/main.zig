@@ -25,6 +25,8 @@ comptime {
 
 export fn kmain() void {
     defer hal.hlt();
+    hal.cli();
+    
     var args: ?*kargs = undefined;
     asm volatile (
         \\movq %%r13, %[kargs]
@@ -38,5 +40,7 @@ export fn kmain() void {
 
     serial.write("Welcome to the kernel. Kernel args {*}\n", .{args});
     gdt.init();
+    serial.write("GDT, initialized\\n", .{});
+    hal.hlt();
     //pmem.init(@ptrFromInt(args.?.memory_map), args.?.memory_map_size, args.?.memory_map_dsize);
 }

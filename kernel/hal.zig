@@ -35,3 +35,9 @@ pub fn sgdt() u64 {
         : [ret] "={rax}" (-> u64),
     );
 }
+
+pub fn cli() void {
+    asm volatile (
+        \\cli
+    );    
+}
