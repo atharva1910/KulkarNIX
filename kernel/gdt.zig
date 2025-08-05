@@ -14,19 +14,22 @@ const segment = packed struct {
     base_last: u8,
 
     fn print_size(seg: *segment) void {
-        serial.write("SEGMENT 0x{x}:{*}:\n\tlimit_low = 0x{x} -> {*} -> 0x{x}\n\tbase_low = 0x{x} -> {*} -> 0x{x}\n\tbase_mid = 0x{x} -> {*} -> 0x{x}\n\taccess = 0x{x} -> {*} -> 0x{x}\n\tlimit_high = 0x{x} -> {*} -> 0x{x}\n\tflags = 0x{x} -> {*} -> 0x{x}\n\tbase_last = 0x{x} -> {*} -> 0x{x}\n", .{            
-            @sizeOf(segment), seg,
-            @sizeOf(@TypeOf(seg.limit_low)),  &seg.limit_low,    seg.limit_low, 
-            @sizeOf(@TypeOf(seg.base_low)),   &seg.base_low,     seg.base_low,  
-            @sizeOf(@TypeOf(seg.base_mid)),   &seg.base_mid,     seg.base_mid,  
-            @sizeOf(@TypeOf(seg.access)),     &seg.access,       seg.access,    
-            @sizeOf(@TypeOf(seg.limit_high)), &seg.limit_high,   seg.limit_high,
-            @sizeOf(@TypeOf(seg.flags)),      &seg.flags,        seg.flags,     
-            @sizeOf(@TypeOf(seg.base_last)),  &seg.base_last,    seg.base_last, 
+        serial.write("SEGMENT 0x{x}:{*}:\n\tlimit_low = 0x{x} -> {*} -> 0x{x}\n\tbase_low = 0x{x} -> {*} -> 0x{x}\n\tbase_mid = 0x{x} -> {*} -> 0x{x}\n\taccess = 0x{x} -> {*} -> 0x{x}\n\tlimit_high = 0x{x} -> {*} -> 0x{x}\n\tflags = 0x{x} -> {*} -> 0x{x}\n\tbase_last = 0x{x} -> {*} -> 0x{x}\n", .{
+            @sizeOf(segment),                 seg,
+            @sizeOf(@TypeOf(seg.limit_low)),  &seg.limit_low,
+            seg.limit_low,                    @sizeOf(@TypeOf(seg.base_low)),
+            &seg.base_low,                    seg.base_low,
+            @sizeOf(@TypeOf(seg.base_mid)),   &seg.base_mid,
+            seg.base_mid,                     @sizeOf(@TypeOf(seg.access)),
+            &seg.access,                      seg.access,
+            @sizeOf(@TypeOf(seg.limit_high)), &seg.limit_high,
+            seg.limit_high,                   @sizeOf(@TypeOf(seg.flags)),
+            &seg.flags,                       seg.flags,
+            @sizeOf(@TypeOf(seg.base_last)),  &seg.base_last,
+            seg.base_last,
         });
     }
 
-        
     fn print_addr(seg: *segment) void {
         serial.write("SEGMENT:{*}:\n\tlimit_low = {*}\n\tbase_low = {*}\n\tbase_mid = {*}\n\taccess = {*}\n\tlimit_high = {*}\n\tflags = {*}\n\tbase_high = {*}\n\tbase_last = {*}\n", .{
             seg,
@@ -39,7 +42,7 @@ const segment = packed struct {
             &seg.base_last,
         });
     }
-        
+
     fn print(seg: *segment) void {
         serial.write("SEGMENT:{*}:\n\tlimit_low = 0x{x}\n\tbase_low = 0x{x}\n\tbase_mid = 0x{x}\n\taccess = 0x{x}\n\tlimit_high = 0x{x}\n\tflags = 0x{x}\n\tbase_high = 0x{x}\n\tbase_last = 0x{x}\n", .{
             seg,
@@ -65,8 +68,7 @@ const GDT = struct {
         }
     };
 
-
-    gdt: [NUM_SEG]segment,    
+    gdt: [NUM_SEG]segment,
     gdtr: GDTR,
 
     fn init() GDT {
@@ -104,30 +106,31 @@ const GDT = struct {
     fn reload_segments(self: *GDT) void {
         asm volatile (
             \\xor %%rax, %%rax
-    \\lea flush(%%rip), %%rax
-    \\pushw %[cs]            
-    \\pushq %%rax
-    \\lgdt %[gdtr]
-    \\lretq
-    \\flush:
-    \\movw %[ds], %%ax
-    \\movw %%ax, %%ds
-    \\movw %%ax, %%ss
-    \\movw %%ax, %%es
-    \\movw %%ax, %%fs
-    \\movw %%ax, %%gs
+            \\lea flush(%%rip), %%rax
+            \\push %[cs]            
+            \\push %%rax
+            \\lgdt %[gdtr]
+            \\lretq
+            \\flush:
+            \\movw %[ds], %%ax
+            \\movw %%ax, %%ds
+            \\movw %%ax, %%ss
+            \\movw %%ax, %%es
+            \\movw %%ax, %%fs
+            \\movw %%ax, %%gs
             :
             : [gdtr] "*p" (&self.gdtr),
-            [cs] "i" (CODE_SEG),
-            [ds] "i" (DATA_SEG),
-            : "stack", "rax"
+              [cs] "i" (CODE_SEG),
+              [ds] "i" (DATA_SEG),
+            : "memory", "rax", "rsp", "rbp"
         );
     }
 };
 
+var gdt: GDT = undefined;
 
 pub fn init() void {
-    var gdt = GDT.init();
+    gdt = GDT.init();
     gdt.fill_table();
     gdt.fill_gdtr_struct();
     gdt.reload_segments();
