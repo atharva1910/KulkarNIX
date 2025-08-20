@@ -155,24 +155,6 @@ pub fn main() void {
         stall(0xFFFFFFFFFFFFFFFF);
     }
 
-    sRet = paging.SetupPaging(kernel);
-    if (status.success != sRet) {
-        serial.write("Failed to setup Paging\r\n", .{});
-        stall(0xFFFFFFFFFFFFFFFF);
-    }
-
-    sRet = paging.IdentityMapImage(loaded_img.image_base, loaded_img.image_size);
-    if (status.success != sRet) {
-        serial.write("Failed to setup Identity Map Image\r\n", .{});
-        stall(0xFFFFFFFFFFFFFFFF);
-    }
-
-    sRet = paging.identity_map_page(@intFromPtr(args_page));
-    if (status.success != sRet) {
-        serial.write("Failed to Identity Map args\r\n", .{});
-        stall(0xFFFFFFFFFFFFFFFF);
-    }
-
     if (status.success != init_gop()) {
         serial.write("Failed to init gop\r\n", .{});
         stall(0xFFFFFFFFFFFFFFFF);
@@ -188,7 +170,39 @@ pub fn main() void {
     var key: usize = undefined;
     var descSize: usize = undefined;
     var descVer: u32 = undefined;
-    if (status.success == mem.get_memory_map(&size, &mmap, &key, &descSize, &descVer)) {
+    if (status.success != mem.GetMemoryMap(&size, &mmap, &key, &descSize, &descVer)) {
+        serial.write("Failed to get memory_map\r\n", .{});
+        stall(0xFFFFFFFFFFFFFFFF);
+    }
+
+    var cmap: [*]mem.clubbed_entry = undefined;
+    const num_entries = mem.ClubMmap(mmap, size, descSize, &cmap);
+    if (num_entries == 0) {
+        serial.write("Failed to club entries\r\n", .{});
+        stall(0xFFFFFFFFFFFFFFFF);
+    }
+
+    sRet = paging.MapUsableMemory(cmap, num_entries, kernel);
+    if (status.success != sRet) {
+        serial.write("Failed to map memory\r\n", .{});
+        stall(0xFFFFFFFFFFFFFFFF);
+    } else {
+        mem.free(@ptrCast(cmap));
+    }
+
+    sRet = paging.IdentityMapImage(loaded_img.image_base, loaded_img.image_size);
+    if (status.success != sRet) {
+        serial.write("Failed to setup Identity Map Image\r\n", .{});
+        stall(0xFFFFFFFFFFFFFFFF);
+    }
+
+    //sRet = paging.IdentityMapPage(@intFromPtr(args_page));
+    //if (status.success != sRet) {
+    //    serial.write("Failed to Identity Map args\r\n", .{});
+    //    stall(0xFFFFFFFFFFFFFFFF);
+    //}
+
+    if (status.success == mem.GetMemoryMap(&size, &mmap, &key, &descSize, &descVer)) {
         if (status.success != boot_services.exitBootServices(uefi.handle, key)) {
             serial.write("Exit boot services failed\r\n", .{});
             stall(0xFFFFFFFFFFFFFFFF);
@@ -196,13 +210,20 @@ pub fn main() void {
     }
 
     //var args: *kargs = @ptrCast(args_page);
-    serial.write("Kernel Arguments at {*}\r\n", .{args_page});
+    const vkargs = @intFromPtr(args_page) + paging.kMemAddr;
+    serial.write("Kernel Arguments at paddr: {*} vaddr: 0x{x}\r\n", .{
+        args_page,
+        vkargs,
+    });
     args_page.kpaddr = @intFromPtr(kernel);
     args_page.kvaddr = entry.?;
-    args_page.ksize = 0;
-    args_page.memory_map = @intFromPtr(mmap);
-    args_page.memory_map_size = size;
-    args_page.memory_map_dsize = descSize;
+    args_page.kmemory = paging.kMemAddr;
+    args_page.kvoffset = paging.kMemAddr;
+    args_page.ksize = 2 << 20;
+
+    //args_page.memory_map = @intFromPtr(mmap);
+    //args_page.memory_map_size = size;
+    //args_page.memory_map_dsize = descSize;
 
     serial.write("Jumping to Kernel at 0x{x}\r\n", .{args_page.kvaddr});
 
@@ -214,7 +235,7 @@ pub fn main() void {
         :
         : [pml4] "r" (paging.pml4.?),
           [entry] "r" (entry.?),
-          [args] "r" (args_page),
+          [args] "r" (vkargs),
         : "rax"
     );
 }
