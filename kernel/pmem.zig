@@ -1,30 +1,29 @@
 const serial = @import("serial.zig");
 const MemoryDescriptor = @import("std").os.uefi.tables.MemoryDescriptor;
 const MemoryType = @import("std").os.uefi.tables.MemoryType;
-const paging = @import("paging.zig");
-var mmap: [*]align(4096) MemoryDescriptor = undefined;
+//const paging = @import("paging.zig");
+var MemMapBitVec: []u8 = undefined;
+var mmap: [*]MemoryDescriptor = undefined;
 var dsize: usize = undefined;
 var msize: usize = undefined;
 
-const traversed_map = struct {
-    min_addr: u64,
-    num_pages: u64,
-    total_pages: u64,
-    total_blocks: u64,
-};
+pub fn Init(map: ?[*]MemoryDescriptor, mmapSize: usize, descSize: usize, totalPages: usize) void {
+    mmap = map.?;
+    dsize = descSize;
+    msize = mmapSize;
 
-pub fn init(map: ?[*]align(4096) u8, mmap_size: usize, desc_size: usize) void {
-    mmap = @ptrCast(map.?);
-    dsize = desc_size;
-    msize = mmap_size;
-    serial.write("memory map 0x{x} 0x{x} 0x{x}\n", .{ @intFromPtr(mmap), msize, desc_size });
+    // 1bit = 1 Page ->  1Byte = 8 Pages
+    const bytes4mem = totalPages >> 3;
+    const p4mem = bytes4mem >> 12;
+    serial.write("memory map {*} totalPages 0x{x} bytes 0x{x} p4mem 0x{x}\n", .{ mmap, totalPages, bytes4mem, p4mem });
 
-    const tmap = traverse_map();
-    serial.write("min_addr: 0x{x} total_pages: 0x{x}\n", .{ tmap.min_addr, tmap.total_pages });
-    paging.init_kernel_pages(tmap.min_addr, tmap.total_pages);
+    // Now we need to find a big enough "hole" in the memory map where we can fit this mem map bit fields
+    // For qemu I know that the first 0xa0 pages are free and valid so thats what we will use
+    var pMemMapBitVec: [*]u8 = @ptrFromInt(0x4040000000);
+    MemMapBitVec = pMemMapBitVec[0..bytes4mem];
 }
 
-fn traverse_map() traversed_map {
+fn traverse_map(mmap: [*]align(4096) MemoryDescriptor, msize: usize, dsize: usize) traversed_map {
     var tmap: traversed_map = .{
         .min_addr = 0,
         .num_pages = 0,
@@ -32,7 +31,7 @@ fn traverse_map() traversed_map {
         .total_blocks = 0,
     };
     var itr: *MemoryDescriptor = @ptrCast(mmap);
-    var clubbed: *MemoryDescriptor = itr;
+    var clubbed: MemoryDescriptor = itr.*;
     const num_desc: usize = msize / dsize;
     var idx: usize = 0;
 
@@ -60,9 +59,10 @@ fn traverse_map() traversed_map {
             clubbed.number_of_pages += itr.number_of_pages;
         } else {
             serial.write("pstart: 0x{x} num_pages: 0x{x} \n", .{ clubbed.physical_start, clubbed.number_of_pages });
-            clubbed = itr;
+            clubbed = itr.*;
         }
     }
 
+    serial.write("total_pages 0x{x}\n", .{tmap.total_pages});
     return tmap;
 }

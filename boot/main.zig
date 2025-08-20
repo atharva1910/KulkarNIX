@@ -141,8 +141,8 @@ pub fn main() void {
         return;
     }
 
-    var args_page: *align(4096) kargs = undefined;
-    sRet = mem.alloc_pages(1, @ptrCast(&args_page));
+    var argsPage: *align(4096) kargs = undefined;
+    sRet = mem.alloc_pages(1, @ptrCast(&argsPage));
     if (status.success != sRet) return;
 
     var kernel: [*]align(4096) u8 = undefined;
@@ -165,18 +165,18 @@ pub fn main() void {
         stall(0xFFFFFFFFFFFFFFFF);
     }
 
-    var size: usize = 0;
+    var mmapSize: usize = 0;
     var mmap: [*]align(4096) MemoryDescriptor = undefined;
     var key: usize = undefined;
     var descSize: usize = undefined;
     var descVer: u32 = undefined;
-    if (status.success != mem.GetMemoryMap(&size, &mmap, &key, &descSize, &descVer)) {
+    if (status.success != mem.GetMemoryMap(&mmapSize, &mmap, &key, &descSize, &descVer)) {
         serial.write("Failed to get memory_map\r\n", .{});
         stall(0xFFFFFFFFFFFFFFFF);
     }
 
     var cmap: [*]mem.clubbed_entry = undefined;
-    const num_entries = mem.ClubMmap(mmap, size, descSize, &cmap);
+    const num_entries = mem.ClubMmap(mmap, mmapSize, descSize, &cmap);
     if (num_entries == 0) {
         serial.write("Failed to club entries\r\n", .{});
         stall(0xFFFFFFFFFFFFFFFF);
@@ -196,36 +196,33 @@ pub fn main() void {
         stall(0xFFFFFFFFFFFFFFFF);
     }
 
-    //sRet = paging.IdentityMapPage(@intFromPtr(args_page));
-    //if (status.success != sRet) {
-    //    serial.write("Failed to Identity Map args\r\n", .{});
-    //    stall(0xFFFFFFFFFFFFFFFF);
-    //}
-
-    if (status.success == mem.GetMemoryMap(&size, &mmap, &key, &descSize, &descVer)) {
+    if (status.success == mem.GetMemoryMap(&mmapSize, &mmap, &key, &descSize, &descVer)) {
         if (status.success != boot_services.exitBootServices(uefi.handle, key)) {
             serial.write("Exit boot services failed\r\n", .{});
             stall(0xFFFFFFFFFFFFFFFF);
         }
     }
 
-    //var args: *kargs = @ptrCast(args_page);
-    const vkargs = @intFromPtr(args_page) + paging.kMemAddr;
+    //var args: *kargs = @ptrCast(argsPage);
+    const vkargs = @intFromPtr(argsPage) + paging.kMemAddr;
     serial.write("Kernel Arguments at paddr: {*} vaddr: 0x{x}\r\n", .{
-        args_page,
+        argsPage,
         vkargs,
     });
-    args_page.kpaddr = @intFromPtr(kernel);
-    args_page.kvaddr = entry.?;
-    args_page.kmemory = paging.kMemAddr;
-    args_page.kvoffset = paging.kMemAddr;
-    args_page.ksize = 2 << 20;
+    argsPage.KPAddr = @intFromPtr(kernel);
+    argsPage.KOffset = paging.kCompAddr;
+    argsPage.KSize = 2 << 20;
 
-    //args_page.memory_map = @intFromPtr(mmap);
-    //args_page.memory_map_size = size;
-    //args_page.memory_map_dsize = descSize;
+    argsPage.KMemOffset = paging.kMemAddr;
+    argsPage.KMemPages = paging.totalMemPages;
 
-    serial.write("Jumping to Kernel at 0x{x}\r\n", .{args_page.kvaddr});
+    argsPage.KMemMap = @ptrFromInt(@intFromPtr(mmap) + paging.kMemAddr);
+    argsPage.KMemMapSize = mmapSize;
+    argsPage.DescSize = descSize;
+
+    argsPage.PML4 = paging.pml4.?;
+
+    serial.write("Jumping to Kernel at 0x{x}\r\n", .{argsPage.KPAddr + argsPage.KOffset});
 
     asm volatile (
         \\mov %[pml4], %%rax

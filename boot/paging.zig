@@ -5,9 +5,10 @@ const status = uefi.Status;
 const mem = @import("memory.zig");
 const screen = @import("screen.zig");
 const maxInt = @import("std").math.maxInt;
-const kCompAddr = 0x4000000000;
+pub const kCompAddr = 0x4000000000;
 pub const kMemAddr = 0x4040000000;
 pub var pml4: ?[*]u64 = undefined;
+pub var totalMemPages: usize = undefined;
 
 const PageType = enum(u2) { PML4, PDPT, PDT, PT };
 
@@ -149,6 +150,7 @@ pub fn MapUsableMemory(cmap: [*]mem.clubbed_entry, num_entries: usize, kAddr: [*
     for (0..num_entries) |idx| {
         mtotal_pages += cmap[idx].num_pages;
     }
+    totalMemPages = mtotal_pages;
 
     const num_pt = (mtotal_pages >> 9) + 1;
     const num_pdt = (num_pt >> 9) + 1;

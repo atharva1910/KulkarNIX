@@ -1,8 +1,8 @@
 const serial = @import("serial.zig");
-const pmem = @import("pmem.zig");
+const PMem = @import("pmem.zig");
 const hal = @import("hal.zig");
 const kargs = @import("kargs.zig").kargs;
-const gdt = @import("gdt.zig");
+const GDT = @import("gdt.zig");
 
 export var stack_bytes: [16 * 1024]u8 = undefined;
 
@@ -35,8 +35,18 @@ export fn kmain() void {
         return;
     }
 
-    serial.write("Welcome to the kernel. Kernel args {*}. Kernel paddr 0x{x} Kernel vaddr 0x{x} Kernel size 0x{x}\n", .{ args, args.?.kpaddr, args.?.kvaddr, args.?.ksize });
-    gdt.init();
-    serial.write("GDT initialized\n", .{});
-    pmem.init(@ptrFromInt(args.?.memory_map), args.?.memory_map_size, args.?.memory_map_dsize);
+    serial.write("Welcome to the kernel. Kernel args {*}. Kernel paddr 0x{x} Kernel vaddr 0x{x} Kernel size 0x{x}\n", .{
+        args,
+        args.?.KPAddr,
+        args.?.KOffset,
+        args.?.KSize,
+    });
+
+    GDT.init();
+    PMem.Init(
+        args.?.KMemMap,
+        args.?.KMemMapSize,
+        args.?.DescSize,
+        args.?.KMemPages,
+    );
 }
