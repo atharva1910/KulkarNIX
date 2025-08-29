@@ -160,81 +160,76 @@ pub fn MapUsableMemory(mmap: MemoryMapSlice, kStart: usize) !void {
     const num_kpdt = 1;
     const num_kpt = 1;
     const table_entries = 512;
-    const table_size: u64 = @sizeOf([512]u64);
 
     serial.write("Mapping pages: 0x{x}. PML4 = {} PDPT {} PDT {} PT {} \n", .{ totalMemPages, num_pml4, num_pdpt, num_pdt, num_pt });
     const total_pages = num_pt + num_pdt + num_pdpt + num_pml4 + num_kpdt + num_kpt;
 
-    const PML4 = try mem.alloc_pages(total_pages);
-    pml4.? = @ptrCast(PML4.ptr);
-    serial.write("Allocated pml4 at {*}\r\n", .{pml4.?});
-    @memset(pml4.?[0 .. table_entries * total_pages], 0);
+    const pMem = try mem.alloc_pages(total_pages);
+    @memset(pMem[0..total_pages], [_]u8{0} ** 4096);
+    serial.write("Allocated pml4 at {*}\r\n", .{pMem.ptr});
+    pml4 = @ptrCast(pMem.ptr);
 
-    var pPML4 = pml4.?[0..512];
-    var pPDPT: [*][512]u64 = @ptrFromInt(@intFromPtr(&pPML4[0]) + (num_pml4 * table_size));
-    var pKPDT: [*][512]u64 = @ptrFromInt(@intFromPtr(&pPDPT[0][0]) + (num_pdpt * table_size));
-    var pPDT: [*][512]u64 = @ptrFromInt(@intFromPtr(&pKPDT[0][0]) + (num_kpdt * table_size));
-    var pKPT: [*][512]u64 = @ptrFromInt(@intFromPtr(&pPDT[0][0]) + (num_pdt * table_size));
-    var pPT: [*][512]u64 = @ptrFromInt(@intFromPtr(&pKPT[0][0]) + (num_kpt * table_size));
+    var start: usize = 0;
+    var end: usize = start + (num_pml4 * table_entries);
+    var PML4 = pml4.?[start..table_entries];
+
+    start = end;
+    end = start + (num_pdpt * table_entries);
+    var PDPT = pml4.?[start..end];
+
+    start = end;
+    end = start + (num_pdt * table_entries);
+    var PDT = pml4.?[start..end];
+
+    start = end;
+    end = start + (num_kpdt * table_entries);
+    var KPDT = pml4.?[start..end];
+
+    start = end;
+    end = start + (num_pt * table_entries);
+    var PT = pml4.?[start..end];
 
     const kEnd = kStart + (num_kpt * (2 << 20));
     serial.write("Kernel range 0x{x} - 0x{x}\r\n", .{ kStart, kEnd });
 
-    // Fill Page Tables
-    var addr: u64 = 0x0;
-    for (0..num_pt) |i| {
-        for (0..table_entries) |j| {
-            defer addr += 0x1000;
-            if (addr >= kStart and addr < kEnd) continue;
-            pPT[i][j] = addr | 0x3; //2MB
-        }
-        //serial.write("pPT {*}[{}] -> 0x{x} - 0x{x}\n", .{ &pPT[i][0], i, pPT[i][0], pPT[i][511] });
-    }
-
-    addr = kStart | 0x3;
-    for (0..table_entries) |i| {
-        pKPT[0][i] = addr;
+    var addr: u64 = 0x3;
+    for (0..num_pt << 9) |i| {
+        if (addr >= kStart and addr < kEnd) continue;
+        PT[i] = addr;
         addr += 0x1000;
     }
-    //serial.write("pKPT {*}[{}] -> 0x{x} - 0x{x}\n", .{ pKPT, 0, pKPT[0][0], pKPT[0][511] });
 
-    // Fill Paging Structures
-    const pml4_idx = (kMemAddr >> 39) & maxInt(u9);
-    var pdpt_idx: u32 = (kMemAddr >> 30) & maxInt(u9);
-    var pdt_idx: u32 = (kMemAddr >> 21) & maxInt(u9);
-
-    //serial.write("Index: PML4 {} PDPT {} PDT {} \n", .{ pml4_idx, pdpt_idx, pdt_idx });
-    assert(pml4_idx == 0);
-    assert(pdpt_idx < 512);
-    assert(pdt_idx < 512);
-
-    pPML4[pml4_idx] = @intFromPtr(&pPDPT[0][0]) | 0x3; //512GB
-    //serial.write("PML4 {*}[0x{x}][0] -> 0x{x}\n", .{ pPML4, pml4_idx, pPML4[pml4_idx] });
-
-    for (0..num_pdpt) |i| {
-        for (0..table_entries) |j| {
-            const offset = i * 512 + j;
-            if (offset == num_pdt) break;
-            pPDPT[i][pdpt_idx + j] = @intFromPtr(&pPDT[offset][0]) | 0x3; //1GB
-            //serial.write("PDPT {*}[{}][{}] -> 0x{x}\n", .{ pPDPT, i, pdpt_idx + j, pPDPT[i][pdpt_idx + j] });
-        }
+    start = end;
+    end = start + (num_kpt * table_entries);
+    var KPT = pml4.?[start..end];
+    addr = kStart | 0x3;
+    for (0..num_kpt << 9) |i| {
+        KPT[i] = addr;
+        addr += 0x1000;
     }
 
+    var idx: usize = (kMemAddr >> 39) & maxInt(u9);
+    assert(idx == 0);
+    PML4[idx] = @intFromPtr(PDPT.ptr) | 0x3;
+
+    idx = (kMemAddr >> 30) & maxInt(u9);
+    assert(idx < 512);
     for (0..num_pdt) |i| {
-        for (0..table_entries) |j| {
-            const offset = i * 512 + j;
-            if (offset == num_pt) break;
-            pPDT[i][pdt_idx + j] = @intFromPtr(&pPT[offset][0]) | 0x3; //2MB
-        }
-        //serial.write("pPDT {*}[{}] -> 0x{x} - 0x{x}\n", .{ &pPDT[i][0], i, pPDT[i][0], pPDT[i][511] });
+        PDPT[i] = @intFromPtr(&PDT[i << 9]) | 0x3; //1GB
+        //serial.write("PDPT {*}[{}][{}] -> 0x{x}\n", .{ pPDPT, i, pdpt_idx + j, pPDPT[i][pdpt_idx + j] });
     }
 
-    pdpt_idx = (kCompAddr >> 30) & maxInt(u9);
-    pdt_idx = (kCompAddr >> 21) & maxInt(u9);
-    pPDPT[0][pdpt_idx] = @intFromPtr(&pKPDT[0][0]) | 0x3; //1GB
-    //serial.write("KPDPT {*}[0x{x}][0] -> 0x{x}\n", .{ pPDPT, pdpt_idx, pPDPT[0][pdpt_idx] });
-    pKPDT[0][pdt_idx] = @intFromPtr(&pKPT[0][0]) | 0x3; //2MB
-    //serial.write("KPDT {*}[0x{x}][0] -> 0x{x}\n", .{ pKPDT, pdt_idx, pKPDT[0][pdt_idx] });
+    idx = (kMemAddr >> 21) & maxInt(u9);
+    assert(idx < 512);
+    for (0..num_pt) |i| {
+        PDT[i] = @intFromPtr(&PT[i << 9]) | 0x3; //1GB
+        //serial.write("PDPT {*}[{}][{}] -> 0x{x}\n", .{ pPDPT, i, pdpt_idx + j, pPDPT[i][pdpt_idx + j] });
+    }
 
-    serial.write("====================================================================================================", .{});
+    idx = (kCompAddr >> 30) & maxInt(u9);
+    assert(idx < 512);
+    PDPT[idx] = @intFromPtr(KPDT.ptr) | 0x3;
+
+    idx = (kCompAddr >> 21) & maxInt(u9);
+    KPDT[idx] = @intFromPtr(KPT.ptr) | 0x3;
 }
