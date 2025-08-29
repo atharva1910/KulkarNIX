@@ -1,4 +1,4 @@
-const MemoryDescriptor = @import("std").os.uefi.tables.MemoryDescriptor;
+const MemoryMapSlice = @import("std").os.uefi.tables.MemoryMapSlice;
 
 pub const kargs = packed struct {
     // Kernel code segment
@@ -11,9 +11,7 @@ pub const kargs = packed struct {
     KMemPages: usize,
 
     // Memory Map
-    KMemMap: [*]MemoryDescriptor,
-    KMemMapSize: usize,
-    DescSize: usize,
+    //KMemMap: MemoryMapSlice,
 
     // Paging
     PML4: [*]u64,

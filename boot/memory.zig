@@ -7,64 +7,32 @@ const serial = @import("serial.zig");
 const paging = @import("paging.zig");
 const MemoryType = @import("std").os.uefi.tables.MemoryType;
 const assert = @import("std").debug.assert;
+const Page = uefi.Page;
+const MemoryMapSlice = uefi.tables.MemoryMapSlice;
 
-pub fn alloc_pages(pages: usize, buf: *[*]align(4096) u8) uefi.Status {
-    return main.boot_services.allocatePages(
-        uefi.tables.AllocateType.allocate_any_pages,
+pub fn alloc_pages(pages: usize) ![]align(4096) Page {
+    return try main.boot_services.allocatePages(
+        uefi.tables.AllocateType.any,
         uefi.tables.MemoryType.boot_services_data,
         pages,
-        buf,
     );
 }
 
-pub fn free(buf: [*]align(8) u8) void {
-    _ = main.boot_services.freePool(buf);
+pub fn free(buf: []align(8) u8) void {
+    main.boot_services.freePool(buf.ptr) catch {};
 }
 
-pub fn alloc(size: usize, buf: *[*]align(8) u8) uefi.Status {
-    return main.boot_services.allocatePool(
+pub fn alloc(size: usize) ![]align(8) u8 {
+    return try main.boot_services.allocatePool(
         uefi.tables.MemoryType.boot_services_data,
         size,
-        buf,
     );
 }
 
-pub fn GetMemoryMap(size: *usize, buf: *[*]align(4096) MemoryDescriptor, key: *usize, descSize: *usize, descVer: *u32) uefi.Status {
-    var sRet = main.boot_services.getMemoryMap(
-        size,
-        @ptrCast(buf.*),
-        key,
-        descSize,
-        descVer,
-    );
-
-    if (sRet == status.success) {
-        serial.write("wrong ret from getMemoryMap {}, size: {}\r\n", .{ sRet, size.* });
-        return status.unsupported;
-    }
-
-    const num_pages = (size.* >> 12) + 1;
-    sRet = alloc_pages(num_pages, @ptrCast(buf));
-    if (sRet != status.success) {
-        serial.write("Failed to allocate buffer\r\n", .{});
-        return sRet;
-    }
-
-    sRet = main.boot_services.getMemoryMap(
-        size,
-        buf.*,
-        key,
-        descSize,
-        descVer,
-    );
-
-    if (sRet != status.success) {
-        serial.write("getMemoryMap failed\r\n", .{});
-        return sRet;
-    }
-
-    //serial.write("Memory map stored in page {*} num_pages: {}, size: {}\r\n", .{ buf.*, num_pages, size.* });
-    return sRet;
+pub fn GetMemoryMap() !MemoryMapSlice {
+    const mmapInfo = try main.boot_services.getMemoryMapInfo();
+    const buf = try alloc(mmapInfo.len * mmapInfo.descriptor_size);
+    return try main.boot_services.getMemoryMap(buf);
 }
 
 const traversed_map = struct {
@@ -145,49 +113,6 @@ pub fn ClubMmap(mmap: [*]align(4096) MemoryDescriptor, msize: usize, dsize: usiz
     for (0..pcmap_idx + 1) |i| {
         serial.write("pcmap[{}] paddr 0x{x} num_pages 0x{x}\n", .{ i, pcmap[i].paddr, pcmap[i].num_pages });
     }
+
     return pcmap_idx + 1;
-}
-
-fn traverse_map(mmap: [*]align(4096) MemoryDescriptor, msize: usize, dsize: usize) traversed_map {
-    var tmap: traversed_map = .{
-        .min_addr = 0,
-        .num_pages = 0,
-        .total_pages = 0,
-        .total_blocks = 0,
-    };
-    var itr: *MemoryDescriptor = @ptrCast(mmap);
-    var clubbed: MemoryDescriptor = itr.*;
-    const num_desc: usize = msize / dsize;
-    var idx: usize = 0;
-
-    while (idx < num_desc) : (itr = @ptrFromInt(@intFromPtr(mmap) + (idx * dsize))) {
-        defer idx += 1;
-
-        if (itr.type != MemoryType.boot_services_code and itr.type != MemoryType.boot_services_data and itr.type != MemoryType.conventional_memory) {
-            //serial.write("skipping type {} pstart: 0x{x} num_pages: 0x{x} \n", .{ itr.type, itr.physical_start, itr.number_of_pages });
-            continue;
-        }
-
-        tmap.total_pages += itr.number_of_pages;
-
-        if (tmap.min_addr == 0 or itr.physical_start < tmap.min_addr) {
-            tmap.min_addr = itr.physical_start;
-            tmap.num_pages = itr.number_of_pages;
-        }
-
-        const clubbed_size = clubbed.number_of_pages << 12;
-        const itr_size = itr.number_of_pages << 12;
-        if (itr.physical_start < clubbed.physical_start + clubbed_size) {
-            if (itr.physical_start + itr_size < clubbed.physical_start + clubbed_size) continue;
-            clubbed.number_of_pages += (itr.physical_start + itr_size - clubbed.physical_start - clubbed_size) >> 12;
-        } else if (itr.physical_start == clubbed.physical_start + clubbed_size) {
-            clubbed.number_of_pages += itr.number_of_pages;
-        } else {
-            serial.write("pstart: 0x{x} num_pages: 0x{x} \n", .{ clubbed.physical_start, clubbed.number_of_pages });
-            clubbed = itr.*;
-        }
-    }
-
-    serial.write("total_pages 0x{x}\n", .{tmap.total_pages});
-    return tmap;
 }

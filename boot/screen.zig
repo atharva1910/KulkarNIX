@@ -21,5 +21,5 @@ pub fn printString(comptime str: []const u8, args: anytype) void {
 }
 
 pub fn clrscr() void {
-    _ = uefi.system_table.con_out.?.clearScreen();
+    uefi.system_table.con_out.?.clearScreen() catch {};
 }

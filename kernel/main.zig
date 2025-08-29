@@ -1,8 +1,7 @@
 const serial = @import("serial.zig");
-const PMem = @import("pmem.zig");
-const hal = @import("hal.zig");
 const kargs = @import("kargs.zig").kargs;
 const GDT = @import("gdt.zig");
+//const PMem = @import("pmem.zig");
 
 export var stack_bytes: [16 * 1024]u8 = undefined;
 
@@ -31,7 +30,6 @@ export fn kmain() void {
     );
 
     if (args == null) {
-        serial.write("No Arguments\n", .{});
         return;
     }
 
@@ -42,11 +40,12 @@ export fn kmain() void {
         args.?.KSize,
     });
 
-    GDT.init();
-    PMem.Init(
-        args.?.KMemMap,
-        args.?.KMemMapSize,
-        args.?.DescSize,
-        args.?.KMemPages,
-    );
+    GDT.Init();
+    //
+    //PMem.Init(
+    //    args.?.KMemMap,
+    //    args.?.KMemMapSize,
+    //    args.?.DescSize,
+    //    args.?.KMemPages,
+    //);
 }

@@ -65,6 +65,8 @@ const linux = struct {
             "cpu_reset",
             "-display",
             "none",
+            "-m",
+            "4G",
         }).step;
     }
 
@@ -93,11 +95,16 @@ fn build_uefi(b: *std.Build) *std.Build.Step {
         .os_tag = std.Target.Os.Tag.uefi,
         .abi = std.Target.Abi.msvc,
     };
-    const uefi = b.addExecutable(.{
-        .name = "bootx64",
+
+    const uefi_module = b.addModule("uefi_module", .{
         .root_source_file = b.path("boot/main.zig"),
         .target = b.resolveTargetQuery(target_query),
         .optimize = optimize,
+    });
+
+    const uefi = b.addExecutable(.{
+        .name = "bootx64",
+        .root_module = uefi_module,
     });
 
     const step_uefi_install = b.addInstallArtifact(uefi, .{});
@@ -122,12 +129,17 @@ fn build_kernel(b: *std.Build) *std.Build.Step {
         .cpu_features_add = enabled_features,
     };
 
-    const kernel = b.addExecutable(.{
-        .name = "Kernel.elf",
+    const kernel_module = b.addModule("kernel_module", .{
         .root_source_file = b.path("kernel/main.zig"),
         .target = b.resolveTargetQuery(target_query),
         .optimize = optimize,
         .code_model = .large,
+    });
+
+    const kernel = b.addExecutable(.{
+        .name = "Kernel.elf",
+        .root_module = kernel_module,
+        .use_llvm = true,
     });
 
     kernel.setLinkerScript(b.path("kernel/linker.ld"));

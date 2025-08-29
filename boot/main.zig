@@ -9,220 +9,119 @@ const serial = @import("serial.zig");
 const kargs = @import("kargs.zig").kargs;
 const MemoryDescriptor = @import("std").os.uefi.tables.MemoryDescriptor;
 const kCompAddr = 0x4000000000;
-
+const openMode = uefi.protocol.File.OpenMode;
+const MemoryMapSlice = @import("std").os.uefi.tables.MemoryMapSlice;
 pub var boot_services: *uefi.tables.BootServices = undefined;
-var loaded_img: *uefi.protocol.LoadedImage = undefined;
-var gop: *uefi.protocol.GraphicsOutput = undefined;
+var loaded_img: ?*uefi.protocol.LoadedImage = undefined;
+var gop: ?*uefi.protocol.GraphicsOutput = undefined;
 
 fn stall(ms: u64) void {
-    _ = uefi.system_table.boot_services.?.stall(ms);
+    _ = uefi.system_table.boot_services.?.stall(ms) catch {};
 }
 
-fn ReadKernel(pages: [*]u8) ?u64 {
-    var sRet: uefi.Status = undefined;
-    var retAddr: ?u64 = null;
+fn ReadKernel(pages: []u8) !u64 {
+    loaded_img = try boot_services.handleProtocol(uefi.protocol.LoadedImage, uefi.handle);
 
-    sRet = boot_services.handleProtocol(uefi.handle, &uefi.protocol.LoadedImage.guid, @ptrCast(&loaded_img));
-    if (status.success != sRet) {
-        serial.write("LoadedImageProtocol failed\r\n", .{});
-        return retAddr;
-    }
+    var sfs = try boot_services.handleProtocol(uefi.protocol.SimpleFileSystem, loaded_img.?.device_handle.?);
 
-    var sfs: *uefi.protocol.SimpleFileSystem = undefined;
-    sRet = boot_services.handleProtocol(loaded_img.device_handle.?, &uefi.protocol.SimpleFileSystem.guid, @ptrCast(&sfs));
-    if (status.success != sRet) {
-        serial.write("Failed to get handle to SFS\r\n", .{});
-        return retAddr;
-    }
+    var fileProt = try sfs.?.openVolume();
 
-    var fileProt: *uefi.protocol.File = undefined;
-    sRet = sfs.openVolume(@ptrCast(&fileProt));
-    if (status.success != sRet) {
-        serial.write("Failed to open volume\r\n", .{});
-        return retAddr;
-    }
-
-    var kHandle: *const uefi.protocol.File = undefined;
-    sRet = fileProt.open(&kHandle, L("\\Kernel.elf"), 1, 1);
-    if (status.success != sRet) {
-        serial.write("Failed to open Kernel.elf\r\n", .{});
-        return retAddr;
-    }
-    defer _ = fileProt.close();
+    var kHandle = try fileProt.open(L("\\Kernel.elf"), openMode.read, .{
+        .read_only = true,
+    });
+    defer _ = fileProt.close() catch {};
 
     var elf_hdr: elf.Ehdr = undefined;
-    var hdr_size: usize = @sizeOf(elf.Ehdr);
-    sRet = kHandle.read(&hdr_size, @ptrCast(&elf_hdr));
-    if (status.success != sRet) {
+    if (try kHandle.read(@ptrCast(&elf_hdr)) != @sizeOf(elf.Ehdr)) {
         serial.write("Failed to read Kernel.elf\r\n", .{});
-        return retAddr;
+        return uefi.Error.Aborted;
     }
 
-    sRet = kHandle.setPosition(elf_hdr.e_phoff);
-    if (status.success != sRet) return retAddr;
+    try kHandle.setPosition(elf_hdr.e_phoff);
 
-    var phdr_size: usize = elf_hdr.e_phnum * elf_hdr.e_phentsize;
-    var p_phdr: [*]align(8) elf.Elf64_Phdr = undefined;
-
-    sRet = mem.alloc(phdr_size, @ptrCast(&p_phdr));
-    if (status.success != sRet) return retAddr;
+    var p_phdr: []elf.Elf64_Phdr = @ptrCast(try mem.alloc(elf_hdr.e_phnum * elf_hdr.e_phentsize));
     defer mem.free(@ptrCast(p_phdr));
 
-    sRet = kHandle.read(&phdr_size, @ptrCast(p_phdr));
-    if (status.success != sRet) return retAddr;
+    if (try kHandle.read(@ptrCast(p_phdr[0..])) != (elf_hdr.e_phnum * elf_hdr.e_phentsize)) {
+        //serial.write("Failed to read Phdrs\r\n", .{});
+        return uefi.Error.Aborted;
+    }
 
-    retAddr = elf_hdr.e_entry;
     for (0..elf_hdr.e_phnum) |i| {
         if (p_phdr[i].p_type != elf.PT_LOAD)
             continue;
 
         const buf_idx = p_phdr[i].p_paddr - kCompAddr;
-        var buf_size = p_phdr[i].p_filesz;
-        sRet = kHandle.setPosition(p_phdr[i].p_offset);
+        try kHandle.setPosition(p_phdr[i].p_offset);
 
-        if ((status.success != sRet) or
-            (status.success != kHandle.read(&buf_size, pages[buf_idx..])) or
-            (buf_size < p_phdr[i].p_filesz))
-        {
+        if (try kHandle.read(pages[buf_idx .. buf_idx + p_phdr[i].p_filesz]) < p_phdr[i].p_filesz) {
             break;
-            //} else {
-            //  serial.write("phdr[{}] addr {s} size 0x{x}\r\n", .{ i, &pages[buf_idx], p_phdr[i].p_filesz });
+        } else {
+            serial.write("phdr[{}] addr {*} size 0x{x}\r\n", .{ i, &pages[buf_idx], p_phdr[i].p_filesz });
         }
     }
 
-    return retAddr;
+    return elf_hdr.e_entry;
 }
 
-fn init_gop() uefi.Status {
-    var sRet: uefi.Status = undefined;
-
-    sRet = boot_services.locateProtocol(&uefi.protocol.GraphicsOutput.guid, null, @ptrCast(&gop));
-    if (sRet != status.success) {
-        serial.write("Failed to load Graphics Output protocol {}\r\n", .{sRet});
-        return sRet;
-    }
+fn InitGOP() !void {
+    gop = try boot_services.locateProtocol(uefi.protocol.GraphicsOutput, null);
 
     var smode: u32 = undefined;
-    for (0..gop.mode.max_mode) |i| {
-        var info_size: usize = undefined;
-        var info: *uefi.protocol.GraphicsOutput.Mode.Info = undefined;
+    for (0..gop.?.mode.max_mode) |i| {
         const mode: u32 = @intCast(i);
-        sRet = gop.queryMode(mode, &info_size, &info);
-        if (sRet != status.success) {
-            serial.write("Failed to query gop mode {} status: {}\r\n", .{ i, sRet });
-            continue;
-        }
-
+        const info = try gop.?.queryMode(mode);
         if (info.horizontal_resolution == 800 and info.vertical_resolution == 600) {
             smode = mode;
-            serial.write("Setting GOP mode {} {}x{}\r\n", .{ i, info.horizontal_resolution, info.vertical_resolution });
+            //serial.write("Setting GOP mode {} {}x{}\r\n", .{ i, info.horizontal_resolution, info.vertical_resolution });
             break;
         }
     }
 
-    sRet = gop.setMode(smode);
-    if (sRet != status.success) {
-        serial.write("Failed to set GOP mode{}\r\n", .{smode});
-    }
-
-    return sRet;
+    try gop.?.setMode(smode);
 }
 
-pub fn main() void {
-    var sRet: uefi.Status = undefined;
-
+pub fn main() uefi.Error!void {
     boot_services = uefi.system_table.boot_services.?;
+
     screen.init();
     screen.clrscr();
+    try serial.init();
 
-    if (serial.init() == false) {
-        serial.write("serial port init - failed", .{});
-        stall(0xFFFFFFFFFFFFFFFF);
-        return;
-    }
+    var argsPage: *kargs = @ptrCast(try mem.alloc_pages(1));
+    const kernel = try mem.alloc_pages(512);
+    const entry = try ReadKernel(@ptrCast(kernel[0..]));
+    serial.write("Kernel loaded at {*}\n", .{kernel});
 
-    var argsPage: *align(4096) kargs = undefined;
-    sRet = mem.alloc_pages(1, @ptrCast(&argsPage));
-    if (status.success != sRet) return;
+    try InitGOP();
+    try boot_services.setWatchdogTimer(0, 0, null);
 
-    var kernel: [*]align(4096) u8 = undefined;
-    sRet = mem.alloc_pages(512, &kernel);
-    if (status.success != sRet) return;
+    var memSlice = mem.GetMemoryMap() catch {
+        serial.write("Failed to get mmap", .{});
+        stall(0xFFFFFFFFFFFFFFF);
+        unreachable;
+    };
 
-    const entry = ReadKernel(kernel);
-    if (entry == null) {
-        serial.write("Entry null?\r\n", .{});
-        stall(0xFFFFFFFFFFFFFFFF);
-    }
+    try paging.MapUsableMemory(memSlice, @intFromPtr(kernel.ptr));
+    try paging.IdentityMapImage(loaded_img.?.image_base[0..loaded_img.?.image_size]);
 
-    if (status.success != init_gop()) {
-        serial.write("Failed to init gop\r\n", .{});
-        stall(0xFFFFFFFFFFFFFFFF);
-    }
+    memSlice = try mem.GetMemoryMap();
+    try boot_services.exitBootServices(uefi.handle, memSlice.info.key);
 
-    if (status.success != boot_services.setWatchdogTimer(0, 0, 0, null)) {
-        serial.write("Failed to disable watchdog timer\r\n", .{});
-        stall(0xFFFFFFFFFFFFFFFF);
-    }
-
-    var mmapSize: usize = 0;
-    var mmap: [*]align(4096) MemoryDescriptor = undefined;
-    var key: usize = undefined;
-    var descSize: usize = undefined;
-    var descVer: u32 = undefined;
-    if (status.success != mem.GetMemoryMap(&mmapSize, &mmap, &key, &descSize, &descVer)) {
-        serial.write("Failed to get memory_map\r\n", .{});
-        stall(0xFFFFFFFFFFFFFFFF);
-    }
-
-    var cmap: [*]mem.clubbed_entry = undefined;
-    const num_entries = mem.ClubMmap(mmap, mmapSize, descSize, &cmap);
-    if (num_entries == 0) {
-        serial.write("Failed to club entries\r\n", .{});
-        stall(0xFFFFFFFFFFFFFFFF);
-    }
-
-    sRet = paging.MapUsableMemory(cmap, num_entries, kernel);
-    if (status.success != sRet) {
-        serial.write("Failed to map memory\r\n", .{});
-        stall(0xFFFFFFFFFFFFFFFF);
-    } else {
-        mem.free(@ptrCast(cmap));
-    }
-
-    sRet = paging.IdentityMapImage(loaded_img.image_base, loaded_img.image_size);
-    if (status.success != sRet) {
-        serial.write("Failed to setup Identity Map Image\r\n", .{});
-        stall(0xFFFFFFFFFFFFFFFF);
-    }
-
-    if (status.success == mem.GetMemoryMap(&mmapSize, &mmap, &key, &descSize, &descVer)) {
-        if (status.success != boot_services.exitBootServices(uefi.handle, key)) {
-            serial.write("Exit boot services failed\r\n", .{});
-            stall(0xFFFFFFFFFFFFFFFF);
-        }
-    }
-
-    //var args: *kargs = @ptrCast(argsPage);
     const vkargs = @intFromPtr(argsPage) + paging.kMemAddr;
-    serial.write("Kernel Arguments at paddr: {*} vaddr: 0x{x}\r\n", .{
-        argsPage,
-        vkargs,
-    });
-    argsPage.KPAddr = @intFromPtr(kernel);
+    serial.write("Kernel Arguments at paddr: {*} vaddr: 0x{x}\r\n", .{ argsPage, vkargs });
+    argsPage.KPAddr = @intFromPtr(kernel.ptr);
     argsPage.KOffset = paging.kCompAddr;
     argsPage.KSize = 2 << 20;
 
     argsPage.KMemOffset = paging.kMemAddr;
     argsPage.KMemPages = paging.totalMemPages;
 
-    argsPage.KMemMap = @ptrFromInt(@intFromPtr(mmap) + paging.kMemAddr);
-    argsPage.KMemMapSize = mmapSize;
-    argsPage.DescSize = descSize;
-
+    //argsPage.KMemMap = memSlice;
     argsPage.PML4 = paging.pml4.?;
 
     serial.write("Jumping to Kernel at 0x{x}\r\n", .{argsPage.KPAddr + argsPage.KOffset});
+    stall(0xFFFFFFFFFFFF);
 
     asm volatile (
         \\mov %[pml4], %%rax
@@ -231,8 +130,9 @@ pub fn main() void {
         \\jmp *%[entry]
         :
         : [pml4] "r" (paging.pml4.?),
-          [entry] "r" (entry.?),
+          [entry] "r" (entry),
           [args] "r" (vkargs),
-        : "rax"
-    );
+        : .{
+          .rax = true,
+        });
 }
