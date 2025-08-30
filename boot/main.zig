@@ -110,18 +110,18 @@ pub fn main() uefi.Error!void {
 
     const vkargs = @intFromPtr(argsPage) + paging.kMemAddr;
     serial.write("Kernel Arguments at paddr: {*} vaddr: 0x{x}\r\n", .{ argsPage, vkargs });
+
     argsPage.KPAddr = @intFromPtr(kernel.ptr);
     argsPage.KOffset = paging.kCompAddr;
     argsPage.KSize = 2 << 20;
-
     argsPage.KMemOffset = paging.kMemAddr;
     argsPage.KMemPages = paging.totalMemPages;
-
-    //argsPage.KMemMap = memSlice;
+    argsPage.KMemMap = memSlice;
+    // Update the ptr from Pmem to Vmem
+    argsPage.KMemMap.ptr = @ptrFromInt(@intFromPtr(memSlice.ptr) + paging.kMemAddr);
     argsPage.PML4 = paging.pml4.?;
 
     serial.write("Jumping to Kernel at 0x{x}\r\n", .{argsPage.KPAddr + argsPage.KOffset});
-    stall(0xFFFFFFFFFFFF);
 
     asm volatile (
         \\mov %[pml4], %%rax
@@ -134,5 +134,6 @@ pub fn main() uefi.Error!void {
           [args] "r" (vkargs),
         : .{
           .rax = true,
+          .r13 = true,
         });
 }

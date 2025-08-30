@@ -1,6 +1,6 @@
 const MemoryMapSlice = @import("std").os.uefi.tables.MemoryMapSlice;
 
-pub const kargs = packed struct {
+pub const kargs = struct {
     // Kernel code segment
     KPAddr: usize,
     KOffset: usize,
@@ -11,7 +11,7 @@ pub const kargs = packed struct {
     KMemPages: usize,
 
     // Memory Map
-    //KMemMap: MemoryMapSlice,
+    KMemMap: MemoryMapSlice,
 
     // Paging
     PML4: [*]u64,

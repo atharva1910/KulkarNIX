@@ -172,29 +172,35 @@ pub fn MapUsableMemory(mmap: MemoryMapSlice, kStart: usize) !void {
     var start: usize = 0;
     var end: usize = start + (num_pml4 * table_entries);
     var PML4 = pml4.?[start..table_entries];
+    //serial.write("PML4 = pml4.?[0x{x} - 0x{x}] = 0x{x}\r\n", .{ start, end, PML4.len });
+    assert(PML4.len == num_pml4 << 9);
 
     start = end;
     end = start + (num_pdpt * table_entries);
     var PDPT = pml4.?[start..end];
+    assert(PDPT.len == num_pdpt << 9);
+    //serial.write("PDPT = pml4.?[0x{x} - 0x{x}] = {*}\r\n", .{ start, end, PDPT });
 
     start = end;
     end = start + (num_pdt * table_entries);
     var PDT = pml4.?[start..end];
+    assert(PDT.len == num_pdt << 9);
+    //serial.write("PDT = pml4.?[0x{x} - 0x{x}] = {*}\r\n", .{ start, end, PDT });
 
     start = end;
     end = start + (num_kpdt * table_entries);
     var KPDT = pml4.?[start..end];
+    assert(KPDT.len == num_kpdt << 9);
+    //serial.write("KPDT = pml4.?[0x{x} - 0x{x}] = {*}\r\n", .{ start, end, KPDT });
 
     start = end;
     end = start + (num_pt * table_entries);
     var PT = pml4.?[start..end];
-
-    const kEnd = kStart + (num_kpt * (2 << 20));
-    serial.write("Kernel range 0x{x} - 0x{x}\r\n", .{ kStart, kEnd });
+    assert(PT.len == num_pt << 9);
+    //serial.write("PT = pml4.?[0x{x} - 0x{x}] = {*}\r\n", .{ start, end, PT });
 
     var addr: u64 = 0x3;
     for (0..num_pt << 9) |i| {
-        if (addr >= kStart and addr < kEnd) continue;
         PT[i] = addr;
         addr += 0x1000;
     }
@@ -202,6 +208,9 @@ pub fn MapUsableMemory(mmap: MemoryMapSlice, kStart: usize) !void {
     start = end;
     end = start + (num_kpt * table_entries);
     var KPT = pml4.?[start..end];
+    assert(KPT.len == num_kpt << 9);
+    //serial.write("KPT = pml4.?[0x{x} - 0x{x}] = {*}\r\n", .{ start, end, KPT });
+
     addr = kStart | 0x3;
     for (0..num_kpt << 9) |i| {
         KPT[i] = addr;
@@ -213,23 +222,56 @@ pub fn MapUsableMemory(mmap: MemoryMapSlice, kStart: usize) !void {
     PML4[idx] = @intFromPtr(PDPT.ptr) | 0x3;
 
     idx = (kMemAddr >> 30) & maxInt(u9);
-    assert(idx < 512);
+    assert(idx == 257);
     for (0..num_pdt) |i| {
-        PDPT[i] = @intFromPtr(&PDT[i << 9]) | 0x3; //1GB
-        //serial.write("PDPT {*}[{}][{}] -> 0x{x}\n", .{ pPDPT, i, pdpt_idx + j, pPDPT[i][pdpt_idx + j] });
+        PDPT[idx + i] = @intFromPtr(&PDT[i << 9]) | 0x3; //1GB
     }
 
     idx = (kMemAddr >> 21) & maxInt(u9);
-    assert(idx < 512);
+    assert(idx == 0);
     for (0..num_pt) |i| {
-        PDT[i] = @intFromPtr(&PT[i << 9]) | 0x3; //1GB
-        //serial.write("PDPT {*}[{}][{}] -> 0x{x}\n", .{ pPDPT, i, pdpt_idx + j, pPDPT[i][pdpt_idx + j] });
+        PDT[idx + i] = @intFromPtr(&PT[i << 9]) | 0x3; //1GB
     }
 
     idx = (kCompAddr >> 30) & maxInt(u9);
-    assert(idx < 512);
+    assert(idx == 256);
     PDPT[idx] = @intFromPtr(KPDT.ptr) | 0x3;
 
     idx = (kCompAddr >> 21) & maxInt(u9);
+    assert(idx == 0);
     KPDT[idx] = @intFromPtr(KPT.ptr) | 0x3;
+}
+
+pub fn isPagePresent(addr: usize) bool {
+    if (pml4 == null) return false;
+
+    const pml4_idx = (addr >> 39) & maxInt(u9);
+    const pdpt_idx = (addr >> 30) & maxInt(u9);
+    const pdt_idx = (addr >> 21) & maxInt(u9);
+    const pt_idx = (addr >> 12) & maxInt(u9);
+
+    if (pml4.?[pml4_idx] == 0) {
+        serial.write("No PML4 entry\n", .{});
+        return false;
+    }
+
+    const PDPT: [*]u64 = @ptrFromInt(pml4.?[pml4_idx] & ~@as(u64, 0x3));
+    if (PDPT[pdpt_idx] == 0) {
+        serial.write("No PDPT entry\n", .{});
+        return false;
+    }
+
+    const PDT: [*]u64 = @ptrFromInt(PDPT[pdpt_idx] & ~@as(u64, 0x3));
+    if (PDT[pdt_idx] == 0) {
+        serial.write("No PDT entry\n", .{});
+        return false;
+    }
+
+    const PT: [*]u64 = @ptrFromInt(PDT[pdt_idx] & ~@as(u64, 0x3));
+    if (PT[pt_idx] == 0) {
+        serial.write("No PT entry Index: PML4 {} PDPT:{} PDT:{} PT:{}\n", .{ pml4_idx, pdpt_idx, pdt_idx, pt_idx });
+        return false;
+    }
+
+    return true;
 }

@@ -3,9 +3,11 @@ const MemoryDescriptor = @import("std").os.uefi.tables.MemoryDescriptor;
 const assert = @import("std").debug.assert;
 const MemoryType = @import("std").os.uefi.tables.MemoryType;
 const kMemAddr = 0x4040000000;
+const MemoryMapSlice = @import("std").os.uefi.tables.MemoryMapSlice;
+const KError = @import("kerrors.zig").KError;
 //const paging = @import("paging.zig");
 
-var mmap: [*]MemoryDescriptor = undefined;
+var mmap: MemoryMapSlice = undefined;
 var dsize: usize = undefined;
 var msize: usize = undefined;
 
@@ -50,22 +52,23 @@ pub fn AllocNumPages(nPages: u32) ?[*]u8 {
     return null;
 }
 
-pub fn Init(map: ?[*]MemoryDescriptor, mmapSize: usize, descSize: usize, totalPages: usize) void {
-    mmap = map.?;
-    dsize = descSize;
-    msize = mmapSize;
-
+pub fn Init(mmapSlice: MemoryMapSlice, totalPages: usize) KError!void {
     const bytes4mem = totalPages >> 3;
     const p4mem = bytes4mem >> 12;
-    serial.write("memory map {*} totalPages 0x{x} bytes 0x{x} p4mem 0x{x}\n", .{ mmap, totalPages, bytes4mem, p4mem });
+    serial.write("memory map {*} totalPages 0x{x} bytes 0x{x} p4mem 0x{x}\n", .{ mmapSlice.ptr, totalPages, bytes4mem, p4mem });
+
+    mmap = mmapSlice;
 
     // Now we need to find a big enough "hole" in the memory map where we can fit this mem map bit fields
     // For qemu I know that the first 0xa0 pages are free and valid so thats what we will use
     var pMemMapBitVec: [*]PageState = @ptrFromInt(kMemAddr);
     MemMapBitVec = pMemMapBitVec[0 .. totalPages + 1];
+    serial.write("MemMapBitVector at {*} size 0x{x}\n", .{ MemMapBitVec.ptr, MemMapBitVec.len });
     @memset(MemMapBitVec, PageState.FREE);
+
+    // mark the First "p4mem" pages as allocated for pmem bit map vector
     MarkPages(kMemAddr, p4mem, PageState.ALLOCATED);
-    InitMemBitVector();
+    //InitMemBitVector();
 }
 
 fn InitMemBitVector() void {

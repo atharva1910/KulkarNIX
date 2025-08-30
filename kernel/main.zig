@@ -1,7 +1,8 @@
 const serial = @import("serial.zig");
 const kargs = @import("kargs.zig").kargs;
 const GDT = @import("gdt.zig");
-//const PMem = @import("pmem.zig");
+const KError = @import("kerrors.zig");
+const PMem = @import("pmem.zig");
 
 export var stack_bytes: [16 * 1024]u8 = undefined;
 
@@ -33,19 +34,14 @@ export fn kmain() void {
         return;
     }
 
-    serial.write("Welcome to the kernel. Kernel args {*}. Kernel paddr 0x{x} Kernel vaddr 0x{x} Kernel size 0x{x}\n", .{
-        args,
-        args.?.KPAddr,
-        args.?.KOffset,
-        args.?.KSize,
-    });
+    serial.write("Welcome to the kernel. Kernel args {*} 0x{x}\n", .{ args, args.?.KPAddr });
 
     GDT.Init();
     //
-    //PMem.Init(
-    //    args.?.KMemMap,
-    //    args.?.KMemMapSize,
-    //    args.?.DescSize,
-    //    args.?.KMemPages,
-    //);
+    PMem.Init(
+        args.?.KMemMap,
+        args.?.KMemPages,
+    ) catch |err| {
+        serial.write("Failed to initialize PMEM status: {}\n", .{err});
+    };
 }
