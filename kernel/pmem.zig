@@ -77,7 +77,7 @@ pub fn AllocPages(self: *Self, nPages: u32) ?[]Page {
     return null;
 }
 
-pub fn Init(mmapSlice: MemoryMapSlice, totalPages: usize, KernelStart: usize, KernelPages: usize) KError!Self {
+pub fn Init(mmapSlice: MemoryMapSlice, totalPages: usize, KernelStart: usize, KernelPages: usize, PML4: ) KError!Self {
     const bytes4mem = totalPages >> 3;
     const p4mem = bytes4mem >> 12;
 
