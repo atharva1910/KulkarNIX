@@ -111,15 +111,20 @@ pub fn main() uefi.Error!void {
     const vkargs = @intFromPtr(argsPage) + paging.kMemAddr;
     serial.write("Kernel Arguments at paddr: {*} vaddr: 0x{x}\r\n", .{ argsPage, vkargs });
 
-    argsPage.KPAddr = @intFromPtr(kernel.ptr);
-    argsPage.KOffset = paging.kCompAddr;
-    argsPage.KSize = 2 << 20;
-    argsPage.KMemOffset = paging.kMemAddr;
-    argsPage.KMemPages = paging.totalMemPages;
+    argsPage.KernelPAddr = @intFromPtr(kernel.ptr);
+    argsPage.KCodeOffset = paging.kCompAddr;
+    argsPage.KCodePages = 1;
+
+    argsPage.KDataOffset = paging.kMemAddr;
+    argsPage.KDataPages = paging.totalMemPages;
+
     argsPage.KMemMap = memSlice;
     // Update the ptr from Pmem to Vmem
     argsPage.KMemMap.ptr = @ptrFromInt(@intFromPtr(memSlice.ptr) + paging.kMemAddr);
-    argsPage.PML4 = paging.pml4.?;
+
+    // Page Tables
+    argsPage.PageTables = paging.PageTables;
+    argsPage.KMemMap.ptr = @ptrFromInt(@intFromPtr(paging.PageTables.ptr) + paging.kMemAddr);
 
     serial.write("Jumping to Kernel at 0x{x}\r\n", .{argsPage.KPAddr + argsPage.KOffset});
 

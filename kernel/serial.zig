@@ -21,7 +21,7 @@ pub fn init() bool {
     return true;
 }
 
-pub fn write(comptime str: []const u8, args: anytype) void {
+pub fn Write(comptime str: []const u8, args: anytype) void {
     var u8buf = [_]u8{0} ** 512;
     _ = bufPrint(u8buf[0..], str, args) catch {
         return;
