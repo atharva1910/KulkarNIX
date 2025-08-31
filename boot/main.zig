@@ -111,6 +111,8 @@ pub fn main() uefi.Error!void {
     const vkargs = @intFromPtr(argsPage) + paging.kMemAddr;
     serial.write("Kernel Arguments at paddr: {*} vaddr: 0x{x}\r\n", .{ argsPage, vkargs });
 
+    serial.write("PML4: {*}\r\n", .{paging.pml4.?});
+
     argsPage.KernelPAddr = @intFromPtr(kernel.ptr);
     argsPage.KCodeOffset = paging.kCompAddr;
     argsPage.KCodePages = 1;
@@ -126,7 +128,7 @@ pub fn main() uefi.Error!void {
     argsPage.PageTables = paging.PageTables;
     argsPage.KMemMap.ptr = @ptrFromInt(@intFromPtr(paging.PageTables.ptr) + paging.kMemAddr);
 
-    serial.write("Jumping to Kernel at 0x{x}\r\n", .{argsPage.KPAddr + argsPage.KOffset});
+    serial.write("Jumping to Kernel at 0x{x}\r\n", .{argsPage.KernelPAddr + argsPage.KCodeOffset});
 
     asm volatile (
         \\mov %[pml4], %%rax

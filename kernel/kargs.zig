@@ -17,6 +17,7 @@ pub const kargs = struct {
 
     // Paging
     PML4: []Page,
+    PageTables: [][512]u64,
     NumPDPT: usize,
     NumPDT: usize,
     NumPT: usize,

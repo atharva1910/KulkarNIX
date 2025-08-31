@@ -31,7 +31,7 @@ pub fn MarkPages(self: *Self, addr: usize, pages: usize, state: PageState) KErro
 
 fn InitMemBitVector(self: *Self) KError!void {
     if (self.mmap == null) {
-        Serial.Write("{}:{} mmap is null\n", .{ @src().fn_name, @src().line });
+        //Serial.Write("{}:{} mmap is null\n", .{ @src().fn_name, @src().line });
         return KError.NullPtr;
     }
 
@@ -40,14 +40,14 @@ fn InitMemBitVector(self: *Self) KError!void {
         const desc = itr.next();
         if (desc == null) break;
 
-        if (desc.type == MemoryType.boot_services_code or
-            desc.type == MemoryType.boot_services_data or
-            desc.type == MemoryType.conventional_memory)
+        if (desc.?.type == MemoryType.boot_services_code or
+            desc.?.type == MemoryType.boot_services_data or
+            desc.?.type == MemoryType.conventional_memory)
         {
             continue;
         }
 
-        self.MarkPages(itr.physical_start + kMemAddr, itr.number_of_pages, PageState.ALLOCATED);
+        try self.MarkPages(desc.?.physical_start + kMemAddr, desc.?.number_of_pages, PageState.ALLOCATED);
     }
 }
 
@@ -77,11 +77,11 @@ pub fn AllocPages(self: *Self, nPages: u32) ?[]Page {
     return null;
 }
 
-pub fn Init(mmapSlice: MemoryMapSlice, totalPages: usize, KernelStart: usize, KernelPages: usize, PML4: ) KError!Self {
+pub fn Init(mmapSlice: MemoryMapSlice, totalPages: usize, KernelStart: usize, KernelPages: usize) KError!Self {
     const bytes4mem = totalPages >> 3;
     const p4mem = bytes4mem >> 12;
 
-    const PMEM = Self{
+    var PMEM = Self{
         .KMemStart = kMemAddr,
         .MemMapBitVec = undefined,
         .mmap = mmapSlice,
@@ -96,7 +96,7 @@ pub fn Init(mmapSlice: MemoryMapSlice, totalPages: usize, KernelStart: usize, Ke
     // Mark the bits which are reserved for Page Bit Map
     @memset(PMEM.MemMapBitVec[0..p4mem], PageState.ALLOCATED);
 
-    PMEM.InitMemBitVector(PMEM.KMemStart) catch |err| {
+    PMEM.InitMemBitVector() catch |err| {
         Serial.Write("Failed to init mem bit vector: {}\n", .{err});
         return err;
     };

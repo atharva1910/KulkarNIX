@@ -13,7 +13,7 @@ const Error = uefi.Error;
 pub const kCompAddr = 0x4000000000;
 pub const kMemAddr = 0x4040000000;
 pub var pml4: ?[*]u64 = undefined;
-pub var PageTables: []Page = undefined;
+pub var PageTables: [][512]u64 = undefined;
 pub var totalMemPages: usize = undefined;
 
 fn DumpTable(table: [*]u64, lvl: u16) void {
@@ -62,17 +62,17 @@ pub fn IdentityMapImage(addr: []u8) !void {
     if (pml4_idx != 0) {
         return Error.Unexpected;
     } else {
-        const page: [*]align(4096) u64 = @ptrFromInt(pml4.?[pml4_idx] & ~@as(u64, 0x3));
+        const page: [*]align(4096) u64 = @ptrFromInt(PageTables[pml4_idx][0] & ~@as(u64, 0x3));
         table = page[0..512];
     }
 
     if (table[pdpt_idx] == 0) {
         const page = try mem.alloc_pages(1);
         @memset(page[0][0..], 0);
-        table[pdpt_idx] = @intFromPtr(page.ptr) | 0x3;
-        table = @ptrCast(page.ptr);
+        const temp: [*]align(4096) u64 = @ptrCast(page.ptr);
+        table = temp[0..512];
     } else {
-        const page: [*]64 = @ptrFromInt(table[pdpt_idx] & ~@as(u64, 0x3));
+        const page: [*]align(4096) u64 = @ptrFromInt(table[pdpt_idx] & ~@as(u64, 0x3));
         table = page[0..512];
     }
 
@@ -80,9 +80,10 @@ pub fn IdentityMapImage(addr: []u8) !void {
         const page = try mem.alloc_pages(1);
         @memset(page[0][0..], 0);
         table[pdt_idx] = @intFromPtr(page.ptr) | 0x3;
-        table = page;
+        const temp: [*]align(4096) u64 = @ptrCast(page.ptr);
+        table = temp[0..512];
     } else {
-        const page: [*]64 = @ptrFromInt(table[pdt_idx] & ~@as(u64, 0x3));
+        const page: [*]align(4096) u64 = @ptrFromInt(table[pdt_idx] & ~@as(u64, 0x3));
         table = page[0..512];
     }
 
@@ -112,73 +113,81 @@ pub fn MapUsableMemory(mmap: MemoryMapSlice, kStart: usize) !void {
     serial.write("Mapping pages: 0x{x}. PML4 = {} PDPT {} PDT {} PT {} \n", .{ totalMemPages, num_pml4, num_pdpt, num_pdt, num_pt });
     const total_pages = num_pt + num_pdt + num_pdpt + num_pml4 + num_kpdt + num_kpt;
 
-    PageTables = try mem.alloc_pages(total_pages);
-    @memset(PageTables[0..total_pages], [_]u8{0} ** 4096);
+    PageTables = @ptrCast(try mem.alloc_pages(total_pages));
+    @memset(PageTables[0..total_pages], [_]u64{0} ** 512);
     serial.write("Allocated pml4 at {*}\r\n", .{PageTables.ptr});
     pml4 = @ptrCast(@alignCast(PageTables.ptr));
 
     var start: usize = 0;
-    var end: usize = start + (num_pml4 * table_entries);
-    var PML4 = pml4.?[start..table_entries];
-    //serial.write("PML4 = pml4.?[0x{x} - 0x{x}] = 0x{x}\r\n", .{ start, end, PML4.len });
-    assert(PML4.len == num_pml4 << 9);
+    var end: usize = num_pml4;
+    //var PML4 = pml4.?[start..table_entries];
+    var PML4 = PageTables[start..end];
+    serial.write("PML4 = pml4.?[0x{x} - 0x{x}] = 0x{x}\r\n", .{ start, end, PML4.len });
+    //assert(PML4.len == num_pml4 << 9);
 
     start = end;
-    end = start + (num_pdpt * table_entries);
-    var PDPT = pml4.?[start..end];
-    assert(PDPT.len == num_pdpt << 9);
+    end = start + num_pdpt;
+    var PDPT = PageTables[start..end];
+    assert(PDPT.len == num_pdpt);
     //serial.write("PDPT = pml4.?[0x{x} - 0x{x}] = {*}\r\n", .{ start, end, PDPT });
 
     start = end;
-    end = start + (num_pdt * table_entries);
-    var PDT = pml4.?[start..end];
-    assert(PDT.len == num_pdt << 9);
+    end = start + num_pdt;
+    var PDT = PageTables[start..end];
+    assert(PDT.len == num_pdt);
     //serial.write("PDT = pml4.?[0x{x} - 0x{x}] = {*}\r\n", .{ start, end, PDT });
 
     start = end;
     end = start + (num_kpdt * table_entries);
     var KPDT = pml4.?[start..end];
-    assert(KPDT.len == num_kpdt << 9);
+    assert(KPDT.len == num_kpdt);
     //serial.write("KPDT = pml4.?[0x{x} - 0x{x}] = {*}\r\n", .{ start, end, KPDT });
 
     start = end;
-    end = start + (num_pt * table_entries);
-    var PT = pml4.?[start..end];
-    assert(PT.len == num_pt << 9);
+    end = start + num_pt;
+    var PT = PageTables[start..end];
+    assert(PT.len == num_pt);
     //serial.write("PT = pml4.?[0x{x} - 0x{x}] = {*}\r\n", .{ start, end, PT });
 
     var addr: u64 = 0x3;
-    for (0..num_pt << 9) |i| {
-        PT[i] = addr;
-        addr += 0x1000;
+    for (0..num_pt) |i| {
+        for (0..table_entries) |j| {
+            PT[i][j] = addr;
+            addr += 0x1000;
+        }
     }
 
     start = end;
-    end = start + (num_kpt * table_entries);
-    var KPT = pml4.?[start..end];
-    assert(KPT.len == num_kpt << 9);
+    end = num_kpt;
+    var KPT = PageTables[start..end];
+    assert(KPT.len == num_kpt);
     //serial.write("KPT = pml4.?[0x{x} - 0x{x}] = {*}\r\n", .{ start, end, KPT });
 
     addr = kStart | 0x3;
-    for (0..num_kpt << 9) |i| {
-        KPT[i] = addr;
-        addr += 0x1000;
+    for (0..num_kpt) |i| {
+        for (0..table_entries) |j| {
+            KPT[i][j] = addr;
+            addr += 0x1000;
+        }
     }
 
     var idx: usize = (kMemAddr >> 39) & maxInt(u9);
     assert(idx == 0);
-    PML4[idx] = @intFromPtr(PDPT.ptr) | 0x3;
+    PML4[0][idx] = @intFromPtr(PDPT.ptr) | 0x3;
 
     idx = (kMemAddr >> 30) & maxInt(u9);
     assert(idx == 257);
     for (0..num_pdt) |i| {
-        PDPT[idx + i] = @intFromPtr(&PDT[i << 9]) | 0x3; //1GB
+        PDPT[0][idx + i] = @intFromPtr(&PDT[i << 9]) | 0x3; //1GB
     }
 
     idx = (kMemAddr >> 21) & maxInt(u9);
     assert(idx == 0);
-    for (0..num_pt) |i| {
-        PDT[idx + i] = @intFromPtr(&PT[i << 9]) | 0x3; //1GB
+    for (0..num_pdt) |i| {
+        const pt = &PDT[i];
+        for (0..num_pt) |i| {
+            PDT[pdt_idx][idx + i] = @intFromPtr(&PT[i << 9]) | 0x3; //1GB
+        }
     }
 
     idx = (kCompAddr >> 30) & maxInt(u9);

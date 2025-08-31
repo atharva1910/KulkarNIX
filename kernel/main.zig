@@ -33,14 +33,22 @@ export fn kmain() void {
         return;
     }
 
-    Serial.Write("Welcome to the kernel. Kernel args {*} 0x{x}\n", .{ args, args.?.KPAddr });
+    Serial.Write("Welcome to the kernel. Kernel args {*} 0x{x}\n", .{
+        args,
+        args.?.KernelPAddr,
+    });
+
+    Serial.Write("PageTables: {*} Len: 0x{x}\n", .{
+        args.?.PageTables.ptr,
+        args.?.PageTables.len,
+    });
 
     GDT.Init();
 
-    const PMEM = PMem.Init(
+    _ = PMem.Init(
         args.?.KMemMap,
-        args.?.KMemPages,
-        args.?.KPAddr + args.?.KCodeOffset,
+        args.?.KDataPages,
+        args.?.KernelPAddr + args.?.KCodeOffset,
         args.?.KCodePages,
     ) catch |err| {
         Serial.Write("Failed to initialize PMEM status: {}\n", .{err});
