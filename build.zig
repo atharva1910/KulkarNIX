@@ -19,7 +19,17 @@ const os_interface = struct {
 const windows = struct {
     fn run_qemu_rel(b: *std.Build) *std.Build.Step {
         return &b.addSystemCommand(&.{
-            "C:\\Program Files\\qemu\\qemu-system-x86_64.exe", "-bios", "OVMF.fd", "-serial", "stdio", "-d", "cpu_reset", "-drive", "file=fat:rw:disk,format=raw",
+            "C:\\Program Files\\qemu\\qemu-system-x86_64.exe",
+            "-bios",
+            "OVMF.fd",
+            "-serial",
+            "stdio",
+            "-d",
+            "cpu_reset",
+            "-drive",
+            "file=fat:rw:disk,format=raw",
+            "-display",
+            "none",
         }).step;
     }
 

@@ -91,7 +91,7 @@ pub fn main() uefi.Error!void {
     var argsPage: *kargs = @ptrCast(try mem.alloc_pages(1));
     const kernel = try mem.alloc_pages(512);
     const entry = try ReadKernel(@ptrCast(kernel[0..]));
-    serial.write("Kernel loaded at {*}\n", .{kernel});
+    serial.write("Kernel loaded at {*}\n", .{kernel.ptr});
 
     try InitGOP();
     try boot_services.setWatchdogTimer(0, 0, null);
@@ -126,9 +126,14 @@ pub fn main() uefi.Error!void {
 
     // Page Tables
     argsPage.PageTables = paging.PageTables;
-    argsPage.KMemMap.ptr = @ptrFromInt(@intFromPtr(paging.PageTables.ptr) + paging.kMemAddr);
+    argsPage.PageTables.ptr = @ptrFromInt(@intFromPtr(paging.PageTables.ptr) + paging.kMemAddr);
+    serial.write("Changes the Page Tables ptr from {*} to {*} {}\n", .{ paging.PageTables.ptr, argsPage.PageTables.ptr, argsPage.PageTables.len });
 
-    serial.write("Jumping to Kernel at 0x{x}\r\n", .{argsPage.KernelPAddr + argsPage.KCodeOffset});
+    if (paging.isPagePresent(vkargs)) {
+        serial.write("Jumping to Kernel at 0x{x}\r\n", .{argsPage.KernelPAddr + argsPage.KCodeOffset});
+    } else {
+        serial.write("Args page not preset\n", .{});
+    }
 
     asm volatile (
         \\mov %[pml4], %%rax
