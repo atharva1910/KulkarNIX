@@ -76,7 +76,7 @@ const linux = struct {
             "-display",
             "none",
             "-m",
-            "4G",
+            "512M",
         }).step;
     }
 
