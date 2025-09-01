@@ -121,10 +121,8 @@ pub fn main() uefi.Error!void {
     argsPage.KDataPages = paging.totalMemPages;
 
     argsPage.KMemMap = memSlice;
-    // Update the ptr from Pmem to Vmem
     argsPage.KMemMap.ptr = @ptrFromInt(@intFromPtr(memSlice.ptr) + paging.kMemAddr);
 
-    // Page Tables
     argsPage.PageTables = paging.PageTables;
     argsPage.PageTables.ptr = @ptrFromInt(@intFromPtr(paging.PageTables.ptr) + paging.kMemAddr);
     serial.write("Changes the Page Tables ptr from {*} to {*} {}\n", .{ paging.PageTables.ptr, argsPage.PageTables.ptr, argsPage.PageTables.len });

@@ -29,17 +29,19 @@ pub fn MarkPages(self: *Self, addr: usize, pages: usize, state: PageState) KErro
     @memset(self.MemMapBitVec[start..end], state);
 }
 
-fn InitMemBitVector(self: *Self) KError!void {
+fn InitMemBitVector(self: *Self, maxAddr: usize) KError!void {
     if (self.mmap == null) {
         //Serial.Write("{}:{} mmap is null\n", .{ @src().fn_name, @src().line });
         return KError.NullPtr;
     }
 
     var itr = self.mmap.?.iterator();
+
     while (true) {
         const desc = itr.next();
         if (desc == null) break;
-
+        // TODO: Check if overlaps
+        if (desc.?.physical_start > maxAddr) break;
         if (desc.?.type == MemoryType.boot_services_code or
             desc.?.type == MemoryType.boot_services_data or
             desc.?.type == MemoryType.conventional_memory)
@@ -80,6 +82,7 @@ pub fn AllocPages(self: *Self, nPages: u32) ?[]Page {
 pub fn Init(mmapSlice: MemoryMapSlice, totalPages: usize, KernelStart: usize, KernelPages: usize) KError!Self {
     const bytes4mem = totalPages >> 3;
     const p4mem = bytes4mem >> 12;
+    const maxAddr = (totalPages << 12) - 1;
 
     var PMEM = Self{
         .KMemStart = kMemAddr,
@@ -96,7 +99,7 @@ pub fn Init(mmapSlice: MemoryMapSlice, totalPages: usize, KernelStart: usize, Ke
     // Mark the bits which are reserved for Page Bit Map
     @memset(PMEM.MemMapBitVec[0..p4mem], PageState.ALLOCATED);
 
-    PMEM.InitMemBitVector() catch |err| {
+    PMEM.InitMemBitVector(maxAddr) catch |err| {
         Serial.Write("Failed to init mem bit vector: {}\n", .{err});
         return err;
     };

@@ -9,7 +9,9 @@ const Page = uefi.Page;
 const MemoryDescriptor = @import("std").os.uefi.tables.MemoryDescriptor;
 const PageType = enum(u2) { PML4, PDPT, PDT, PT };
 const MemoryMapSlice = uefi.tables.MemoryMapSlice;
+const MemoryType = uefi.tables.MemoryType;
 const Error = uefi.Error;
+
 pub const kCompAddr = 0x4000000000;
 pub const kMemAddr = 0x4040000000;
 pub var pml4: ?[*]u64 = undefined;
@@ -26,11 +28,15 @@ fn DumpTable(table: [*]u64, lvl: u16) void {
         else => return,
     }
 
-    for (0..512) |i| {
-        if (table[i] == 0) continue;
-        serial.write("{s}[{*}] -> [{}] 0x{x}\r\n", .{ tname, table, i, table[i] });
-        if (lvl < 3)
+    if (lvl < 2) {
+        for (0..512) |i| {
+            if (table[i] == 0) continue;
+            serial.write("{s}[{*}] -> [{}] 0x{x}\r\n", .{ tname, table, i, table[i] });
             DumpTable(@ptrFromInt(table[i] & ~@as(u64, 0x3)), lvl + 1);
+        }
+    } else {
+        serial.write("{s}[{*}] -> [{}] 0x{x}\r\n", .{ tname, table, 0, table[0] });
+        serial.write("{s}[{*}] -> [{}] 0x{x}\r\n", .{ tname, table, 511, table[511] });
     }
 }
 
@@ -56,7 +62,7 @@ pub fn IdentityMapImage(addr: []u8) !void {
     const pdpt_idx = (image_base >> 30) & maxInt(u9);
     const pdt_idx = (image_base >> 21) & maxInt(u9);
     const pt_idx = (image_base >> 12) & maxInt(u9);
-    ////serial.write("Identity mapping {*} size:0x{x} \r\npml4e_idx {} pdpt_idx {} pdt_idx {} pt_idx {}\r\n", .{ addr, size, pml4_idx, pdpt_idx, pdt_idx, pt_idx });
+    //serial.write("Identity mapping {*} size:0x{x} \r\npml4e_idx {} pdpt_idx {} pdt_idx {} pt_idx {}\r\n", .{ addr, addr.len, pml4_idx, pdpt_idx, pdt_idx, pt_idx });
 
     // Dont use address space above 512GB
     if (pml4_idx != 0) {
@@ -64,41 +70,57 @@ pub fn IdentityMapImage(addr: []u8) !void {
     } else {
         const page: [*]align(4096) u64 = @ptrFromInt(PageTables[0][pml4_idx] & ~@as(u64, 0x3));
         table = page[0..512];
+        serial.write("PDPT {*} table[{}] = 0x{x}\n", .{ table, pdpt_idx, table[pdpt_idx] });
     }
 
     if (table[pdpt_idx] == 0) {
         const page: []align(4096) u64 = @ptrCast(try mem.alloc_pages(1));
         assert(page.len == 512);
         @memset(page, 0);
+        table[pdpt_idx] = @intFromPtr(page.ptr) | 0x3;
         table = page;
     } else {
         const page: [*]align(4096) u64 = @ptrFromInt(table[pdpt_idx] & ~@as(u64, 0x3));
         table = page[0..512];
     }
 
+    serial.write("PDT {*} table[{}] = 0x{x}\n", .{ table, pdt_idx, table[pdt_idx] });
+
     if (table[pdt_idx] == 0) {
         const page: []align(4096) u64 = @ptrCast(try mem.alloc_pages(1));
         assert(page.len == 512);
         @memset(page, 0);
+        table[pdt_idx] = @intFromPtr(page.ptr) | 0x3;
         table = page;
     } else {
         const page: [*]align(4096) u64 = @ptrFromInt(table[pdt_idx] & ~@as(u64, 0x3));
         table = page[0..512];
     }
 
+    serial.write("PT {*} table[{}] = 0x{x}\n", .{ table, pt_idx, table[pt_idx] });
+
     for (0..num_pages) |i| {
         if (pt_idx + i >= 512) return Error.Aborted;
         table[pt_idx + i] = image_base + (i << 12) | 0x3;
     }
+    DumpPageMap();
 }
 
 pub fn MapUsableMemory(mmap: MemoryMapSlice, kStart: usize) !void {
     var itr = mmap.iterator();
     while (true) {
         const desc = itr.next();
-        if (desc == null) break;
-        totalMemPages += desc.?.number_of_pages;
+
+        if (desc == null) {
+            break;
+        } else if (desc.?.type == MemoryType.boot_services_code or
+            desc.?.type == MemoryType.boot_services_data or
+            desc.?.type == MemoryType.conventional_memory)
+        {
+            totalMemPages = (desc.?.physical_start + (desc.?.number_of_pages << 12)) >> 12;
+        }
     }
+
     serial.write("Total pages to map 0x{x}\n", .{totalMemPages});
 
     const num_pt = (totalMemPages >> 9) + 1;
@@ -118,7 +140,6 @@ pub fn MapUsableMemory(mmap: MemoryMapSlice, kStart: usize) !void {
 
     var start: usize = 0;
     var end: usize = num_pml4;
-    //var PML4 = pml4.?[start..table_entries];
     var PML4 = PageTables[start..end];
     //serial.write("PML4 = pml4.?[0x{x} - 0x{x}] = 0x{x}\r\n", .{ start, end, PML4.len });
     assert(PML4.len == num_pml4);
@@ -181,6 +202,7 @@ pub fn MapUsableMemory(mmap: MemoryMapSlice, kStart: usize) !void {
             if (pdt_idx == num_pdt) break;
             pdpt[idx + j] = @intFromPtr(&PDT[pdt_idx]) | 0x3; //1GB
         }
+        idx = 0;
     }
 
     idx = (kMemAddr >> 21) & maxInt(u9);
@@ -201,7 +223,6 @@ pub fn MapUsableMemory(mmap: MemoryMapSlice, kStart: usize) !void {
     idx = (kCompAddr >> 21) & maxInt(u9);
     assert(idx == 0);
     KPDT[0][idx] = @intFromPtr(KPT.ptr) | 0x3;
-    DumpPageMap();
 }
 
 pub fn isPagePresent(addr: usize) bool {

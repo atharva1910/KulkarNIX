@@ -12,7 +12,6 @@ comptime {
         \\.global  _start
         \\.type _start, @function
         \\_start:
-        \\hlt
         \\movabs $stack_bytes, %rax
         \\addq $10000, %rax
         \\movq %rax, %rsp
@@ -36,8 +35,7 @@ export fn kmain() void {
 
     Serial.Write("Welcome to the kernel. Kernel args {*} 0x{x}\n", .{
         args,
-        0xDEADBEEF,
-        //args.?.KernelPAddr,
+        args.?.KernelPAddr,
     });
 
     Serial.Write("PageTables: {*} Len: 0x{x}\n", .{
@@ -50,7 +48,7 @@ export fn kmain() void {
     _ = PMem.Init(
         args.?.KMemMap,
         args.?.KDataPages,
-        args.?.KernelPAddr + args.?.KCodeOffset,
+        args.?.KernelPAddr + args.?.KDataOffset,
         args.?.KCodePages,
     ) catch |err| {
         Serial.Write("Failed to initialize PMEM status: {}\n", .{err});
