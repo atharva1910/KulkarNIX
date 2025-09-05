@@ -1,3 +1,4 @@
+const Serial = @import("serial.zig");
 pub fn outb(comptime p: u16, c: u8) void {
     asm volatile (
         \\ outb %%al, %[p]
@@ -39,5 +40,30 @@ pub fn sgdt() u64 {
 pub fn cli() void {
     asm volatile (
         \\cli
-    );    
+    );
+}
+
+pub fn cpuid() u32 {
+    var name: [12]u8 = undefined;
+    return asm volatile (
+        \\xor %%rax, %%rax
+        \\cpuid
+        \\mov %%ebx, %[first]
+        \\mov %%edx, %[second]
+        \\mov %%ecx, %[third]
+        : [highest] "=rax" (-> u32),
+        : [first] "p" (&name[0]),
+          [second] "p" (&name[4]),
+          [third] "p" (&name[8]),
+        : .{
+          .rax = true,
+          .rbx = true,
+          .rcx = true,
+          .rdx = true,
+        });
+
+    //Serial.Write("{s} {}\n", .{
+    //    name,
+    //    highest,
+    //});
 }

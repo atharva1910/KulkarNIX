@@ -70,7 +70,6 @@ pub fn IdentityMapImage(addr: []u8) !void {
     } else {
         const page: [*]align(4096) u64 = @ptrFromInt(PageTables[0][pml4_idx] & ~@as(u64, 0x3));
         table = page[0..512];
-        serial.write("PDPT {*} table[{}] = 0x{x}\n", .{ table, pdpt_idx, table[pdpt_idx] });
     }
 
     if (table[pdpt_idx] == 0) {
@@ -84,8 +83,6 @@ pub fn IdentityMapImage(addr: []u8) !void {
         table = page[0..512];
     }
 
-    serial.write("PDT {*} table[{}] = 0x{x}\n", .{ table, pdt_idx, table[pdt_idx] });
-
     if (table[pdt_idx] == 0) {
         const page: []align(4096) u64 = @ptrCast(try mem.alloc_pages(1));
         assert(page.len == 512);
@@ -97,31 +94,23 @@ pub fn IdentityMapImage(addr: []u8) !void {
         table = page[0..512];
     }
 
-    serial.write("PT {*} table[{}] = 0x{x}\n", .{ table, pt_idx, table[pt_idx] });
-
     for (0..num_pages) |i| {
         if (pt_idx + i >= 512) return Error.Aborted;
         table[pt_idx + i] = image_base + (i << 12) | 0x3;
     }
-    DumpPageMap();
 }
 
 pub fn MapUsableMemory(mmap: MemoryMapSlice, kStart: usize) !void {
     var itr = mmap.iterator();
-    while (true) {
-        const desc = itr.next();
-
-        if (desc == null) {
-            break;
-        } else if (desc.?.type == MemoryType.boot_services_code or
-            desc.?.type == MemoryType.boot_services_data or
-            desc.?.type == MemoryType.conventional_memory)
+    while (itr.next()) |desc| {
+        if (desc.type == MemoryType.boot_services_code or
+            desc.type == MemoryType.boot_services_data or
+            desc.type == MemoryType.conventional_memory)
         {
-            totalMemPages = (desc.?.physical_start + (desc.?.number_of_pages << 12)) >> 12;
+            totalMemPages = (desc.physical_start + (desc.number_of_pages << 12)) >> 12;
+            serial.write("Found usable memory pstart: 0x{x}, nP = 0x{x} totalMemPages 0x{x}\n", .{ desc.physical_start, desc.number_of_pages, totalMemPages });
         }
     }
-
-    serial.write("Total pages to map 0x{x}\n", .{totalMemPages});
 
     const num_pt = (totalMemPages >> 9) + 1;
     const num_pdt = (num_pt >> 9) + 1;
@@ -254,8 +243,6 @@ pub fn isPagePresent(addr: usize) bool {
     if (PT[pt_idx] == 0) {
         serial.write("No PT entry Index: PML4 {} PDPT:{} PDT:{} PT:{}\n", .{ pml4_idx, pdpt_idx, pdt_idx, pt_idx });
         return false;
-    } else {
-        serial.write("PT entry Index: PML4 {} PDPT:{} PDT:{} PT:{}\n", .{ pml4_idx, pdpt_idx, pdt_idx, pt_idx });
     }
 
     return true;

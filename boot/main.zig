@@ -57,7 +57,7 @@ fn ReadKernel(pages: []u8) !u64 {
         if (try kHandle.read(pages[buf_idx .. buf_idx + p_phdr[i].p_filesz]) < p_phdr[i].p_filesz) {
             break;
         } else {
-            serial.write("phdr[{}] addr {*} size 0x{x}\r\n", .{ i, &pages[buf_idx], p_phdr[i].p_filesz });
+            //serial.write("phdr[{}] addr {*} size 0x{x}\r\n", .{ i, &pages[buf_idx], p_phdr[i].p_filesz });
         }
     }
 
@@ -111,8 +111,6 @@ pub fn main() uefi.Error!void {
     const vkargs = @intFromPtr(argsPage) + paging.kMemAddr;
     serial.write("Kernel Arguments at paddr: {*} vaddr: 0x{x}\r\n", .{ argsPage, vkargs });
 
-    serial.write("PML4: {*}\r\n", .{paging.pml4.?});
-
     argsPage.KernelPAddr = @intFromPtr(kernel.ptr);
     argsPage.KCodeOffset = paging.kCompAddr;
     argsPage.KCodePages = 1;
@@ -125,7 +123,6 @@ pub fn main() uefi.Error!void {
 
     argsPage.PageTables = paging.PageTables;
     argsPage.PageTables.ptr = @ptrFromInt(@intFromPtr(paging.PageTables.ptr) + paging.kMemAddr);
-    serial.write("Changes the Page Tables ptr from {*} to {*} {}\n", .{ paging.PageTables.ptr, argsPage.PageTables.ptr, argsPage.PageTables.len });
 
     if (paging.isPagePresent(vkargs)) {
         serial.write("Jumping to Kernel at 0x{x}\r\n", .{argsPage.KernelPAddr + argsPage.KCodeOffset});

@@ -3,6 +3,8 @@ const kargs = @import("kargs.zig").kargs;
 const GDT = @import("gdt.zig");
 const KError = @import("kerrors.zig");
 const PMem = @import("pmem.zig");
+const HAL = @import("hal.zig");
+const KState = @import("kstate.zig").KState;
 
 export var stack_bytes: [16 * 1024]u8 = undefined;
 comptime {
@@ -33,19 +35,18 @@ export fn kmain() void {
         return;
     }
 
-    Serial.Write("Welcome to the kernel. Kernel args {*} 0x{x}\n", .{
+    Serial.Write("Welcome to the kernel. Args; {*} Kernel PAddr: 0x{x}\n", .{
         args,
         args.?.KernelPAddr,
     });
 
-    Serial.Write("PageTables: {*} Len: 0x{x}\n", .{
-        args.?.PageTables.ptr,
-        args.?.PageTables.len,
-    });
+    _ = KState.Init(args.?.KDataOffset) catch {
+        Serial.Write("Failed to global kernel state\n", .{});
+    };
 
     GDT.Init();
 
-    _ = PMem.Init(
+    PMem.Init(
         args.?.KMemMap,
         args.?.KDataPages,
         args.?.KernelPAddr + args.?.KDataOffset,
@@ -53,4 +54,7 @@ export fn kmain() void {
     ) catch |err| {
         Serial.Write("Failed to initialize PMEM status: {}\n", .{err});
     };
+
+    const global = KState.GetPhyMemMgr();
+    global.?.loop();
 }

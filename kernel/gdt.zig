@@ -1,4 +1,4 @@
-const serial = @import("serial.zig");
+const Serial = @import("serial.zig");
 const hal = @import("hal.zig");
 const NUM_SEG = 3;
 const CODE_SEG = 0x8;
@@ -13,8 +13,8 @@ const GDTR = packed struct {
     limit: u16,
     base: u64,
 
-    fn print(self: *GDTR) void {
-        serial.write("GDTR {*}, base {*}: 0x{x} limit {*}: 0x{x}\n", .{
+    fn Print(self: *GDTR) void {
+        Serial.Write("GDTR {*}, base {*}: 0x{x} limit {*}: 0x{x}\n", .{
             self, &self.base, self.base, &self.limit, self.limit,
         });
     }
@@ -74,4 +74,6 @@ pub fn Init() void {
           .rsp = true,
           .rbp = true,
         });
+
+    gdtr.Print();
 }
