@@ -1,7 +1,7 @@
 const uefi = @import("std").os.uefi;
 const MemoryMapSlice = uefi.tables.MemoryMapSlice;
 const Page = uefi.Page;
-
+const PageTableMgr = @import("paging.zig").PageTableMgr;
 pub const kargs = struct {
     // Kernel code segment
     KernelPAddr: usize,
@@ -16,9 +16,5 @@ pub const kargs = struct {
     KMemMap: MemoryMapSlice,
 
     // Paging
-    PML4: []Page,
-    PageTables: [][512]u64,
-    NumPDPT: usize,
-    NumPDT: usize,
-    NumPT: usize,
+    PageTableManger: PageTableMgr,
 };

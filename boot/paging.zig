@@ -18,6 +18,15 @@ pub var pml4: ?[*]u64 = undefined;
 pub var PageTables: [][512]u64 = undefined;
 pub var totalMemPages: usize = undefined;
 
+pub const PageTableMgr = struct {
+    PageTables: [][512]u64,
+    NumPDPT: usize,
+    NumPDT: usize,
+    NumPT: usize,
+    TotalPages: usize,
+    PageTablePages: usize,
+};
+
 fn DumpTable(table: [*]u64, lvl: u16) void {
     var tname: []const u8 = undefined;
     switch (lvl) {
@@ -100,7 +109,8 @@ pub fn IdentityMapImage(addr: []u8) !void {
     }
 }
 
-pub fn MapUsableMemory(mmap: MemoryMapSlice, kStart: usize) !void {
+pub fn MapUsableMemory(mmap: MemoryMapSlice, kStart: usize) !PageTableMgr {
+    var ret: PageTableMgr = undefined;
     var itr = mmap.iterator();
     while (itr.next()) |desc| {
         if (desc.type == MemoryType.boot_services_code or
@@ -122,8 +132,14 @@ pub fn MapUsableMemory(mmap: MemoryMapSlice, kStart: usize) !void {
 
     serial.write("Mapping pages: 0x{x}. PML4 = {} PDPT {} PDT {} PT {} \n", .{ totalMemPages, num_pml4, num_pdpt, num_pdt, num_pt });
     const total_pages = num_pt + num_pdt + num_pdpt + num_pml4 + num_kpdt + num_kpt;
+    ret.NumPDPT = num_pdpt;
+    ret.NumPDT = num_pdt;
+    ret.NumPT = num_pt;
+    ret.TotalPages = totalMemPages;
+    ret.PageTablePages = total_pages;
 
     PageTables = @ptrCast(try mem.alloc_pages(total_pages));
+    serial.write("Page Tables Start: {*} End: 0x{x}\n", .{ &PageTables[0], @intFromPtr(&PageTables[0]) + (total_pages << 12) });
     @memset(PageTables[0..total_pages], [_]u64{0} ** 512);
     pml4 = @ptrCast(@alignCast(PageTables.ptr));
 
@@ -212,6 +228,8 @@ pub fn MapUsableMemory(mmap: MemoryMapSlice, kStart: usize) !void {
     idx = (kCompAddr >> 21) & maxInt(u9);
     assert(idx == 0);
     KPDT[0][idx] = @intFromPtr(KPT.ptr) | 0x3;
+
+    return ret;
 }
 
 pub fn isPagePresent(addr: usize) bool {

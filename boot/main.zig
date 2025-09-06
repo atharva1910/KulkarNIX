@@ -102,7 +102,7 @@ pub fn main() uefi.Error!void {
         unreachable;
     };
 
-    try paging.MapUsableMemory(memSlice, @intFromPtr(kernel.ptr));
+    const pageMgr = try paging.MapUsableMemory(memSlice, @intFromPtr(kernel.ptr));
     try paging.IdentityMapImage(loaded_img.?.image_base[0..loaded_img.?.image_size]);
 
     memSlice = try mem.GetMemoryMap();
@@ -121,8 +121,8 @@ pub fn main() uefi.Error!void {
     argsPage.KMemMap = memSlice;
     argsPage.KMemMap.ptr = @ptrFromInt(@intFromPtr(memSlice.ptr) + paging.kMemAddr);
 
-    argsPage.PageTables = paging.PageTables;
-    argsPage.PageTables.ptr = @ptrFromInt(@intFromPtr(paging.PageTables.ptr) + paging.kMemAddr);
+    argsPage.PageTableManger = pageMgr;
+    argsPage.PageTableManger.PageTables.ptr = @ptrFromInt(@intFromPtr(paging.PageTables.ptr) + paging.kMemAddr);
 
     if (paging.isPagePresent(vkargs)) {
         serial.write("Jumping to Kernel at 0x{x}\r\n", .{argsPage.KernelPAddr + argsPage.KCodeOffset});

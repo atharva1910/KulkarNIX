@@ -3,6 +3,15 @@ const maxInt = @import("std").math.maxInt;
 const base_addr = 0x4040000000;
 pub var g_pml4: ?*[512]usize = undefined;
 
+pub const PageTableMgr = struct {
+    PageTables: [][512]u64,
+    NumPDPT: usize,
+    NumPDT: usize,
+    NumPT: usize,
+    TotalPages: usize,
+    PageTablePages: usize,
+};
+
 pub fn init_kernel_pages(pml4_base: u64, num_pages: u64) void {
     const num_pt = (num_pages >> 9) + 1;
     const num_pdt = (num_pt >> 9) + 1;

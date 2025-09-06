@@ -40,7 +40,7 @@ export fn kmain() void {
         args.?.KernelPAddr,
     });
 
-    _ = KState.Init(args.?.KDataOffset) catch {
+    KState.Init(args.?.KDataOffset) catch {
         Serial.Write("Failed to global kernel state\n", .{});
     };
 
@@ -48,13 +48,10 @@ export fn kmain() void {
 
     PMem.Init(
         args.?.KMemMap,
-        args.?.KDataPages,
+        args.?.PageTableManger,
         args.?.KernelPAddr + args.?.KDataOffset,
         args.?.KCodePages,
     ) catch |err| {
         Serial.Write("Failed to initialize PMEM status: {}\n", .{err});
     };
-
-    const global = KState.GetPhyMemMgr();
-    global.?.loop();
 }

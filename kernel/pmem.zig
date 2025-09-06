@@ -11,11 +11,15 @@ const KState = @import("kstate.zig").KState;
 const Type = @import("std").builtin.Type;
 const kMemAddr = 0x4040000000;
 const KError = @import("kerrors.zig").KError;
+const PageTableMgr = @import("paging.zig").PageTableMgr;
 
-const PageState = enum(u1) {
-    FREE,
-    ALLOCATED,
-};
+pub fn VA2PA(addr: usize) usize {
+    return addr - kMemAddr;
+}
+
+pub fn PA2VA(addr: usize) usize {
+    return addr + kMemAddr;
+}
 
 const PMemNode = struct {
     next: ?*PMemNode,
@@ -24,7 +28,7 @@ const PMemNode = struct {
     start: usize,
     end: usize,
 
-    pub fn NewNode(comptime T: type, start: usize, n: usize) !*PMemNode {
+    pub fn NewNode(comptime T: type, start: usize, n: usize) KError!*PMemNode {
         var node: *PMemNode = undefined;
         switch (@typeInfo(T)) {
             .pointer => {
@@ -34,7 +38,6 @@ const PMemNode = struct {
 
             .int => {
                 node = @ptrFromInt(start);
-                Serial.Write(" create a new node: {*}\n", .{node});
                 node.start = start;
             },
 
@@ -42,32 +45,80 @@ const PMemNode = struct {
                 return KError.InvalidArg;
             },
         }
-        Serial.Write(" create a new node: 0x{x}\n", .{start});
+
         node.next = node;
         node.prev = node;
         node.pages = n;
         node.end = start + (n << 12);
+        Serial.Write("Created new node {*} start 0x{x} n 0x{x}\n", .{ node, node.start, node.pages });
         return node;
     }
 };
 
 pub const PMemManager = struct {
-    list: ?*PMemNode,
+    List: ?*PMemNode,
+    KernelStart: usize,
+    KernelEnd: usize,
+    PagingStart: usize,
+    PagingEnd: usize,
 
-    pub fn AddNode(self: *PMemManager, start: usize, n: usize) !void {
-        const node = PMemNode.NewNode(usize, start, n) catch |err| {
-            Serial.Write("Failed to create a new node: {}\n", .{err});
-            return err;
-        };
+    const OverlapType = enum {
+        NO_OVERLAP,
+        KERN_OVERLAP,
+        PAGE_OVERLAP,
+        BOTH_OVERLAP,
+    };
 
-        if (self.list == null) {
-            self.list = node;
+    fn IsMemOverlapping(self: *PMemManager, m1Start: usize, m1End: usize) OverlapType {
+        var kernOverlap = false;
+        var pageOverlap = false;
+
+        if (self.PagingStart >= m1Start and self.PagingStart < m1End) {
+            pageOverlap = true;
+        } else if (self.PagingEnd > m1Start and self.PagingEnd < m1End) {
+            pageOverlap = true;
+        }
+
+        if (self.KernelStart >= m1Start and self.KernelStart < m1End) {
+            kernOverlap = true;
+        } else if (self.KernelEnd > m1Start and self.KernelEnd < m1End) {
+            kernOverlap = true;
+        }
+
+        if (pageOverlap and kernOverlap) {
+            return OverlapType.BOTH_OVERLAP;
+        } else if (pageOverlap) {
+            return OverlapType.PAGE_OVERLAP;
+        } else if (kernOverlap) {
+            return OverlapType.KERN_OVERLAP;
+        }
+
+        return OverlapType.NO_OVERLAP;
+    }
+
+    pub fn AddNode(self: *PMemManager, start: usize, n: usize) KError!void {
+        const end = start + (n << 12);
+        const ot = self.IsMemOverlapping(start, end);
+
+        if (ot == OverlapType.NO_OVERLAP) {
+            const node = PMemNode.NewNode(usize, start, n) catch |err| {
+                Serial.Write("Failed to create a new node: {}\n", .{err});
+                return err;
+            };
+
+            if (self.List == null) {
+                self.List = node;
+                return;
+            }
+
+            node.next = self.List;
+            node.prev = self.List.?.prev;
+            self.List = node;
             return;
         }
 
-        node.next = self.list;
-        node.prev = self.list.?.prev;
-        self.list = node;
+        Serial.Write("Found overlapping chunk start 0x{x} type {}\n", .{ start, ot });
+        try self.SplitChunk(ot, start, end);
     }
 
     pub fn loop(self: *PMemManager) void {
@@ -76,10 +127,68 @@ pub const PMemManager = struct {
         var head = self.list;
 
         while (true) {
-            Serial.Write("Node {*} nPages {}\n", .{ head.?, head.?.pages });
+            Serial.Write("Node {*} nPages 0x{x}\n", .{ head.?, head.?.pages });
             head = head.?.next;
             if (head == self.list) break;
         }
+    }
+
+    pub fn SplitChunk(
+        self: *PMemManager,
+        ot: OverlapType,
+        m1Start: usize,
+        m1End: usize,
+    ) KError!void {
+        var splitStart: usize = 0;
+        var splitEnd: usize = 0;
+
+        switch (ot) {
+            OverlapType.KERN_OVERLAP => {
+                // Dont support memory spannign multiple pages yet
+                assert(self.KernelEnd < m1End);
+                assert(m1Start <= self.KernelStart);
+                splitStart = self.KernelStart;
+                splitEnd = self.KernelEnd;
+            },
+
+            OverlapType.PAGE_OVERLAP => {
+                assert(self.PagingEnd < m1End);
+                assert(m1Start <= self.PagingStart);
+                splitStart = self.PagingStart;
+                splitEnd = self.PagingEnd;
+            },
+
+            else => assert(true),
+        }
+
+        const s1Pages = (splitStart - m1Start) >> 12;
+        if (s1Pages > 0) {
+            self.AddNode(m1Start, s1Pages) catch |err| {
+                Serial.Write("Failed to split node start 0x{x} end 0x{x} into pages 0x{x} (second chunk)\n", .{ m1Start, m1End, s1Pages });
+                return err;
+            };
+        }
+
+        const s2Pages = (m1End - splitEnd) >> 12;
+        if (s2Pages > 0) {
+            self.AddNode(m1End, s2Pages) catch |err| {
+                Serial.Write("Failed to split node start 0x{x} end 0x{x} into pages 0x{x} (second chunk)\n", .{ m1Start, m1End, s2Pages });
+                return err;
+            };
+        }
+    }
+
+    pub fn Init(
+        self: *PMemManager,
+        KernelStart: usize,
+        KernelEnd: usize,
+        PagingStart: usize,
+        PagingEnd: usize,
+    ) void {
+        self.KernelStart = KernelStart;
+        self.KernelEnd = KernelEnd;
+        self.PagingStart = PagingStart;
+        self.PagingEnd = PagingEnd;
     }
 };
 
@@ -186,18 +295,25 @@ pub const PMemManager = struct {
 //    return PMEM;
 //}
 //
+
 pub fn Init(
     mmapSlice: MemoryMapSlice,
-    totalPages: usize,
+    PageTableManager: PageTableMgr,
     KernelStart: usize,
     KernelPages: usize,
 ) KError!void {
-    _ = KernelPages + KernelStart;
-    const maxAddr = (totalPages << 12) - 1;
-    Serial.Write("Max Addr: 0x{x}\n", .{maxAddr});
+    const KernelEnd = (KernelPages << 12) + KernelStart;
+    const maxAddr = (PageTableManager.TotalPages << 12);
+
+    const pagingStart = @intFromPtr(PageTableManager.PageTables.ptr);
+    const pagingEnd = pagingStart + (PageTableManager.PageTablePages << 12);
+
+    Serial.Write("Max Addr: 0x{x} Page Table start 0x{x} Page Table End 0x{x} Kernel Start 0x{x} Kernel End 0x{x}\n", .{ maxAddr, pagingStart, pagingEnd, KernelStart, KernelEnd });
     const PMemMgr = KState.GetPhyMemMgr();
     if (PMemMgr == null) {
         return KError.NullPtr;
+    } else {
+        PMemMgr.?.Init(KernelStart, KernelEnd, pagingStart, pagingEnd);
     }
 
     var itr = mmapSlice.iterator();
@@ -206,13 +322,15 @@ pub fn Init(
             return;
         }
 
-        if (desc.type == MemoryType.boot_services_code or
-            desc.type == MemoryType.boot_services_data or
-            desc.type == MemoryType.conventional_memory)
+        if (desc.type != MemoryType.boot_services_code and
+            desc.type != MemoryType.boot_services_data and
+            desc.type != MemoryType.conventional_memory)
         {
-            Serial.Write("paddr 0x{x} npages 0x{x} vaddr 0x{x}\n", .{ desc.physical_start, desc.number_of_pages, desc.physical_start + kMemAddr });
-            try PMemMgr.?.AddNode(desc.physical_start + kMemAddr, desc.number_of_pages);
+            continue;
         }
+
+        //Serial.Write("paddr 0x{x} npages 0x{x} vaddr 0x{x}\n", .{ desc.physical_start, desc.number_of_pages, desc.physical_start + kMemAddr });
+        try PMemMgr.?.AddNode(desc.physical_start + kMemAddr, desc.number_of_pages);
     }
 
     //const bytes4mem = totalPages >> 3;
