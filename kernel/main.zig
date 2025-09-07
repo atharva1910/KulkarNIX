@@ -5,7 +5,8 @@ const KError = @import("kerrors.zig").KError;
 
 const PMem = @import("pmem.zig");
 const PMemManager = PMem.PMemManager;
-
+const Heap = @import("heap.zig");
+const HeapManager = Heap.HeapManager;
 const Paging = @import("paging.zig");
 const PageTableMgr = @import("paging.zig").PageTableMgr;
 
@@ -58,6 +59,10 @@ export fn kmain() void {
     };
 
     Paging.Init(args.?.PageTableManger);
+
+    Heap.Init() catch |err| {
+        Serial.Write("Failed to initialize Heap status: {}\n", .{err});
+    };
 
     HAL.hlt();
 }

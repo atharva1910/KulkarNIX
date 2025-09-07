@@ -15,14 +15,16 @@ const PageTableMgr = @import("paging.zig").PageTableMgr;
 
 pub const HeapManager = struct {
     HeapSize: usize,
+    HeapUsedSize: usize,
+    ListPtr: []u8,
     List: ?*HeapNode,
 
     const HeapNode = struct {
         next: ?*HeapNode,
         prev: ?*HeapNode,
-        pages: usize,
         start: usize,
         end: usize,
+        size: usize,
 
         const HeapNodeIterator = struct {
             head: ?*HeapNode,
@@ -39,18 +41,17 @@ pub const HeapManager = struct {
             }
         };
 
-        pub fn NewNode(comptime T: type, start: usize, n: usize) KError!*HeapNode {
+        pub fn NewNode(comptime T: type, start: T, n: usize) KError!*HeapNode {
             var node: *HeapNode = undefined;
             switch (@typeInfo(T)) {
                 .pointer => {
-                    node = @ptrCast(start);
-                    node.start = @intFromPtr(start);
+                    node = @ptrCast(@alignCast(start));
+                    node.start = @intFromPtr(node);
                 },
 
                 .int => {
                     node = @ptrFromInt(start);
-                    node.start = start;
-                    node.pages = n;
+                    node.start = n;
                 },
 
                 else => {
@@ -60,8 +61,8 @@ pub const HeapManager = struct {
 
             node.next = null;
             node.prev = null;
-            node.pages = n;
-            node.end = start + (n << 12);
+            node.size = n;
+            node.end = node.start + node.size;
             return node;
         }
 
@@ -73,42 +74,86 @@ pub const HeapManager = struct {
         }
 
         pub fn Print(self: *const HeapNode) void {
-            Serial.Write("Node {*}\n\tNext {*} Prev {*}\n\tPages 0x{x} Start 0x{x} End 0x{x}\n", .{
+            Serial.Write("Heap Node {*}\n\tNext {*} Prev {*}\n\tSize 0x{x}\n", .{
                 self,
                 self.next,
                 self.prev,
-                self.pages,
-                self.start,
-                self.end,
+                self.size,
             });
         }
 
-        pub fn TrimPages(self: *HeapNode, n: usize) ![*]u8 {
-            if (self.pages < n) {
+        pub fn SplitNode(self: *HeapNode, n: usize) ![*]u8 {
+            if (self.size < n) {
                 return KError.NoMemory;
             }
 
             self.end -= n << 12;
-            self.pages -= n;
+            self.size -= n;
             return @ptrFromInt(self.end);
         }
     };
 
-    pub fn Init(self: *HeapManager) void {
+    pub fn Init(self: *HeapManager) !void {
         self.HeapSize = 0;
+        self.HeapUsedSize = 0;
         self.List = null;
+
+        const phyMemMgr = KState.GetPhyMemMgr();
+        if (phyMemMgr == null) {
+            return KError.NullPtr;
+        }
+
+        // Allocate 4 MB
+        self.HeapSize = 4 << 8;
+        self.ListPtr = try phyMemMgr.?.AllocPages(self.HeapSize);
+        self.List = try HeapNode.NewNode([]u8, self.ListPtr, self.HeapSize);
+        self.List.?.Print();
     }
 
-    pub fn alloc(size: usize) ?[]u8 {
-        return null;
+    pub fn alloc(self: *HeapManager, size: usize) ![]u8 {
+        if (size == 0) {
+            return KError.InvalidArg;
+        }
+
+        if (self.HeapUsedSize + size > self.HeapSize) {
+            return KError.NoMemory;
+        }
+
+        if (self.List == null) {
+            return KError.NullPtr;
+        }
+
+        var itr = self.List.?.Iterator();
+        while (itr.next()) |node| {
+            if (node.size <= size + @sizeOf(HeapNode)) continue;
+            return try node.SplitNode(size);
+        }
+        return KError.NoMemory;
     }
 
-    pub fn free(p: []u8) void {}
+    pub fn free(p: []u8) void {
+        if (p.len == 0) {
+            return KError.InvalidArg;
+        }
+    }
+
+    pub fn Loop(self: *HeapManager) void {
+        if (self.List == null) {
+            return;
+        }
+
+        var itr = self.List.?.Iterator();
+        while (itr.next()) |node| {
+            node.Print();
+        }
+    }
 };
 
 var HeapMgr: HeapManager = undefined;
 
-pub fn Init() void {
-    HeapMgr.Init();
+pub fn Init() !void {
+    try HeapMgr.Init();
     KState.SetHeapManager(&HeapMgr);
+    Serial.Write("Heap Initialized: {*}", .{HeapMgr.List});
+    HeapMgr.Loop();
 }

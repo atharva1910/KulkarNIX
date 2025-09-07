@@ -84,7 +84,7 @@ pub const PMemManager = struct {
         }
 
         pub fn Print(self: *const PMemNode) void {
-            Serial.Write("Node {*}\n\tNext {*} Prev {*}\n\tPages 0x{x} Start 0x{x} End 0x{x}\n", .{
+            Serial.Write("PMem Node {*}\n\tNext {*} Prev {*}\n\tPages 0x{x} Start 0x{x} End 0x{x}\n", .{
                 self,
                 self.next,
                 self.prev,
@@ -229,9 +229,7 @@ pub const PMemManager = struct {
         var itr = self.List.?.Iterator();
         while (itr.next()) |node| {
             if (node.pages > n) {
-                node.Print();
                 const mem = try node.TrimPages(n);
-                node.Print();
                 return mem[0 .. n << 12];
             }
         }
