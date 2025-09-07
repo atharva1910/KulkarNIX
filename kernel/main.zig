@@ -58,5 +58,6 @@ export fn kmain() void {
     };
 
     Paging.Init(args.?.PageTableManger);
+
     HAL.hlt();
 }

@@ -21,83 +21,6 @@ pub fn PA2VA(addr: usize) usize {
     return addr + kMemAddr;
 }
 
-const PMemNode = struct {
-    next: ?*PMemNode,
-    prev: ?*PMemNode,
-    pages: usize,
-    start: usize,
-    end: usize,
-
-    const PMemNodeIterator = struct {
-        head: ?*PMemNode,
-        itr: ?*PMemNode,
-
-        pub fn next(self: *PMemNodeIterator) ?*PMemNode {
-            const temp = self.itr;
-            self.itr = self.itr.?.next;
-            if (self.itr == null or self.itr.? == self.head.?) {
-                return null;
-            } else {
-                return temp;
-            }
-        }
-    };
-
-    pub fn NewNode(comptime T: type, start: usize, n: usize) KError!*PMemNode {
-        var node: *PMemNode = undefined;
-        switch (@typeInfo(T)) {
-            .pointer => {
-                node = @ptrCast(start);
-                node.start = @intFromPtr(start);
-            },
-
-            .int => {
-                node = @ptrFromInt(start);
-                node.start = start;
-                node.pages = n;
-            },
-
-            else => {
-                return KError.InvalidArg;
-            },
-        }
-
-        node.next = null;
-        node.prev = null;
-        node.pages = n;
-        node.end = start + (n << 12);
-        return node;
-    }
-
-    pub fn Iterator(self: *PMemNode) PMemNodeIterator {
-        return .{
-            .itr = self,
-            .head = self,
-        };
-    }
-
-    pub fn Print(self: *const PMemNode) void {
-        Serial.Write("Node {*}\n\tNext {*} Prev {*}\n\tPages 0x{x} Start 0x{x} End 0x{x}\n", .{
-            self,
-            self.next,
-            self.prev,
-            self.pages,
-            self.start,
-            self.end,
-        });
-    }
-
-    pub fn TrimPages(self: *PMemNode, n: usize) ![*]u8 {
-        if (self.pages < n) {
-            return KError.NoMemory;
-        }
-
-        self.end -= n << 12;
-        self.pages -= n;
-        return @ptrFromInt(self.end);
-    }
-};
-
 pub const PMemManager = struct {
     List: ?*PMemNode,
     KernelStart: usize,
@@ -105,6 +28,82 @@ pub const PMemManager = struct {
     PagingStart: usize,
     PagingEnd: usize,
 
+    const PMemNode = struct {
+        next: ?*PMemNode,
+        prev: ?*PMemNode,
+        pages: usize,
+        start: usize,
+        end: usize,
+
+        const PMemNodeIterator = struct {
+            head: ?*PMemNode,
+            itr: ?*PMemNode,
+
+            pub fn next(self: *PMemNodeIterator) ?*PMemNode {
+                const temp = self.itr;
+                self.itr = self.itr.?.next;
+                if (self.itr == null or self.itr.? == self.head.?) {
+                    return null;
+                } else {
+                    return temp;
+                }
+            }
+        };
+
+        pub fn NewNode(comptime T: type, start: usize, n: usize) KError!*PMemNode {
+            var node: *PMemNode = undefined;
+            switch (@typeInfo(T)) {
+                .pointer => {
+                    node = @ptrCast(start);
+                    node.start = @intFromPtr(start);
+                },
+
+                .int => {
+                    node = @ptrFromInt(start);
+                    node.start = start;
+                    node.pages = n;
+                },
+
+                else => {
+                    return KError.InvalidArg;
+                },
+            }
+
+            node.next = null;
+            node.prev = null;
+            node.pages = n;
+            node.end = start + (n << 12);
+            return node;
+        }
+
+        pub fn Iterator(self: *PMemNode) PMemNodeIterator {
+            return .{
+                .itr = self,
+                .head = self,
+            };
+        }
+
+        pub fn Print(self: *const PMemNode) void {
+            Serial.Write("Node {*}\n\tNext {*} Prev {*}\n\tPages 0x{x} Start 0x{x} End 0x{x}\n", .{
+                self,
+                self.next,
+                self.prev,
+                self.pages,
+                self.start,
+                self.end,
+            });
+        }
+
+        pub fn TrimPages(self: *PMemNode, n: usize) ![*]u8 {
+            if (self.pages < n) {
+                return KError.NoMemory;
+            }
+
+            self.end -= n << 12;
+            self.pages -= n;
+            return @ptrFromInt(self.end);
+        }
+    };
     const OverlapType = enum {
         NO_OVERLAP,
         KERN_OVERLAP,
@@ -295,8 +294,6 @@ pub fn Init(
         }
 
         //Serial.Write("paddr 0x{x} npages 0x{x} vaddr 0x{x}\n", .{ desc.physical_start, desc.number_of_pages, desc.physical_start + kMemAddr });
-        //try PMemMgr.AddNode(PA2VA(desc.physical_start), desc.number_of_pages);
         try PMemMgr.AddNode(PA2VA(desc.physical_start), desc.number_of_pages);
-        //PMemMgr.AddNode(PA2VA(desc.physical_start), desc.number_of_pages) catch |err|{ return err;};
     }
 }
