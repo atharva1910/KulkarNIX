@@ -28,6 +28,21 @@ const PMemNode = struct {
     start: usize,
     end: usize,
 
+    const PMemNodeIterator = struct {
+        head: ?*PMemNode,
+        itr: ?*PMemNode,
+
+        pub fn next(self: *PMemNodeIterator) ?*PMemNode {
+            const temp = self.itr;
+            self.itr = self.itr.?.next;
+            if (self.itr == null or self.itr.? == self.head.?) {
+                return null;
+            } else {
+                return temp;
+            }
+        }
+    };
+
     pub fn NewNode(comptime T: type, start: usize, n: usize) KError!*PMemNode {
         var node: *PMemNode = undefined;
         switch (@typeInfo(T)) {
@@ -39,6 +54,7 @@ const PMemNode = struct {
             .int => {
                 node = @ptrFromInt(start);
                 node.start = start;
+                node.pages = n;
             },
 
             else => {
@@ -46,12 +62,39 @@ const PMemNode = struct {
             },
         }
 
-        node.next = node;
-        node.prev = node;
+        node.next = null;
+        node.prev = null;
         node.pages = n;
         node.end = start + (n << 12);
-        Serial.Write("Created new node {*} start 0x{x} n 0x{x}\n", .{ node, node.start, node.pages });
         return node;
+    }
+
+    pub fn Iterator(self: *PMemNode) PMemNodeIterator {
+        return .{
+            .itr = self,
+            .head = self,
+        };
+    }
+
+    pub fn Print(self: *const PMemNode) void {
+        Serial.Write("Node {*}\n\tNext {*} Prev {*}\n\tPages 0x{x} Start 0x{x} End 0x{x}\n", .{
+            self,
+            self.next,
+            self.prev,
+            self.pages,
+            self.start,
+            self.end,
+        });
+    }
+
+    pub fn TrimPages(self: *PMemNode, n: usize) ![*]u8 {
+        if (self.pages < n) {
+            return KError.NoMemory;
+        }
+
+        self.end -= n << 12;
+        self.pages -= n;
+        return @ptrFromInt(self.end);
     }
 };
 
@@ -112,7 +155,7 @@ pub const PMemManager = struct {
             }
 
             node.next = self.List;
-            node.prev = self.List.?.prev;
+            self.List.?.prev = node;
             self.List = node;
             return;
         }
@@ -121,15 +164,14 @@ pub const PMemManager = struct {
         try self.SplitChunk(ot, start, end);
     }
 
-    pub fn loop(self: *PMemManager) void {
-        if (self.list == null) return;
+    pub fn Loop(self: *PMemManager) void {
+        if (self.List == null) {
+            return;
+        }
 
-        var head = self.list;
-
-        while (true) {
-            Serial.Write("Node {*} nPages 0x{x}\n", .{ head.?, head.?.pages });
-            head = head.?.next;
-            if (head == self.list) break;
+        var itr = self.List.?.Iterator();
+        while (itr.next()) |node| {
+            node.Print();
         }
     }
 
@@ -151,7 +193,7 @@ pub const PMemManager = struct {
                 splitEnd = self.KernelEnd;
             },
 
-            OverlapType.PAGE_OVERLAP => {
+            OverlapType.BOTH_OVERLAP, OverlapType.PAGE_OVERLAP => {
                 assert(self.PagingEnd < m1End);
                 assert(m1Start <= self.PagingStart);
                 splitStart = self.PagingStart;
@@ -163,6 +205,7 @@ pub const PMemManager = struct {
 
         const s1Pages = (splitStart - m1Start) >> 12;
         if (s1Pages > 0) {
+            Serial.Write("First Split Start: 0x{x} nPages: 0x{x}\n", .{ m1Start, s1Pages });
             self.AddNode(m1Start, s1Pages) catch |err| {
                 Serial.Write("Failed to split node start 0x{x} end 0x{x} into pages 0x{x} (second chunk)\n", .{ m1Start, m1End, s1Pages });
                 return err;
@@ -171,11 +214,38 @@ pub const PMemManager = struct {
 
         const s2Pages = (m1End - splitEnd) >> 12;
         if (s2Pages > 0) {
-            self.AddNode(m1End, s2Pages) catch |err| {
+            Serial.Write("Second Split Start: 0x{x} nPages: 0x{x}\n", .{ splitEnd, s2Pages });
+            self.AddNode(splitEnd, s2Pages) catch |err| {
                 Serial.Write("Failed to split node start 0x{x} end 0x{x} into pages 0x{x} (second chunk)\n", .{ m1Start, m1End, s2Pages });
                 return err;
             };
         }
+    }
+
+    pub fn AllocPages(self: *PMemManager, n: usize) ![]u8 {
+        if (self.List == null) {
+            return KError.NullPtr;
+        }
+
+        var itr = self.List.?.Iterator();
+        while (itr.next()) |node| {
+            if (node.pages > n) {
+                node.Print();
+                const mem = try node.TrimPages(n);
+                node.Print();
+                return mem[0 .. n << 12];
+            }
+        }
+
+        return KError.NoMemory;
+    }
+
+    pub fn FreePages(self: *PMemManager, addr: []u8) !void {
+        if (self.List == null or addr.len == 0) {
+            return KError.NullPtr;
+        }
+
+        try self.AddNode(@intFromPtr(addr.ptr), addr.len >> 12);
     }
 
     pub fn Init(
@@ -189,112 +259,11 @@ pub const PMemManager = struct {
         self.KernelEnd = KernelEnd;
         self.PagingStart = PagingStart;
         self.PagingEnd = PagingEnd;
+        self.List = null;
     }
 };
 
-//MemMapBitVec: []PageState,
-//KMemStart: usize,
-//mmap: ?MemoryMapSlice,
-//
-//pub fn MarkPages(self: *Self, addr: usize, pages: usize, state: PageState) KError!void {
-//    assert(addr > self.KMemStart);
-//    assert(pages > 0);
-//    assert(addr & 0x1F == 0);
-//    const start = (addr - self.KMemStart) >> 12;
-//    const end = start + pages;
-//    @memset(self.MemMapBitVec[start..end], state);
-//}
-//
-//fn InitMemBitVector(self: *Self, maxAddr: usize) KError!void {
-//    if (self.mmap == null) {
-//        //Serial.Write("{}:{} mmap is null\n", .{ @src().fn_name, @src().line });
-//        return KError.NullPtr;
-//    }
-//
-//    var itr = self.mmap.?.iterator();
-//
-//    while (true) {
-//        const desc = itr.next();
-//        if (desc == null) break;
-//        // TODO: Check if overlaps
-//        if (desc.?.physical_start > maxAddr) break;
-//        if (desc.?.type == MemoryType.boot_services_code or
-//            desc.?.type == MemoryType.boot_services_data or
-//            desc.?.type == MemoryType.conventional_memory)
-//        {
-//            continue;
-//        }
-//
-//        try self.MarkPages(desc.?.physical_start + kMemAddr, desc.?.number_of_pages, PageState.ALLOCATED);
-//    }
-//}
-//
-//pub fn FreePages(self: *Self, addr: []Page) void {
-//    self.MarkPages(@intFromPtr(addr.ptr), addr.len, PageState.FREE);
-//}
-//
-//pub fn AllocPages(self: *Self, nPages: u32) ?[]Page {
-//    var ws: usize = 0;
-//    outer: while (ws < self.MemMapBitVec.len) {
-//        if (self.MemMapBitVec.len - ws < nPages) {
-//            return null;
-//        }
-//
-//        for (ws..self.MemMapBitVec.len) |we| {
-//            if (we - ws == nPages) {
-//                MarkPages(ws << 12, we - ws, PageState.ALLOCATED);
-//                return @ptrFromInt(kMemAddr + (ws << 12));
-//            }
-//
-//            if (self.MemMapBitVec[we] != PageState.FREE) {
-//                ws = we + 1;
-//                continue :outer;
-//            }
-//        }
-//    }
-//    return null;
-//}
-//
-//pub fn Init1(
-//    mmapSlice: MemoryMapSlice,
-//    totalPages: usize,
-//    KernelStart: usize,
-//    KernelPages: usize,
-//) KError!Self {
-//    const bytes4mem = totalPages >> 3;
-//    const p4mem = bytes4mem >> 12;
-//    const maxAddr = (totalPages << 12) - 1;
-//
-//    var PMEM = Self{
-//        .KMemStart = kMemAddr,
-//        .MemMapBitVec = undefined,
-//        .mmap = mmapSlice,
-//    };
-//
-//    // Now we need to find a big enough "hole" in the memory map where we can fit this mem map bit fields
-//    // For qemu I know that the first 0xa0 pages are free and valid so thats what we will use
-//    var pMemMapBitVec: [*]PageState = @ptrFromInt(kMemAddr);
-//    PMEM.MemMapBitVec = pMemMapBitVec[0 .. totalPages + 1];
-//    @memset(PMEM.MemMapBitVec, PageState.FREE);
-//
-//    // Mark the bits which are reserved for Page Bit Map
-//    @memset(PMEM.MemMapBitVec[0..p4mem], PageState.ALLOCATED);
-//
-//    // Mark all the unusable pages as Allocated until maxaddr
-//    PMEM.InitMemBitVector(maxAddr) catch |err| {
-//        Serial.Write("Failed to init mem bit vector: {}\n", .{err});
-//        return err;
-//    };
-//
-//    // Mark the kernel code pages as allocated
-//    PMEM.MarkPages(KernelStart, KernelPages, PageState.ALLOCATED) catch |err| {
-//        Serial.Write("Failed to Mark Kernel address as allocated: {}\n", .{err});
-//        return err;
-//    };
-//
-//    return PMEM;
-//}
-//
+var PMemMgr: PMemManager = undefined;
 
 pub fn Init(
     mmapSlice: MemoryMapSlice,
@@ -308,18 +277,14 @@ pub fn Init(
     const pagingStart = @intFromPtr(PageTableManager.PageTables.ptr);
     const pagingEnd = pagingStart + (PageTableManager.PageTablePages << 12);
 
-    Serial.Write("Max Addr: 0x{x} Page Table start 0x{x} Page Table End 0x{x} Kernel Start 0x{x} Kernel End 0x{x}\n", .{ maxAddr, pagingStart, pagingEnd, KernelStart, KernelEnd });
-    const PMemMgr = KState.GetPhyMemMgr();
-    if (PMemMgr == null) {
-        return KError.NullPtr;
-    } else {
-        PMemMgr.?.Init(KernelStart, KernelEnd, pagingStart, pagingEnd);
-    }
+    Serial.Write("Page Table [0x{x} - 0x{x}] Kernel [0x{x} - 0x{x}]\n", .{ pagingStart, pagingEnd, KernelStart, KernelEnd });
+    PMemMgr.Init(KernelStart, KernelEnd, pagingStart, pagingEnd);
+    KState.SetPhyMemMgr(&PMemMgr);
 
     var itr = mmapSlice.iterator();
     while (itr.next()) |desc| {
         if (desc.physical_start > maxAddr) {
-            return;
+            break;
         }
 
         if (desc.type != MemoryType.boot_services_code and
@@ -330,38 +295,8 @@ pub fn Init(
         }
 
         //Serial.Write("paddr 0x{x} npages 0x{x} vaddr 0x{x}\n", .{ desc.physical_start, desc.number_of_pages, desc.physical_start + kMemAddr });
-        try PMemMgr.?.AddNode(desc.physical_start + kMemAddr, desc.number_of_pages);
+        //try PMemMgr.AddNode(PA2VA(desc.physical_start), desc.number_of_pages);
+        try PMemMgr.AddNode(PA2VA(desc.physical_start), desc.number_of_pages);
+        //PMemMgr.AddNode(PA2VA(desc.physical_start), desc.number_of_pages) catch |err|{ return err;};
     }
-
-    //const bytes4mem = totalPages >> 3;
-    //const p4mem = bytes4mem >> 12;
-    //
-    //var PMEM = Self{
-    //    .KMemStart = kMemAddr,
-    //    .MemMapBitVec = undefined,
-    //    .mmap = mmapSlice,
-    //};
-    //
-    //// Now we need to find a big enough "hole" in the memory map where we can fit this mem map bit fields
-    //// For qemu I know that the first 0xa0 pages are free and valid so thats what we will use
-    //var pMemMapBitVec: [*]PageState = @ptrFromInt(kMemAddr);
-    //PMEM.MemMapBitVec = pMemMapBitVec[0 .. totalPages + 1];
-    //@memset(PMEM.MemMapBitVec, PageState.FREE);
-    //
-    //// Mark the bits which are reserved for Page Bit Map
-    //@memset(PMEM.MemMapBitVec[0..p4mem], PageState.ALLOCATED);
-    //
-    //// Mark all the unusable pages as Allocated until maxaddr
-    //PMEM.InitMemBitVector(maxAddr) catch |err| {
-    //    Serial.Write("Failed to init mem bit vector: {}\n", .{err});
-    //    return err;
-    //};
-    //
-    //// Mark the kernel code pages as allocated
-    //PMEM.MarkPages(KernelStart, KernelPages, PageState.ALLOCATED) catch |err| {
-    //    Serial.Write("Failed to Mark Kernel address as allocated: {}\n", .{err});
-    //    return err;
-    //};
-    //
-    //return PMEM;
 }

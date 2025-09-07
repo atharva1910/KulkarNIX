@@ -1,8 +1,14 @@
 const Serial = @import("serial.zig");
 const kargs = @import("kargs.zig").kargs;
 const GDT = @import("gdt.zig");
-const KError = @import("kerrors.zig");
+const KError = @import("kerrors.zig").KError;
+
 const PMem = @import("pmem.zig");
+const PMemManager = PMem.PMemManager;
+
+const Paging = @import("paging.zig");
+const PageTableMgr = @import("paging.zig").PageTableMgr;
+
 const HAL = @import("hal.zig");
 const KState = @import("kstate.zig").KState;
 
@@ -40,10 +46,6 @@ export fn kmain() void {
         args.?.KernelPAddr,
     });
 
-    KState.Init(args.?.KDataOffset) catch {
-        Serial.Write("Failed to global kernel state\n", .{});
-    };
-
     GDT.Init();
 
     PMem.Init(
@@ -54,4 +56,7 @@ export fn kmain() void {
     ) catch |err| {
         Serial.Write("Failed to initialize PMEM status: {}\n", .{err});
     };
+
+    Paging.Init(args.?.PageTableManger);
+    HAL.hlt();
 }

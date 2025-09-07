@@ -118,7 +118,6 @@ pub fn MapUsableMemory(mmap: MemoryMapSlice, kStart: usize) !PageTableMgr {
             desc.type == MemoryType.conventional_memory)
         {
             totalMemPages = (desc.physical_start + (desc.number_of_pages << 12)) >> 12;
-            serial.write("Found usable memory pstart: 0x{x}, nP = 0x{x} totalMemPages 0x{x}\n", .{ desc.physical_start, desc.number_of_pages, totalMemPages });
         }
     }
 
