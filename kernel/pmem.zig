@@ -94,14 +94,16 @@ pub const PMemManager = struct {
             });
         }
 
-        pub fn TrimPages(self: *PMemNode, n: usize) ![*]u8 {
+        pub fn TrimPages(self: *PMemNode, n: usize) ![]Page {
             if (self.pages < n) {
                 return KError.NoMemory;
             }
 
             self.end -= n << 12;
             self.pages -= n;
-            return @ptrFromInt(self.end);
+
+            const ret: [*]Page = @ptrFromInt(self.end);
+            return ret[0..n];
         }
     };
     const OverlapType = enum {
@@ -221,7 +223,7 @@ pub const PMemManager = struct {
         }
     }
 
-    pub fn AllocPages(self: *PMemManager, n: usize) ![]u8 {
+    pub fn AllocPages(self: *PMemManager, n: usize) ![]Page {
         if (self.List == null) {
             return KError.NullPtr;
         }
@@ -230,7 +232,7 @@ pub const PMemManager = struct {
         while (itr.next()) |node| {
             if (node.pages > n) {
                 const mem = try node.TrimPages(n);
-                return mem[0 .. n << 12];
+                return mem[0..n];
             }
         }
 
