@@ -64,28 +64,5 @@ export fn kmain() void {
         Serial.Write("Failed to initialize Heap status: {}\n", .{err});
     };
 
-    const heap = KState.GetHeapManager();
-    if (heap != null) {
-        const a = heap.?.alloc(400) catch |err| {
-            Serial.Write("Failed to initialize Heap status: {}\n", .{err});
-            return;
-        };
-        Serial.Write("asdf {*}", .{a});
-        defer heap.?.free(a) catch {};
-    }
-
-    if (heap != null) {
-        const a = heap.?.alloc(400) catch |err| {
-            Serial.Write("Failed to initialize Heap status: {}\n", .{err});
-            return;
-        };
-        Serial.Write("asdf", .{});
-        defer heap.?.free(a) catch {};
-    }
-
-    if (heap != null) {
-        heap.?.Loop();
-    }
-
     HAL.hlt();
 }
