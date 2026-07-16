@@ -1,0 +1,7 @@
+[
+  {
+    "directory": "E:\\KulkarNIX",
+    "command": "clang -I.\\inc\\UEFI -target x86_64-pc-windows-msvc -ffreestanding -fshort-wchar -mno-red-zone -nostdlib -fuse-ld=lld -Wl,-entry:efi_main -Wl,-subsystem:efi_application -o BOOTX64.EFI boot\\main.c",
+    "file": "boot\\main.c"
+  }
+]
