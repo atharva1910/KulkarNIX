@@ -3,4 +3,4 @@
 #clang install
 bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
 # install ovmf and mtools
-sudo apt install ovmf mtools qemu-system-x86
+sudo apt install ovmf mtools qemu-system-x86 cmake

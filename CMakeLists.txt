@@ -2,23 +2,22 @@ CMAKE_MINIMUM_REQUIRED(VERSION 3.8)
 PROJECT(KulkarNIX)
 
 # Setup the correct compiler
-SET(CMAKE_CXX_COMPILER "x86_64-elf-g++")
+SET(CMAKE_C_COMPILER "clang-22")
+SET(CMAKE_CXX_COMPILER "clang-22")
 
 # Create Output directory
-SET(KOUTPUT_DIR Bin)
-SET(KSYMBOL_DIR Sym)
-EXECUTE_PROCESS(
-    COMMAND mkdir ${KOUTPUT_DIR}
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-)
-# Create Symbol directory
-EXECUTE_PROCESS(
-    COMMAND mkdir ${KOUTPUT_DIR}/${KSYMBOL_DIR}
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-)
+SET(KOUTPUT_DIR bin)
+SET(KSYMBOL_DIR sym)
+
 # Symbol directory path
 SET(KNIX_OUTPUT_DIR_PATH ${CMAKE_SOURCE_DIR}/${KOUTPUT_DIR})
 SET(KNIX_SYMBOL_DIR_PATH ${KNIX_OUTPUT_DIR_PATH}/${KSYMBOL_DIR})
+
+# Create Output directory
+FILE(MAKE_DIRECTORY ${KNIX_OUTPUT_DIR_PATH})
+
+# Create Symbol directory
+FILE(MAKE_DIRECTORY ${KNIX_SYMBOL_DIR_PATH})
 
 # Setup output directories
 SET(KNIX_OUTPUT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/${KOUTPUT_DIR})
@@ -27,23 +26,27 @@ SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${KNIX_OUTPUT_DIR})
 SET(CMAKE_BINARY_OUTPUT_DIRECTORY  ${KNIX_OUTPUT_DIR})
 
 # Global Compiler and linker flags
-SET(CXX_COMPILE_FLAGS -ffreestanding;-fno-exceptions;-O2;-g;-Wall;-Wpedantic)
-ADD_COMPILE_OPTIONS(
-    "$<$<COMPILE_LANGUAGE:CXX>:${CXX_COMPILE_FLAGS}>"
-)
+SET(CXX_COMPILE_FLAGS
+    ${TARGET_FLAGS}
+    -ffreestanding
+    -fno-exceptions
+    -mno-red-zone
+    -O2
+    -g
+    -Wall
+    -Wpedantic)
+ADD_COMPILE_OPTIONS(${CXX_COMPILE_FLAGS})
 
-SET(CXX_LINKER_FLAGS -ffreestanding;-nostdlib;-lgcc)
-ADD_LINK_OPTIONS(
-    "$<$<LINK_LANGUAGE:CXX>:${CXX_LINKER_FLAGS}>"
-)
+SET(GLOBAL_LINKER_FLAGS
+    ${TARGET_FLAGS}
+    -ffreestanding
+    -nostdlib
+    -fuse-ld=lld)
+ADD_LINK_OPTIONS(${GLOBAL_LINKER_FLAGS})
 
 # Set up variables for whole project
 SET(KNIX_ROOT_INC ${CMAKE_SOURCE_DIR}/Inc)
 
-# Set up include directories for the project
-SET(KNIX_ARCH_INCLUDE ${CMAKE_SOURCE_DIR}/Inc/Arch/arm64)
-
 # Add projects
-ADD_SUBDIRECTORY(DebugUtils)
-ADD_SUBDIRECTORY(Arch)
-ADD_SUBDIRECTORY(Kernel)
+ADD_SUBDIRECTORY(arch)
+ADD_SUBDIRECTORY(kernel)
