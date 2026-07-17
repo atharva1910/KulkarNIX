@@ -9,3 +9,7 @@
 Build/*
 Bin/*
 .vscode
+*.elf
+build/*
+sym/*
+disk/*

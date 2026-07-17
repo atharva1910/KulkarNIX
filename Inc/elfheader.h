@@ -1,6 +1,6 @@
 #pragma once
 
-#include <typedefs.h>
+#include <stdint.h>
 #define ELF_MAGIC 0x464c457f
 #define EXE_MAX_HEADERS 3
 
@@ -10,12 +10,12 @@
  */
 typedef struct _ELF_HEADER {
     uint32_t ei_magic;       // Magic number
-    byte     ei_class;       // Class x86 or x64
-    byte     ei_data;        // Endianness
-    byte     ei_version;     // Version
-    byte     ei_osabi;       // System V ABI 0x00
-    byte     ei_abiver;      // ABI version
-    byte     ei_pad[7];      // Unused
+    uint8_t  ei_class;       // Class x86 or x64
+    uint8_t  ei_data;        // Endianness
+    uint8_t  ei_version;     // Version
+    uint8_t  ei_osabi;       // System V ABI 0x00
+    uint8_t  ei_abiver;      // ABI version
+    uint8_t  ei_pad[7];      // Unused
     uint16_t e_type;         // Object file id
     uint16_t e_machine;      // Instruction set
     uint32_t e_version;      // Is set to 1
@@ -29,7 +29,7 @@ typedef struct _ELF_HEADER {
     uint16_t e_shentsize;    // Size of section header table
     uint16_t e_shnum;        // No of entries in section header table
     uint16_t e_shstrndx;     // Index of section header tables
-}ELF_HEADER
+}ELF_HEADER;
 
 typedef struct ELF_PROG_HEADER {
     uint32_t p_type;         // Type of segment
@@ -52,5 +52,5 @@ typedef struct _ELF_SECTION_HEADER {
     uint32_t sh_link;         // Section index of associated section
     uint32_t sh_info;         // Extra information about section
     uint64_t sh_addralign;    // Required alignment for the section
-    uint64_t sh_entsize;      // Size in bytes for each entry
+    uint64_t sh_entsize;      // Size in uint8_ts for each entry
 }ELF_SECTION_HEADER, *PELF_SECTION_HEADER;

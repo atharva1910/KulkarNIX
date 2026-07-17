@@ -1,8 +1,9 @@
 #include "efi.h"
 #include "efiapi.h"
 #include "efidef.h"
-#include "efierr.h"
-#include "efiprot.h"
+#include "KulkarNIX.h"
+#include "elfheader.h"
+#include <stdint.h>
 
 EFI_SYSTEM_TABLE *pSystemTable = NULL;
 EFI_BOOT_SERVICES *pBootServices = NULL;
@@ -16,6 +17,28 @@ EFI_HANDLE handle;
         pSystemTable->BootServices->Stall(0xFFFFFFFFFF);            \
     }
 
+void PrintNumber(uint64_t num)
+{
+    //PRINT(L"0");
+    //PRINT(L"x");
+    if (num == 0) {
+        PRINT(L"0 ");
+        return;
+    }
+
+    uint16_t numstr[16];
+    int i = 15;
+    numstr[i--] = '\0';
+
+    while (num) {
+        uint8_t temp = num % 10;
+        num /= 10;
+        numstr[i--] = temp + '0';
+    }
+
+    PRINT(&numstr[++i]);
+    PRINT(L" ");
+}
 
 EFI_STATUS
 ReadKernel()
@@ -42,11 +65,16 @@ ReadKernel()
         volHandle->Open(volHandle, &fileHandle, L"\\Kernel.bin",EFI_FILE_MODE_READ, EFI_FILE_READ_ONLY))
         HALT(L"FAILED TO OPEN FILE HANDLE");
 
-    void *kaddr = (void *)0x100000;
-    UINTN read_size = 4096;
-    if (EFI_SUCCESS != fileHandle->Read(fileHandle, &read_size, kaddr))
+    ELF_HEADER *kaddr = (ELF_HEADER *)KERNEL_START_PADDR;
+    UINTN read_size = sizeof(ELF_HEADER);
+    if (EFI_SUCCESS != fileHandle->Read(fileHandle, &read_size, (void *)kaddr))
         HALT(L"FAILED TO READ ELF HEADER");
 
+    if (kaddr->ei_magic != ELF_MAGIC) {
+        PrintNumber(kaddr->ei_magic);
+        HALT(L"ELF MAGIC NOT MATCHING");
+    }
+        PrintNumber(kaddr->ei_magic);
     HALT(L"READ ELF HEADER");
     return EFI_SUCCESS;
 }

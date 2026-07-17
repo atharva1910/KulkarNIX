@@ -6,4 +6,5 @@
 
 // Work around compile warnings
 #define UNREFRENCED_PARAMETER(X) X;
+#define KERNEL_START_PADDR 0x100000
 #endif
