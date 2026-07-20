@@ -31,7 +31,7 @@ __asm__(
     ".section .text\n"
 );
 
-void main()
+extern "C" void main()
 {
     asm("hlt");
 }

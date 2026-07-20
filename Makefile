@@ -1,43 +1,51 @@
 # --- Toolchain Configurations ---
-CC      := clang
+CC      := clang++
 LD      := ld.lld
-QEMU    := qemu-system-x86_64.exe
+QEMU    := qemu-system-x86_64
 
-# --- Directory Structures ---
+# --- Build Targets & Inputs ---
+IMAGE     := nvme.img
 BUILD_DIR := build
-EFI_DIR   := $(DISK_DIR)/EFI/BOOT
+KERNEL    := $(BUILD_DIR)/Kernel.elf
+EFI_BIN   := $(BUILD_DIR)/BOOTX64.EFI
 
 # --- Compilation Flags ---
-# UEFI Bootloader Flags
 EFI_INCLUDES := -I./inc/UEFI -I./inc
-EFI_CFLAGS   := $(EFI_INCLUDES) -target x86_64-pc-windows-msvc -g -ffreestanding -fshort-wchar -mno-red-zone -nostdlib
+EFI_CFLAGS   := $(EFI_INCLUDES) -target x86_64-pc-windows-msvc -g -ffreestanding -fshort-wchar -mno-red-zone -nostdlib -std=c++20
 EFI_LDFLAGS  := -fuse-ld=lld -Wl,-entry:efi_main -Wl,-subsystem:efi_application
 
-# Bare-Metal Kernel Flags
-KERNEL_CFLAGS  := -target x86_64-unknown-none-elf -ffreestanding -g -O2 -mno-red-zone -mno-mmx -mno-sse -fno-stack-protector -nostdlib
+KERNEL_CFLAGS  := -target x86_64-unknown-none-elf -ffreestanding -g -O2 -mno-red-zone -mno-mmx -mno-sse -fno-stack-protector -nostdlib -std=c++20
 KERNEL_LDFLAGS := -T kernel/linker.ld
 
 # --- Default Goal Target ---
-.PHONY: all bootloader kernel run clean
+.PHONY: all bootloader kernel image run clean
 
-all: bootloader kernel
+all: bootloader kernel image
 
-# --- Target: Bootloader ---
+# --- Target: Bootloader Compile ---
 bootloader:
-	@mkdir -p $(EFI_DIR)
-	$(CC) $(EFI_CFLAGS) $(EFI_LDFLAGS) -o $(BUILD_DIR)/BOOTX64.EFI boot/main.c
+	@mkdir -p $(BUILD_DIR)
+	$(CC) $(EFI_CFLAGS) $(EFI_LDFLAGS) -o $(EFI_BIN) boot/main.cpp
 
-# --- Target: Kernel ---
+# --- Target: Kernel Compile ---
 kernel:
 	@mkdir -p $(BUILD_DIR)
-	$(CC) $(KERNEL_CFLAGS) -c -o $(BUILD_DIR)/main.o kernel/main.c
-	$(LD) $(KERNEL_LDFLAGS) -o $(BUILD_DIR)/Kernel.elf $(BUILD_DIR)/main.o
+	$(CC) $(KERNEL_CFLAGS) -c -o $(BUILD_DIR)/main.o kernel/main.cpp
+	$(LD) $(KERNEL_LDFLAGS) -o $(KERNEL) $(BUILD_DIR)/main.o
+
+# --- Target: Create Disk & Inject Bootloader ---
+image: bootloader
+	dd if=/dev/zero of=$(IMAGE) bs=1M count=64
+	mkfs.fat -F 32 $(IMAGE)
+	mmd -i $(IMAGE) ::/EFI
+	mmd -i $(IMAGE) ::/EFI/BOOT
+	mcopy -i $(IMAGE) $(EFI_BIN) ::/EFI/BOOT -o
+	mcopy -i $(IMAGE) $(KERNEL) :: -o
 
 # --- Target: Emulation ---
 run: all
-	$(QEMU) -bios OVMF.fd -serial stdio -d cpu_reset -drive file=fat:rw:$(DISK_DIR),format=raw -display none
+	$(QEMU) -bios OVMF.fd -serial stdio -d cpu_reset -drive file=$(IMAGE),format=raw -display none
 
 # --- Target: Clean Artifacts ---
 clean:
-	@if exist $(BUILD_DIR) rmdir /s /q $(BUILD_DIR)
-	@if exist $(DISK_DIR) rmdir /s /q $(DISK_DIR)
+	rm -rf $(BUILD_DIR) $(IMAGE)

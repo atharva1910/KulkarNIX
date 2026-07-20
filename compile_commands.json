@@ -1,7 +1,47 @@
 [
-  {
-    "directory": "E:\\KulkarNIX",
-    "command": "clang -I.\\inc\\UEFI -I.\\inc\\ -target x86_64-pc-windows-msvc -ffreestanding -fshort-wchar -mno-red-zone -nostdlib -fuse-ld=lld -Wl,-entry:efi_main -Wl,-subsystem:efi_application -o BOOTX64.EFI boot\\main.c",
-    "file": "boot\\main.c"
-  }
+ {
+  "directory": "/home/qwn/KulkarNIX",
+  "arguments": [
+      "clang",
+      "-std=c++20",
+   "-I./inc/UEFI",
+   "-I./inc",
+   "-target",
+   "x86_64-pc-windows-msvc",
+   "-g",
+   "-ffreestanding",
+   "-fshort-wchar",
+   "-mno-red-zone",
+   "-nostdlib",
+   "-fuse-ld=lld",
+   "-Wl,-entry:efi_main",
+   "-Wl,-subsystem:efi_application",
+   "-o",
+   "build/BOOTX64.EFI",
+   "boot/main.c"
+  ],
+  "file": "boot/main.c"
+ },
+ {
+  "directory": "/home/qwn/KulkarNIX",
+  "arguments": [
+      "clang",
+      "-std=c++20",
+   "-target",
+   "x86_64-unknown-none-elf",
+   "-ffreestanding",
+   "-g",
+   "-O2",
+   "-mno-red-zone",
+   "-mno-mmx",
+   "-mno-sse",
+   "-fno-stack-protector",
+   "-nostdlib",
+   "-c",
+   "-o",
+   "build/main.o",
+   "kernel/main.c"
+  ],
+  "file": "kernel/main.c"
+ }
 ]
