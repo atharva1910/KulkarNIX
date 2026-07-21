@@ -1,6 +1,8 @@
 #include "efi.h"
 #include "efiapi.h"
 #include "efidef.h"
+#include "efierr.h"
+#include "efiprot.h"
 #include "elfheader.h"
 
 EFI_SYSTEM_TABLE *pSystemTable = NULL;
@@ -46,7 +48,7 @@ void print_hex(uint64_t num)
 }
 
 EFI_STATUS
-read_kernel()
+read_kernel(uint8_t **kernel_entry)
 {
     EFI_LOADED_IMAGE_PROTOCOL *loadedImage = NULL;
     EFI_GUID loadedImageGuid = (EFI_GUID)EFI_LOADED_IMAGE_PROTOCOL_GUID;
@@ -114,20 +116,19 @@ read_kernel()
     UINTN kernel_size = max_addr - min_addr;
     UINTN kernel_pages = (kernel_size + 4095) >> 12;
 
-    uint8_t *kernel_entry = NULL;
     if (EFI_SUCCESS !=
-        pBootServices->AllocatePages(AllocateAnyPages,EfiLoaderData, kernel_pages, (EFI_PHYSICAL_ADDRESS *)&kernel_entry))
+        pBootServices->AllocatePages(AllocateAnyPages,EfiLoaderData, kernel_pages, (EFI_PHYSICAL_ADDRESS *)kernel_entry))
       halt(L"FAILED TO ALLOCATE PAGES FOR KERNEL");
 
-    pBootServices->SetMem(kernel_entry, kernel_pages << 12, 0);
+    pBootServices->SetMem(*kernel_entry, kernel_pages << 12, 0);
 
-    uint8_t *itr = kernel_entry;
+    uint8_t *itr = *kernel_entry;
     for (uint16_t i = 0; i < elf_header->e_phnum; i++) {
         if (pheader[i].p_type != 1)
             continue;
 
         UINTN offset = pheader[i].p_vaddr - min_addr;
-        itr = kernel_entry + offset;
+        itr = *kernel_entry + offset;
 
         if (EFI_SUCCESS != fileHandle->SetPosition(fileHandle, pheader[i].p_offset))
             halt(L"FAILED TO SET POSITION");
@@ -141,13 +142,70 @@ read_kernel()
 }
 
 EFI_STATUS
-efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
-    auto test = L"TEST";
+init_gop()
+{
+    EFI_GRAPHICS_OUTPUT_PROTOCOL *gop = nullptr;
+    EFI_GUID gopGUID = (EFI_GUID)EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
+
+    if (EFI_SUCCESS !=
+        pBootServices->LocateProtocol(&gopGUID, NULL, (void **)&gop))
+        halt(L"Failed to locate GOP protocol");
+
+    for (auto i = 0; i < gop->Mode->MaxMode; i++) {
+        EFI_GRAPHICS_OUTPUT_MODE_INFORMATION *info = nullptr;
+        UINTN size = 0;
+        if (EFI_SUCCESS != gop->QueryMode(gop, i, &size, &info))
+          halt(L"FAILED TO READ GOP MODE");
+
+        if (info->HorizontalResolution == 800 &&
+            info->VerticalResolution == 800) {
+          if (EFI_SUCCESS != gop->SetMode(gop, i))
+              halt(L"FAILED TO SET MODE");
+        }
+    }
+
+    return EFI_SUCCESS;
+}
+
+EFI_STATUS
+efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
+{
     pSystemTable = SystemTable;
     pBootServices = pSystemTable->BootServices;
     handle = ImageHandle;
+
     clrscr();
-    if (EFI_SUCCESS == read_kernel())
-        halt(L"SUCCESS");
+
+    uint8_t *kernel_entry = nullptr;
+    if (EFI_SUCCESS == read_kernel(&kernel_entry))
+        print_hex(reinterpret_cast<uint64_t>(kernel_entry));
+
+    init_gop();
+
+    UINTN map_key = 0;
+    UINTN desc_size = 0;
+    UINTN mem_map_size = 0;
+    UINT32 desc_version = 0;
+    EFI_MEMORY_DESCRIPTOR *pmem_map = nullptr;
+
+    pBootServices->GetMemoryMap(&mem_map_size, NULL, &map_key, &desc_size,
+                                &desc_version);
+
+    if (EFI_SUCCESS !=
+        pBootServices->AllocatePool(EfiBootServicesData, mem_map_size, (void **)&pmem_map))
+        halt(L"FAILED TO ALLOCATE MEM FOR MEMORY MAP");
+
+    print_hex(reinterpret_cast<uint64_t>(pmem_map));
+    if (EFI_SUCCESS !=
+        pBootServices->GetMemoryMap(&mem_map_size, pmem_map,
+                                                   &map_key, &desc_size,
+                                                   &desc_version))
+      halt(L"FAILED TO GET MEMORY MAP");
+
+    if (EFI_SUCCESS !=
+        pBootServices->ExitBootServices(ImageHandle, map_key))
+      halt(L"FAILED TO EXIT BOOT SERVICES");
+
+    halt(L"SUCCESS");
     return EFI_SUCCESS;
 }
