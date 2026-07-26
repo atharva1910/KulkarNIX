@@ -2,8 +2,7 @@
  {
   "directory": "/home/qwn/KulkarNIX",
   "arguments": [
-      "clang",
-      "-std=c++20",
+   "clang++",
    "-I./inc/UEFI",
    "-I./inc",
    "-target",
@@ -13,20 +12,20 @@
    "-fshort-wchar",
    "-mno-red-zone",
    "-nostdlib",
+   "-std=c++20",
    "-fuse-ld=lld",
    "-Wl,-entry:efi_main",
    "-Wl,-subsystem:efi_application",
    "-o",
    "build/BOOTX64.EFI",
-   "boot/main.c"
+   "boot/main.cpp"
   ],
-  "file": "boot/main.c"
+  "file": "boot/main.cpp"
  },
  {
   "directory": "/home/qwn/KulkarNIX",
   "arguments": [
-      "clang",
-      "-std=c++20",
+   "clang++",
    "-target",
    "x86_64-unknown-none-elf",
    "-ffreestanding",
@@ -37,11 +36,12 @@
    "-mno-sse",
    "-fno-stack-protector",
    "-nostdlib",
+   "-std=c++20",
    "-c",
    "-o",
    "build/main.o",
-   "kernel/main.c"
+   "kernel/main.cpp"
   ],
-  "file": "kernel/main.c"
+  "file": "kernel/main.cpp"
  }
 ]
