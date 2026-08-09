@@ -7,11 +7,16 @@
 #include "paging.h"
 #include "x86_64/efibind.h"
 
-EFI_SYSTEM_TABLE *pSystemTable = NULL;
-EFI_BOOT_SERVICES *pBootServices = NULL;
+constexpr UINT64 ONE_KB = 1 * 1024;
+constexpr UINT64 ONE_MB = ONE_KB * 1024;
+constexpr UINT64 ONE_GB = ONE_MB * 1024;
+constexpr UINT64 PAGE_SIZE = 4096;
+
+EFI_SYSTEM_TABLE *pSystemTable = nullptr;
+EFI_BOOT_SERVICES *pBootServices = nullptr;
 EFI_HANDLE handle;
 PML4E *pml4t = nullptr;
-constexpr UINT64 ONE_GB = 1 * 1024 * 1024 * 1024;
+EFI_LOADED_IMAGE_PROTOCOL *loadedImage = nullptr;
 
 void clrscr() { pSystemTable->ConOut->ClearScreen(pSystemTable->ConOut); }
 void print(const CHAR16 *string)
@@ -31,7 +36,7 @@ void print_hex(uint64_t num)
     print(L"0x");
 
     if (num == 0) {
-        print(L"0 ");
+        print(L"0\n");
         return;
     }
 
@@ -49,7 +54,7 @@ void print_hex(uint64_t num)
     }
 
     print(&numstr[i + 1]);
-    print(L" ");
+    print(L"\n");
 }
 
 EFI_STATUS
@@ -59,24 +64,18 @@ read_kernel_header(uint8_t **kernel_entry,
                    UINTN  &max_addr,
                    UINTN &kernel_size)
 {
-    EFI_LOADED_IMAGE_PROTOCOL *loadedImage = NULL;
-    EFI_GUID loadedImageGuid = (EFI_GUID)EFI_LOADED_IMAGE_PROTOCOL_GUID;
-    if (EFI_SUCCESS != pBootServices->HandleProtocol(handle, &loadedImageGuid,
-                                                     (void **)&loadedImage))
-        halt(L"FAILED TO LOAD LOADED IMAGE PROTOCOL");
-
-    EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *sfs = NULL;
+    EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *sfs = nullptr;
     EFI_GUID sfsGUID = (EFI_GUID)EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
     if (EFI_SUCCESS != pBootServices->HandleProtocol(loadedImage->DeviceHandle, &sfsGUID,
                                                      (void **)&sfs))
         halt(L"FAILED TO LOAD SFS PROTOCOL");
 
 
-    EFI_FILE_HANDLE volHandle = NULL;
+    EFI_FILE_HANDLE volHandle = nullptr;
     if (EFI_SUCCESS != sfs->OpenVolume(sfs, &volHandle))
         halt(L"FAILED TO OPEN VOLUME");
 
-    EFI_FILE_HANDLE fileHandle = NULL;
+    EFI_FILE_HANDLE fileHandle = nullptr;
     if (EFI_SUCCESS !=
         volHandle->Open(volHandle, &fileHandle,
                         const_cast<CHAR16 *>(L"\\Kernel.elf"),
@@ -84,7 +83,7 @@ read_kernel_header(uint8_t **kernel_entry,
         halt(L"FAILED TO OPEN FILE HANDLE");
 
 
-    ELF_HEADER *elf_header = NULL;
+    ELF_HEADER *elf_header = nullptr;
     UINTN read_size = sizeof(ELF_HEADER);
 
     if (EFI_SUCCESS !=
@@ -99,7 +98,7 @@ read_kernel_header(uint8_t **kernel_entry,
     }
 
     UINTN phsize = elf_header->e_phnum * elf_header->e_phentsize;
-    ELF_PROG_HEADER *pheader = NULL;
+    ELF_PROG_HEADER *pheader = nullptr;
 
     if (EFI_SUCCESS != fileHandle->SetPosition(fileHandle, elf_header->e_phoff))
         halt(L"FAILED TO SET POSITION");
@@ -157,7 +156,7 @@ init_gop()
     EFI_GUID gopGUID = (EFI_GUID)EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
 
     if (EFI_SUCCESS !=
-        pBootServices->LocateProtocol(&gopGUID, NULL, (void **)&gop))
+        pBootServices->LocateProtocol(&gopGUID, nullptr, (void **)&gop))
         halt(L"Failed to locate GOP protocol");
 
     for (auto i = 0; i < gop->Mode->MaxMode; i++) {
@@ -181,6 +180,7 @@ bool is_1GB_map_supported(const UINTN total_mem) {
     return true;
 }
 
+// Map the entire usable memory to the top of memory
 EFI_STATUS
 setup_paging(UINTN kernel_pages, uint8_t **pageTable, const UINTN total_mem)
 {
@@ -191,11 +191,6 @@ setup_paging(UINTN kernel_pages, uint8_t **pageTable, const UINTN total_mem)
 
     // Convert to nearest 1 GB addr
     const UINTN num_gb = (total_mem + (ONE_GB - 1)) / ONE_GB;
-
-    pml4t = nullptr;
-    if (EFI_ERROR(pBootServices->AllocatePages(AllocateAnyPages,EfiLoaderData,
-                                               1, (EFI_PHYSICAL_ADDRESS *)&pml4t)))
-      halt(L"FAILED TO ALLOCATE PAGES FOR PML4");
 
     PDPE *pdpt = nullptr;
     if (EFI_ERROR(pBootServices->AllocatePages(AllocateAnyPages,EfiLoaderData,
@@ -210,12 +205,66 @@ setup_paging(UINTN kernel_pages, uint8_t **pageTable, const UINTN total_mem)
     for (int i = 0; i < num_gb; i++) {
         pdpt[i].P = 1;
         pdpt[i].RW = 1;
-        pdpt[i].PS = 1;
+        pdpt[i].PS = 1;       // 1GB mapping
         pdpt[i].pdt = paddr;
         paddr += ONE_GB;
     }
 
     return EFI_SUCCESS;
+}
+
+EFI_STATUS
+identity_map_image()
+{
+  if (!loadedImage)
+    halt(L"NO LOADED IMAGE PROTOCOL");
+
+  UINT64 image_base = reinterpret_cast<UINT64>(loadedImage->ImageBase);
+  UINT64 image_size = reinterpret_cast<UINT64>(loadedImage->ImageSize);
+
+  // To identity map the image, we will use 2MB identity paging
+  // Round up to nearest 2 MB
+  constexpr UINT64 TWO_MB = 2 * ONE_MB;
+  image_size = (image_size + (TWO_MB - 1)) / TWO_MB;
+
+  // To find out which page table I need to identity map this one
+  UINT16 pdt_idx  = (image_base / TWO_MB) % PAGE_TABLE_NUM_ENTRIES;
+  UINT16 pdpt_idx = image_base / ONE_GB;
+  UINT16 pml4_idx = image_base / (512 * ONE_GB);
+
+  print_hex(pml4_idx);
+  print_hex(pdpt_idx);
+  print_hex(pdt_idx);
+  print_hex(image_base);
+
+  if (EFI_ERROR(pBootServices->AllocatePages(AllocateAnyPages,EfiLoaderData,
+                                             1, (EFI_PHYSICAL_ADDRESS *)&pml4t)))
+      halt(L"FAILED TO ALLOCATE PAGES FOR PML4");
+
+  PDPE *pdpt = reinterpret_cast<PDPE *>(&pml4t[pml4_idx]);
+
+  if (EFI_ERROR(pBootServices->AllocatePages(AllocateAnyPages,EfiLoaderData,
+                                             1, (EFI_PHYSICAL_ADDRESS *)&pdpt)))
+      halt(L"FAILED TO ALLOCATE PAGES FOR PDPT");
+  else {
+      pml4t[pml4_idx].pdpt = reinterpret_cast<UINT64>(pdpt);
+      pml4t[pml4_idx].P = 1;
+      pml4t[pml4_idx].RW = 1;
+  }
+
+  PDPE *pdt = reinterpret_cast<PDPE *>(&pdpt[pdpt_idx]);
+
+  if (EFI_ERROR(pBootServices->AllocatePages(AllocateAnyPages,EfiLoaderData,
+                                             1, (EFI_PHYSICAL_ADDRESS *)&pdt)))
+      halt(L"FAILED TO ALLOCATE PAGES FOR PDT");
+  else {
+      pdpt[pdpt_idx].pdt = reinterpret_cast<UINT64>(pdt);
+      pdpt[pdpt_idx].P = 1;
+      pdpt[pdpt_idx].RW = 1;
+      pdpt[pdpt_idx].PS = 1;
+  }
+
+  return ~EFI_SUCCESS;
 }
 
 EFI_STATUS
@@ -225,7 +274,18 @@ efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     pBootServices = pSystemTable->BootServices;
     handle = ImageHandle;
 
+    EFI_GUID loadedImageGuid = (EFI_GUID)EFI_LOADED_IMAGE_PROTOCOL_GUID;
+    if (EFI_SUCCESS != pBootServices->HandleProtocol(handle, &loadedImageGuid,
+                                                     (void **)&loadedImage))
+        halt(L"FAILED TO LOAD LOADED IMAGE PROTOCOL");
+
+
     clrscr();
+
+    if (EFI_ERROR(pBootServices->SetWatchdogTimer(0, 0, 0, nullptr)))
+      halt(L"FAILED TO SET WATCHDOG TIMER");
+
+    init_gop();
 
     uint8_t *kernel_entry = nullptr;
     UINTN kernel_pages = 0;
@@ -237,7 +297,8 @@ efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
                                      kernel_size)))
         halt(L"FAILED TO READ KERNEL");
 
-    init_gop();
+    if (EFI_ERROR(identity_map_image()))
+      halt(L"FAILED TO IDENTIFY MAP IMAGE");
 
     UINTN map_key = 0;
     UINTN desc_size = 0;
@@ -245,10 +306,10 @@ efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     UINT32 desc_version = 0;
     UINT8 *pmem_map = nullptr;
 
-    pBootServices->GetMemoryMap(&mem_map_size, NULL, &map_key, &desc_size,
+    pBootServices->GetMemoryMap(&mem_map_size, nullptr, &map_key, &desc_size,
                                 &desc_version);
 
-    mem_map_size += 4096;
+    mem_map_size += PAGE_SIZE;
 
     if (EFI_ERROR(pBootServices->AllocatePool(EfiBootServicesData, mem_map_size, (void **)&pmem_map)))
         halt(L"FAILED TO ALLOCATE MEM FOR MEMORY MAP");
@@ -270,7 +331,7 @@ efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
       if (pdesc->Type == EfiConventionalMemory ||
           pdesc->Type == EfiLoaderData || pdesc->Type == EfiLoaderCode ||
           pdesc->Type == EfiBootServicesData || pdesc->Type == EfiBootServicesCode)
-      total_mem += pdesc->NumberOfPages << 12;
+          total_mem += pdesc->NumberOfPages << 12;
 
       if (pdesc->PhysicalStart < min_paddr)
           min_paddr = pdesc->PhysicalStart;
