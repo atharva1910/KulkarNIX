@@ -11,6 +11,7 @@ EFI_SYSTEM_TABLE *pSystemTable = NULL;
 EFI_BOOT_SERVICES *pBootServices = NULL;
 EFI_HANDLE handle;
 PML4E *pml4t = nullptr;
+constexpr UINT64 ONE_GB = 1 * 1024 * 1024 * 1024;
 
 void clrscr() { pSystemTable->ConOut->ClearScreen(pSystemTable->ConOut); }
 void print(const CHAR16 *string)
@@ -52,7 +53,11 @@ void print_hex(uint64_t num)
 }
 
 EFI_STATUS
-read_kernel(uint8_t **kernel_entry, UINTN& kernel_pages, UINTN  &min_addr, UINTN  &max_addr, UINTN &kernel_size)
+read_kernel_header(uint8_t **kernel_entry,
+                   UINTN& kernel_pages,
+                   UINTN  &min_addr,
+                   UINTN  &max_addr,
+                   UINTN &kernel_size)
 {
     EFI_LOADED_IMAGE_PROTOCOL *loadedImage = NULL;
     EFI_GUID loadedImageGuid = (EFI_GUID)EFI_LOADED_IMAGE_PROTOCOL_GUID;
@@ -163,49 +168,53 @@ init_gop()
 
         if (info->HorizontalResolution == 800 &&
             info->VerticalResolution == 800) {
-          if (EFI_SUCCESS != gop->SetMode(gop, i))
-              halt(L"FAILED TO SET MODE");
+            if (EFI_ERROR(gop->SetMode(gop, i)))
+              halt(L"FAILED TO SET GOP MODE");
         }
     }
 
     return EFI_SUCCESS;
 }
 
+bool is_1GB_map_supported(const UINTN total_mem) {
+  // check cpuid here
+    return true;
+}
+
 EFI_STATUS
-setup_paging(UINTN kernel_pages, uint8_t **pageTable, const UINTN max_addr)
+setup_paging(UINTN kernel_pages, uint8_t **pageTable, const UINTN total_mem)
 {
     UINTN num_pt   = kernel_pages;
     UINTN num_pdpt = (num_pt >> 12) + 1;
     UINTN num_pdt  = (num_pdpt >> 12) + 1;
     UINTN num_pml4 = (num_pdt >> 12) + 1;
+
     // Convert to nearest 1 GB addr
-    const UINTN num_gb = (max_addr + 0x3fffffff) / 0x40000000;
-    print_hex(max_addr);
-    print_hex(num_gb);
+    const UINTN num_gb = (total_mem + (ONE_GB - 1)) / ONE_GB;
 
     pml4t = nullptr;
-    if (EFI_SUCCESS !=
-        pBootServices->AllocatePages(AllocateAnyPages,EfiLoaderData,
-                                     1, (EFI_PHYSICAL_ADDRESS *)&pml4t))
+    if (EFI_ERROR(pBootServices->AllocatePages(AllocateAnyPages,EfiLoaderData,
+                                               1, (EFI_PHYSICAL_ADDRESS *)&pml4t)))
       halt(L"FAILED TO ALLOCATE PAGES FOR PML4");
 
     PDPE *pdpt = nullptr;
-    if (EFI_SUCCESS !=
-        pBootServices->AllocatePages(AllocateAnyPages,EfiLoaderData,
-                                     1, (EFI_PHYSICAL_ADDRESS *)&pdpt))
+    if (EFI_ERROR(pBootServices->AllocatePages(AllocateAnyPages,EfiLoaderData,
+                                               1, (EFI_PHYSICAL_ADDRESS *)&pdpt)))
       halt(L"FAILED TO ALLOCATE PAGES FOR PDPT");
 
-    PDE *pdt = nullptr;
-    if (EFI_SUCCESS !=
-        pBootServices->AllocatePages(AllocateAnyPages,EfiLoaderData,
-                                     1, (EFI_PHYSICAL_ADDRESS *)&pdt))
-      halt(L"FAILED TO ALLOCATE PAGES FOR PDT");
+    pml4t[256].pdpt = reinterpret_cast<uint64_t>(pdpt);
+    pml4t[256].P = 1;
+    pml4t[256].RW = 1;
 
-    PTE *pt = nullptr;
-    if (EFI_SUCCESS !=
-        pBootServices->AllocatePages(AllocateAnyPages,EfiLoaderData,
-                                     1, (EFI_PHYSICAL_ADDRESS *)&pt))
-        halt(L"FAILED TO ALLOCATE PAGES FOR PT");
+    UINT64 paddr = 0x0;
+    for (int i = 0; i < num_gb; i++) {
+        pdpt[i].P = 1;
+        pdpt[i].RW = 1;
+        pdpt[i].PS = 1;
+        pdpt[i].pdt = paddr;
+        paddr += ONE_GB;
+    }
+
     return EFI_SUCCESS;
 }
 
@@ -221,7 +230,11 @@ efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     uint8_t *kernel_entry = nullptr;
     UINTN kernel_pages = 0;
     UINTN kernel_min_addr = -1, kernel_max_addr = 0, kernel_size = 0;
-    if (EFI_SUCCESS != read_kernel(&kernel_entry, kernel_pages, kernel_min_addr, kernel_max_addr, kernel_size))
+    if (EFI_ERROR(read_kernel_header(&kernel_entry,
+                                     kernel_pages,
+                                     kernel_min_addr,
+                                     kernel_max_addr,
+                                     kernel_size)))
         halt(L"FAILED TO READ KERNEL");
 
     init_gop();
@@ -235,42 +248,49 @@ efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     pBootServices->GetMemoryMap(&mem_map_size, NULL, &map_key, &desc_size,
                                 &desc_version);
 
-    if (EFI_SUCCESS !=
-        pBootServices->AllocatePool(EfiBootServicesData, mem_map_size, (void **)&pmem_map))
+    mem_map_size += 4096;
+
+    if (EFI_ERROR(pBootServices->AllocatePool(EfiBootServicesData, mem_map_size, (void **)&pmem_map)))
         halt(L"FAILED TO ALLOCATE MEM FOR MEMORY MAP");
 
-    if (EFI_SUCCESS !=
-        pBootServices->GetMemoryMap(&mem_map_size, (EFI_MEMORY_DESCRIPTOR *)pmem_map,
-                                                   &map_key, &desc_size,
-                                                   &desc_version))
+    if (EFI_ERROR(pBootServices->GetMemoryMap(&mem_map_size, (EFI_MEMORY_DESCRIPTOR *)pmem_map,
+                                              &map_key, &desc_size,
+                                              &desc_version)))
       halt(L"FAILED TO GET MEMORY MAP");
 
-
     UINT32 num_desc = mem_map_size / desc_size;
-    UINTN min_phy_addr = -1, max_phy_addr = 0;
-    UINTN min_virt_addr = -1, max_virt_addr = 0;
+    UINTN min_paddr = -1, max_paddr = 0;
+    UINTN min_vaddr = -1, max_vaddr = 0;
+    UINT64 total_mem = 0;
 
     for (int i = 0; i < num_desc; i++) {
       EFI_MEMORY_DESCRIPTOR *pdesc =
           reinterpret_cast<EFI_MEMORY_DESCRIPTOR *>(pmem_map + (i * desc_size));
-      if (pdesc->PhysicalStart < min_phy_addr)
-          min_phy_addr = pdesc->PhysicalStart;
-      if ((pdesc->PhysicalStart + (pdesc->NumberOfPages << 12)) > max_phy_addr)
-          max_phy_addr = (pdesc->PhysicalStart + (pdesc->NumberOfPages << 12));
-      if (pdesc->VirtualStart < min_virt_addr) min_virt_addr =
-                pdesc->VirtualStart;
-      if ((pdesc->VirtualStart + (pdesc->NumberOfPages << 12)) > max_virt_addr)
-          max_virt_addr = (pdesc->VirtualStart + (pdesc->NumberOfPages << 12));
+
+      if (pdesc->Type == EfiConventionalMemory ||
+          pdesc->Type == EfiLoaderData || pdesc->Type == EfiLoaderCode ||
+          pdesc->Type == EfiBootServicesData || pdesc->Type == EfiBootServicesCode)
+      total_mem += pdesc->NumberOfPages << 12;
+
+      if (pdesc->PhysicalStart < min_paddr)
+          min_paddr = pdesc->PhysicalStart;
+
+      if ((pdesc->PhysicalStart + (pdesc->NumberOfPages << 12)) > max_paddr)
+          max_paddr = (pdesc->PhysicalStart + (pdesc->NumberOfPages << 12));
+
+      if (pdesc->VirtualStart < min_vaddr)
+          min_vaddr = pdesc->VirtualStart;
+
+      if ((pdesc->VirtualStart + (pdesc->NumberOfPages << 12)) > max_vaddr)
+          max_vaddr = (pdesc->VirtualStart + (pdesc->NumberOfPages << 12));
     }
 
     uint8_t *pageTables = nullptr;
-    if (EFI_SUCCESS !=
-        setup_paging(kernel_pages, &pageTables, max_phy_addr))
+    if (EFI_ERROR(setup_paging(kernel_pages, &pageTables, total_mem)))
         halt(L"FAILED TO SETUP PAGES");
 
 
-    if (EFI_SUCCESS !=
-        pBootServices->ExitBootServices(ImageHandle, map_key))
+    if (EFI_ERROR(pBootServices->ExitBootServices(ImageHandle, map_key)))
       halt(L"FAILED TO EXIT BOOT SERVICES");
 
     halt(L"SUCCESS");

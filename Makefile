@@ -39,12 +39,12 @@ image: bootloader
 	mkfs.fat -F 32 $(IMAGE)
 	mmd -i $(IMAGE) ::/EFI
 	mmd -i $(IMAGE) ::/EFI/BOOT
-	mcopy -i $(IMAGE) $(EFI_BIN) ::/EFI/BOOT -o
-	mcopy -i $(IMAGE) $(KERNEL) :: -o
+	mcopy -i $(IMAGE) $(EFI_BIN) ::/EFI/BOOT
+	mcopy -i $(IMAGE) $(KERNEL) ::
 
 # --- Target: Emulation ---
 run: all
-	$(QEMU) -bios OVMF.fd -serial stdio -d cpu_reset -drive file=$(IMAGE),format=raw -display none
+	$(QEMU) -bios OVMF.fd -serial stdio -d cpu_reset -drive file=$(IMAGE),format=raw -display none -m 4G
 
 # --- Target: Clean Artifacts ---
 clean:
