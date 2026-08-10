@@ -182,38 +182,43 @@ bool is_1GB_map_supported(const UINTN total_mem) {
 
 // Map the entire usable memory to the top of memory
 EFI_STATUS
-setup_paging(UINTN kernel_pages, uint8_t **pageTable, const UINTN total_mem)
+setup_paging(UINTN kernel_pages, void *kernel_entry, const UINTN total_mem)
 {
-    UINTN num_pt   = kernel_pages;
-    UINTN num_pdpt = (num_pt >> 12) + 1;
-    UINTN num_pdt  = (num_pdpt >> 12) + 1;
-    UINTN num_pml4 = (num_pdt >> 12) + 1;
-
     // Convert to nearest 1 GB addr
     const UINTN num_gb = (total_mem + (ONE_GB - 1)) / ONE_GB;
+
+    if (pml4t == nullptr)
+        halt(L"PML4 not setup");
 
     PDPE *pdpt = nullptr;
     if (EFI_ERROR(pBootServices->AllocatePages(AllocateAnyPages,EfiLoaderData,
                                                1, (EFI_PHYSICAL_ADDRESS *)&pdpt)))
       halt(L"FAILED TO ALLOCATE PAGES FOR PDPT");
 
-    pml4t[256].pdpt = reinterpret_cast<uint64_t>(pdpt);
+    pml4t[256].PDPT = reinterpret_cast<uint64_t>(pdpt);
     pml4t[256].P = 1;
     pml4t[256].RW = 1;
 
     UINT64 paddr = 0x0;
     for (int i = 0; i < num_gb; i++) {
-        pdpt[i].P = 1;
-        pdpt[i].RW = 1;
-        pdpt[i].PS = 1;       // 1GB mapping
-        pdpt[i].pdt = paddr;
+        pdpt[i].pdpe_1gb.P = 1;
+        pdpt[i].pdpe_1gb.RW = 1;
+        pdpt[i].pdpe_1gb.PS = 1;       // 1GB mapping
+        pdpt[i].pdpe_1gb.PDT = paddr;
         paddr += ONE_GB;
     }
+
+
+    // Map the kernel to compiled addr
+    UINTN num_pt   = kernel_pages;
+    UINTN num_pdpt = (num_pt >> 12) + 1;
+    UINTN num_pdt  = (num_pdpt >> 12) + 1;
+    UINTN num_pml4 = (num_pdt >> 12) + 1;
 
     return EFI_SUCCESS;
 }
 
-EFI_STATUS
+void
 identity_map_image()
 {
   if (!loadedImage)
@@ -225,17 +230,11 @@ identity_map_image()
   // To identity map the image, we will use 2MB identity paging
   // Round up to nearest 2 MB
   constexpr UINT64 TWO_MB = 2 * ONE_MB;
-  image_size = (image_size + (TWO_MB - 1)) / TWO_MB;
-
-  // To find out which page table I need to identity map this one
-  UINT16 pdt_idx  = (image_base / TWO_MB) % PAGE_TABLE_NUM_ENTRIES;
-  UINT16 pdpt_idx = image_base / ONE_GB;
-  UINT16 pml4_idx = image_base / (512 * ONE_GB);
-
-  print_hex(pml4_idx);
-  print_hex(pdpt_idx);
-  print_hex(pdt_idx);
-  print_hex(image_base);
+  const UINT16 pml4_idx = (image_base >> 12) & 0x1ff;
+  const UINT16 pdpt_idx = (image_base >> 21) & 0x1ff;
+  const UINT16 pdt_idx  = (image_base >> 30) & 0x1ff;
+  const UINT16 pt_idx   = (image_base >> 39) & 0x1ff;
+  const UINT16 image_size_2mb = (image_size + (TWO_MB - 1)) / TWO_MB;
 
   if (EFI_ERROR(pBootServices->AllocatePages(AllocateAnyPages,EfiLoaderData,
                                              1, (EFI_PHYSICAL_ADDRESS *)&pml4t)))
@@ -247,24 +246,30 @@ identity_map_image()
                                              1, (EFI_PHYSICAL_ADDRESS *)&pdpt)))
       halt(L"FAILED TO ALLOCATE PAGES FOR PDPT");
   else {
-      pml4t[pml4_idx].pdpt = reinterpret_cast<UINT64>(pdpt);
+      pml4t[pml4_idx].PDPT = reinterpret_cast<UINT64>(pdpt);
       pml4t[pml4_idx].P = 1;
       pml4t[pml4_idx].RW = 1;
   }
 
-  PDPE *pdt = reinterpret_cast<PDPE *>(&pdpt[pdpt_idx]);
+  PDE *pdt = reinterpret_cast<PDE *>(&pdpt[pdpt_idx]);
 
   if (EFI_ERROR(pBootServices->AllocatePages(AllocateAnyPages,EfiLoaderData,
-                                             1, (EFI_PHYSICAL_ADDRESS *)&pdt)))
+                                             image_size_2mb, (EFI_PHYSICAL_ADDRESS *)&pdt)))
       halt(L"FAILED TO ALLOCATE PAGES FOR PDT");
   else {
-      pdpt[pdpt_idx].pdt = reinterpret_cast<UINT64>(pdt);
-      pdpt[pdpt_idx].P = 1;
-      pdpt[pdpt_idx].RW = 1;
-      pdpt[pdpt_idx].PS = 1;
+      pdpt[pdpt_idx].pdpe.PDT = reinterpret_cast<UINT64>(pdt);
+      pdpt[pdpt_idx].pdpe.P = 1;
+      pdpt[pdpt_idx].pdpe.RW = 1;
+      pdpt[pdpt_idx].pdpe.PS = 1;
   }
 
-  return ~EFI_SUCCESS;
+  for (int i = 0; i < image_size_2mb; i++) {
+      pdt[pdt_idx].pde_2mb.PT = image_base & TWO_MB;
+      pdt[pdt_idx].pde_2mb.P  = 1;
+      pdt[pdt_idx].pde_2mb.RW = 1;
+      pdt[pdt_idx].pde_2mb.PS = 1;
+      image_base += TWO_MB;
+  }
 }
 
 EFI_STATUS
@@ -286,6 +291,7 @@ efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
       halt(L"FAILED TO SET WATCHDOG TIMER");
 
     init_gop();
+    identity_map_image();
 
     uint8_t *kernel_entry = nullptr;
     UINTN kernel_pages = 0;
@@ -297,8 +303,6 @@ efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
                                      kernel_size)))
         halt(L"FAILED TO READ KERNEL");
 
-    if (EFI_ERROR(identity_map_image()))
-      halt(L"FAILED TO IDENTIFY MAP IMAGE");
 
     UINTN map_key = 0;
     UINTN desc_size = 0;
