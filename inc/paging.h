@@ -124,3 +124,25 @@ union alignas(8) PDE {
 
     uint64_t raw;
 };
+
+union alignas(8) PTE {
+    struct {
+        uint64_t P         : 1;  // Bit 0: Present
+        uint64_t RW        : 1;  // Bit 1: Read/Write
+        uint64_t US        : 1;  // Bit 2: User/Supervisor
+        uint64_t PWT       : 1;  // Bit 3: Page-level write-through
+        uint64_t PCD       : 1;  // Bit 4: Page-level cache disable
+        uint64_t A         : 1;  // Bit 5: Accessed
+        uint64_t D         : 1;  // Bit 6: Dirty
+        uint64_t PAT       : 1;  // Bit 7: Memory Type
+        uint64_t G         : 1;  // Bit 8: Global
+        uint64_t IGN1      : 2;  // Bit 9-10: Ignored
+        uint64_t R         : 1;  // Bit 11: Ignored/HLAT
+        uint64_t PT        : 40; // Bit 12-51: PDT
+        uint64_t IGN2      : 7;  // Bits 52-58: Available for OS
+        uint64_t PK        : 4;  // Bits 52-58: Protection Key/Ignored
+        uint64_t XD        : 1;  // Bit 63: No Execute
+    } __attribute__((packed));
+
+    uint64_t raw;
+};
