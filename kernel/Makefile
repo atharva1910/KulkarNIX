@@ -1,31 +1,44 @@
-CC = i686-elf-gcc
-KERN_DIR = $(CURDIR)
-CCFLAGS = -ffreestanding -fno-exceptions -O2 -g
-LDFLAGS = -ffreestanding -nostdlib
-LDFILE  = linker.ld
-INCLUDES = -I$(ARCH_INC_DIR) -I$(PUB_INC_DIR) -I$(KERN_DIR) -I$(KERN_DIR)/MM
-LINKS = $(OUTPUT_DIR)/li686HAL.a
+# --- Toolchain Configurations ---
+CC := clang++
+LD := ld.lld
 
+# --- Directory & Artifact Paths ---
+BUILD_DIR := ../build
+TARGET    := $(BUILD_DIR)/Kernel.elf
+LINKER_SCRIPT := linker.ld
 
-all: KEntry.o KPrint.o KPhysical.o KMemMap.o
-	@echo "========== Building Kernel =========="
-	$(CC) -T $(LDFILE) -o $(OUTPUT_DIR)/Kernel.bin $(LDFLAGS) $^ $(LINKS)
-	objcopy --only-keep-debug $(OUTPUT_DIR)/Kernel.bin $(OUTPUT_DIR)/Kernel.sym
+# --- Source and Object Files ---
+SRCS := $(wildcard *.cpp)
+OBJS := $(patsubst %.cpp,$(BUILD_DIR)/kernel_%.o,$(SRCS))
 
-KEntry.o: KEntry.c
-	$(CC) -c $^ $(CCFLAGS) $(INCLUDES)
+# --- Compilation Flags ---
+CFLAGS  := -target x86_64-unknown-none-elf \
+           -ffreestanding \
+           -g -O2 \
+           -mno-red-zone -mno-mmx -mno-sse \
+           -fno-stack-protector \
+           -fno-exceptions -fno-rtti \
+           -nostdlib \
+           -std=c++20 \
+		   -mcmodel=kernel	\
+           -I../inc
 
-KPrint.o: KPrint.c
-	$(CC) -c $^ $(CCFLAGS) $(INCLUDES)
+LDFLAGS := -T $(LINKER_SCRIPT)
 
-KPIC.o: KPIC.c
-	$(CC) -c $^ $(CCFLAGS) $(INCLUDES)
+# --- Targets ---
+.PHONY: all clean
 
-KIntr.o: KIntr.c
-	$(CC) -c $^ $(CCFLAGS) $(INCLUDES)
+all: $(TARGET)
 
-KPhysical.o: MM/KPhysical.c MM/KMemMap.c
-	$(CC) -c $^ $(CCFLAGS) $(INCLUDES)
+# Link the final ELF Kernel
+$(TARGET): $(OBJS)
+	@mkdir -p $(BUILD_DIR)
+	$(LD) $(LDFLAGS) -o $@ $^
+
+# Compile C++ source files into object files
+$(BUILD_DIR)/kernel_%.o: %.cpp
+	@mkdir -p $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	-rm -f *.o *.bin *.img
+	rm -f $(OBJS) $(TARGET)

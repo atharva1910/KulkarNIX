@@ -60,6 +60,10 @@ KernInfo read_kernel()
         ctx->halt(L"ELF MAGIC NOT MATCHING");
     }
 
+    ctx->print(L"e_entry :");
+    ctx->print_hex(elf_header->e_entry);
+    kernel_info.kernel_entry = elf_header->e_entry;
+
     UINTN phsize = elf_header->e_phnum * elf_header->e_phentsize;
     ELF_PROG_HEADER *pheader = nullptr;
 
@@ -142,7 +146,6 @@ bool is_1GB_map_supported(const UINTN total_mem) {
     return true;
 }
 
-// Map the entire usable memory to the top of memory
 EFI_STATUS
 setup_paging(KernInfo kernel_info, void *kernel_entry, const UINTN total_mem)
 {
@@ -152,9 +155,9 @@ setup_paging(KernInfo kernel_info, void *kernel_entry, const UINTN total_mem)
     if (pml4t == nullptr)
         ctx->halt(L"PML4 not setup");
 
-    PDPE *pdpt = nullptr;
+    PDPTE *pdpt = nullptr;
     if (EFI_ERROR(ctx->boot_services()->AllocatePages(AllocateAnyPages,EfiLoaderData,
-                                               1, (EFI_PHYSICAL_ADDRESS *)&pdpt)))
+                                                      1, (EFI_PHYSICAL_ADDRESS *)&pdpt)))
       ctx->halt(L"FAILED TO ALLOCATE PAGES FOR PDPT");
 
     pml4t[256].PDPT = reinterpret_cast<uint64_t>(pdpt);
@@ -173,15 +176,85 @@ setup_paging(KernInfo kernel_info, void *kernel_entry, const UINTN total_mem)
     // Map the kernel to compiled addr
     UINT64 image_base = reinterpret_cast<UINT64>(kernel_entry);
     const UINTN num_pte = kernel_info.kernel_pages;
-    const UINTN num_pt   = num_pte >> 12;
-    const UINTN num_pdpt = (num_pt >> 12) + 1;
-    const UINTN num_pdt  = (num_pdpt >> 12) + 1;
-    const UINT16 pml4_idx = (image_base >> 12) & 0x1ff;
-    const UINT16 pdpt_idx = (image_base >> 21) & 0x1ff;
-    const UINT16 pdt_idx  = (image_base >> 30) & 0x1ff;
-    const UINT16 pt_idx   = (image_base >> 39) & 0x1ff;
+    const UINTN num_pt = (num_pte >> 12) + 1;
+    const UINTN num_pdt = (num_pt >> 12) + 1;
+    const UINTN num_pdpt = (num_pdt >> 12) + 1;
+
+
+    ctx->print(L"Image base: ");
+    ctx->print_hex(image_base);
+
+    ctx->print(L"Num pte: ");
+    ctx->print_hex(num_pte);
+    ctx->print(L"Num pt: ");
+    ctx->print_hex(num_pt);
+    ctx->print(L"Num pdt: ");
+    ctx->print_hex(num_pdt);
+    ctx->print(L"Num pdpt: ");
+    ctx->print_hex(num_pdpt);
+
+    // Todo: Make sure pte, pt, pdpt are 1
+    const UINT16 pt_idx = (image_base >> 12) & 0x1ff;
+    const UINT16 pdt_idx = (image_base >> 21) & 0x1ff;
+    const UINT16 pdpt_idx  = (image_base >> 30) & 0x1ff;
+    const UINT16 pml4_idx = (image_base >> 39) & 0x1ff;
+
+    ctx->print(L"pml4_idx: ");
+    ctx->print_hex(pml4_idx);
+    ctx->print(L"pdpt_idx: ");
+    ctx->print_hex(pdpt_idx);
+    ctx->print(L"pdt_idx: ");
+    ctx->print_hex(pdt_idx);
+    ctx->print(L"pt_idx: ");
+    ctx->print_hex(pt_idx);
+
+    pdpt = nullptr;
+    if (pml4t[pml4_idx].P == 1) {
+        if (EFI_ERROR(ctx->boot_services()->AllocatePages(AllocateAnyPages,EfiLoaderData,
+                                                          1, (EFI_PHYSICAL_ADDRESS *)&pdpt)))
+          ctx->halt(L"FAILED TO ALLOCATE PAGES FOR PDPT");
+        pml4t[pml4_idx].PDPT = reinterpret_cast<uint64_t>(pdpt);
+        pml4t[pml4_idx].P = 1;
+        pml4t[pml4_idx].RW = 1;
+    } else {
+        pdpt = reinterpret_cast<PDPTE *>(pml4t[pml4_idx].PDPT);
+    }
+
+    PDE *pdt = nullptr;
+    if (pdpt[pdpt_idx].pdpe.P == 1) {
+        if (EFI_ERROR(ctx->boot_services()->AllocatePages(AllocateAnyPages,EfiLoaderData,
+                                                          1, (EFI_PHYSICAL_ADDRESS *)&pdt)))
+          ctx->halt(L"FAILED TO ALLOCATE PAGES FOR PDT");
+        pdpt[pdpt_idx].pdpe.PDT = reinterpret_cast<uint64_t>(pdt);
+        pdpt[pdpt_idx].pdpe.P = 1;
+        pdpt[pdpt_idx].pdpe.RW = 1;
+    } else {
+        pdt = reinterpret_cast<PDE *>(pdpt[pdpt_idx].pdpe.PDT);
+    }
 
     for (int i = 0; i < num_pt; i++) {
+      if (pdt_idx + i >= PAGE_TABLE_NUM_ENTRIES)
+          ctx->halt(L"OUT OF RANGE");
+
+      PTE *pte = nullptr;
+      uint64_t addr = 0;
+      if (pdt[pdt_idx].pde.P == 1) {
+        if (EFI_ERROR(ctx->boot_services()->AllocatePages(AllocateAnyPages,EfiLoaderData,
+                                                          1, (EFI_PHYSICAL_ADDRESS *)&pte)))
+            ctx->halt(L"FAILED TO ALLOCATE PAGES FOR PT");
+        pdt[pdt_idx + i].pde.PT = reinterpret_cast<uint64_t>(pte);
+        pdt[pdt_idx + i].pde.P = 1;
+        pdt[pdt_idx + i].pde.RW = 1;
+      } else {
+          pte = reinterpret_cast<PTE *>(pdt[pdt_idx + i].pde.PT);
+      }
+
+      for (int i = 0; i < PAGE_TABLE_NUM_ENTRIES; i++) {
+        pte[i].P = 1;
+        pte[i].RW = 1;
+        pte[i].PAGE = addr;
+        addr += 4096;
+      }
     }
 
     return EFI_SUCCESS;
@@ -209,7 +282,7 @@ identity_map_image()
                                                       1, (EFI_PHYSICAL_ADDRESS *)&pml4t)))
         ctx->halt(L"FAILED TO ALLOCATE PAGES FOR PML4");
 
-    PDPE *pdpt = reinterpret_cast<PDPE *>(&pml4t[pml4_idx]);
+    PDPTE *pdpt = reinterpret_cast<PDPTE *>(&pml4t[pml4_idx]);
 
     if (EFI_ERROR(ctx->boot_services()->AllocatePages(AllocateAnyPages,EfiLoaderData,
                                                       1, (EFI_PHYSICAL_ADDRESS *)&pdpt)))
@@ -266,9 +339,7 @@ efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     auto kernel_info = read_kernel();
 
     MemoryMap mem_map;
-
-    ctx->boot_services()->GetMemoryMap(&mem_map.size, nullptr, &mem_map.key, &mem_map.dsize,
-                                &mem_map.dver);
+    ctx->boot_services()->GetMemoryMap(&mem_map.size, nullptr, &mem_map.key, &mem_map.dsize, &mem_map.dver);
 
     mem_map.size += PAGE_SIZE;
     mem_map.num_desc = mem_map.size / mem_map.dsize;

@@ -42,7 +42,7 @@ union alignas(8) PML4E {
 };
 
 // PDP Entry (Points to PD Table OR 1 GiB Page)
-union alignas(8) PDPE {
+union alignas(8) PDPTE {
     // 1 GB
     struct {
         uint64_t P         : 1;  // Bit 0: Present
@@ -138,7 +138,7 @@ union alignas(8) PTE {
         uint64_t G         : 1;  // Bit 8: Global
         uint64_t IGN1      : 2;  // Bit 9-10: Ignored
         uint64_t R         : 1;  // Bit 11: Ignored/HLAT
-        uint64_t PT        : 40; // Bit 12-51: PDT
+        uint64_t PAGE      : 40; // Bit 12-51: PDT
         uint64_t IGN2      : 7;  // Bits 52-58: Available for OS
         uint64_t PK        : 4;  // Bits 52-58: Protection Key/Ignored
         uint64_t XD        : 1;  // Bit 63: No Execute

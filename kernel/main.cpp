@@ -14,7 +14,7 @@ __asm__(
     "mov %ax, %ss\n"
     "mov %ax, %es\n"
     */
-    "mov $stack_top, %esp\n"
+    "movabs $stack_top, %rsp\n"
     "call main\n"
     "ret\n"
     "hlt\n"
