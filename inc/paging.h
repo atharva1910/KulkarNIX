@@ -1,6 +1,7 @@
 #pragma once
 
 constexpr uint32_t PAGE_TABLE_NUM_ENTRIES = 512;
+constexpr UINT64 PAGE_SIZE = 4096;
 
 union alignas(8) PML5E {
     struct {

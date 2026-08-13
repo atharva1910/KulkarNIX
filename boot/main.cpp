@@ -8,7 +8,6 @@
 constexpr UINT64 ONE_KB = 1 * 1024;
 constexpr UINT64 ONE_MB = ONE_KB * 1024;
 constexpr UINT64 ONE_GB = ONE_MB * 1024;
-constexpr UINT64 PAGE_SIZE = 4096;
 
 BootCtx *ctx = nullptr;
 PML4E *pml4t = nullptr;
@@ -147,13 +146,12 @@ bool is_1GB_map_supported(const UINTN total_mem) {
 }
 
 EFI_STATUS
-setup_paging(KernInfo kernel_info, void *kernel_entry, const UINTN total_mem)
+setup_paging(KernInfo kernel_info, const UINTN total_mem)
 {
-    // Convert to nearest 1 GB addr
-    const UINTN num_gb = (total_mem + (ONE_GB - 1)) / ONE_GB;
-
     if (pml4t == nullptr)
         ctx->halt(L"PML4 not setup");
+
+    const UINTN num_gb = (total_mem + (ONE_GB - 1)) / ONE_GB;
 
     PDPTE *pdpt = nullptr;
     if (EFI_ERROR(ctx->boot_services()->AllocatePages(AllocateAnyPages,EfiLoaderData,
@@ -174,12 +172,11 @@ setup_paging(KernInfo kernel_info, void *kernel_entry, const UINTN total_mem)
     }
 
     // Map the kernel to compiled addr
-    UINT64 image_base = reinterpret_cast<UINT64>(kernel_entry);
+    UINT64 image_base = reinterpret_cast<UINT64>(kernel_info.kernel_entry);
     const UINTN num_pte = kernel_info.kernel_pages;
     const UINTN num_pt = (num_pte >> 12) + 1;
     const UINTN num_pdt = (num_pt >> 12) + 1;
     const UINTN num_pdpt = (num_pdt >> 12) + 1;
-
 
     ctx->print(L"Image base: ");
     ctx->print_hex(image_base);
@@ -338,49 +335,13 @@ efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 
     auto kernel_info = read_kernel();
 
-    MemoryMap mem_map;
-    ctx->boot_services()->GetMemoryMap(&mem_map.size, nullptr, &mem_map.key, &mem_map.dsize, &mem_map.dver);
+    MemoryMap mem_map(ctx);
 
-    mem_map.size += PAGE_SIZE;
-    mem_map.num_desc = mem_map.size / mem_map.dsize;
-
-    if (EFI_ERROR(ctx->boot_services()->AllocatePool(EfiBootServicesData, mem_map.size, (void **)&mem_map.mm)))
-        ctx->halt(L"FAILED TO ALLOCATE MEM FOR MEMORY MAP");
-
-    if (EFI_ERROR(ctx->boot_services()->GetMemoryMap(&mem_map.size, (EFI_MEMORY_DESCRIPTOR *)mem_map.mm,
-                                              &mem_map.key, &mem_map.dsize,
-                                              &mem_map.dver)))
-      ctx->halt(L"FAILED TO GET MEMORY MAP");
-
-
-    for (int i = 0; i < mem_map.num_desc; i++) {
-      EFI_MEMORY_DESCRIPTOR *pdesc =
-          reinterpret_cast<EFI_MEMORY_DESCRIPTOR *>(mem_map.mm + (i * mem_map.dsize));
-
-      if (pdesc->Type == EfiConventionalMemory ||
-          pdesc->Type == EfiLoaderData || pdesc->Type == EfiLoaderCode ||
-          pdesc->Type == EfiBootServicesData || pdesc->Type == EfiBootServicesCode)
-          mem_map.total_mem += pdesc->NumberOfPages << 12;
-
-      if (pdesc->PhysicalStart < mem_map.min_paddr)
-          mem_map.min_paddr = pdesc->PhysicalStart;
-
-      if ((pdesc->PhysicalStart + (pdesc->NumberOfPages << 12)) > mem_map.max_paddr)
-          mem_map.max_paddr = (pdesc->PhysicalStart + (pdesc->NumberOfPages << 12));
-
-      if (pdesc->VirtualStart < mem_map.min_vaddr)
-          mem_map.min_vaddr = pdesc->VirtualStart;
-
-      if ((pdesc->VirtualStart + (pdesc->NumberOfPages << 12)) > mem_map.max_vaddr)
-          mem_map.max_vaddr = (pdesc->VirtualStart + (pdesc->NumberOfPages << 12));
-    }
-
-    uint8_t *pageTables = nullptr;
-    if (EFI_ERROR(setup_paging(kernel_info, &pageTables, mem_map.total_mem)))
+    if (EFI_ERROR(setup_paging(kernel_info, mem_map.m_total_mem)))
         ctx->halt(L"FAILED TO SETUP PAGES");
 
-
-    if (EFI_ERROR(ctx->boot_services()->ExitBootServices(ImageHandle, mem_map.key)))
+    //mem_map.refresh();
+    if (EFI_ERROR(ctx->boot_services()->ExitBootServices(ImageHandle, mem_map.m_key)))
       ctx->halt(L"FAILED TO EXIT BOOT SERVICES");
 
     ctx->halt(L"SUCCESS");
