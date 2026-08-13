@@ -39,10 +39,6 @@ bool is_1GB_map_supported(const UINTN total_mem) {
     return true;
 }
 
-void enable_paging() {
-    asm volatile("cli":::);
-}
-
 EFI_STATUS
 setup_paging(const Kernel &kernel, const UINTN total_mem)
 {
@@ -56,7 +52,7 @@ setup_paging(const Kernel &kernel, const UINTN total_mem)
                                                       1, (EFI_PHYSICAL_ADDRESS *)&pdpt)))
       ctx->halt(L"FAILED TO ALLOCATE PAGES FOR PDPT");
 
-    pml4t[256].PDPT = reinterpret_cast<uint64_t>(pdpt);
+    pml4t[256].PDPT = reinterpret_cast<uint64_t>(pdpt) >> 12;
     pml4t[256].P = 1;
     pml4t[256].RW = 1;
 
@@ -65,7 +61,7 @@ setup_paging(const Kernel &kernel, const UINTN total_mem)
         pdpt[i].pdpe_1gb.P = 1;
         pdpt[i].pdpe_1gb.RW = 1;
         pdpt[i].pdpe_1gb.PS = 1;       // 1GB mapping
-        pdpt[i].pdpe_1gb.PDT = paddr;
+        pdpt[i].pdpe_1gb.PDT = paddr >> 30;
         paddr += ONE_GB;
     }
 
@@ -86,52 +82,52 @@ setup_paging(const Kernel &kernel, const UINTN total_mem)
     const UINT16 pml4_idx = (image_base >> 39) & 0x1ff;
 
     pdpt = nullptr;
-    if (pml4t[pml4_idx].P == 1) {
+    if (pml4t[pml4_idx].P == 0) {
         if (EFI_ERROR(ctx->boot_services()->AllocatePages(AllocateAnyPages,EfiLoaderData,
                                                           1, (EFI_PHYSICAL_ADDRESS *)&pdpt)))
           ctx->halt(L"FAILED TO ALLOCATE PAGES FOR PDPT");
-        pml4t[pml4_idx].PDPT = reinterpret_cast<uint64_t>(pdpt);
+        ctx->boot_services()->SetMem(pdpt, PAGE_SIZE, 0);
+        pml4t[pml4_idx].PDPT = reinterpret_cast<uint64_t>(pdpt) >> 12;
         pml4t[pml4_idx].P = 1;
         pml4t[pml4_idx].RW = 1;
     } else {
-        pdpt = reinterpret_cast<PDPTE *>(pml4t[pml4_idx].PDPT);
+        pdpt = reinterpret_cast<PDPTE *>(pml4t[pml4_idx].PDPT << 12);
     }
 
     PDE *pdt = nullptr;
-    if (pdpt[pdpt_idx].pdpe.P == 1) {
+    if (pdpt[pdpt_idx].pdpe.P == 0) {
         if (EFI_ERROR(ctx->boot_services()->AllocatePages(AllocateAnyPages,EfiLoaderData,
                                                           1, (EFI_PHYSICAL_ADDRESS *)&pdt)))
           ctx->halt(L"FAILED TO ALLOCATE PAGES FOR PDT");
-        pdpt[pdpt_idx].pdpe.PDT = reinterpret_cast<uint64_t>(pdt);
+        ctx->boot_services()->SetMem(pdt, PAGE_SIZE, 0);
+        pdpt[pdpt_idx].pdpe.PDT = reinterpret_cast<uint64_t>(pdt) >> 12;
         pdpt[pdpt_idx].pdpe.P = 1;
         pdpt[pdpt_idx].pdpe.RW = 1;
     } else {
-        pdt = reinterpret_cast<PDE *>(pdpt[pdpt_idx].pdpe.PDT);
+        pdt = reinterpret_cast<PDE *>(pdpt[pdpt_idx].pdpe.PDT << 12);
     }
 
-    for (int i = 0; i < num_pt; i++) {
-      if (pdt_idx + i >= PAGE_TABLE_NUM_ENTRIES)
-          ctx->halt(L"OUT OF RANGE");
-
-      PTE *pte = nullptr;
-      uint64_t addr = 0;
-      if (pdt[pdt_idx].pde.P == 1) {
+    PTE *pte = nullptr;
+    if (pdt[pdt_idx].pde.P == 0) {
         if (EFI_ERROR(ctx->boot_services()->AllocatePages(AllocateAnyPages,EfiLoaderData,
                                                           1, (EFI_PHYSICAL_ADDRESS *)&pte)))
             ctx->halt(L"FAILED TO ALLOCATE PAGES FOR PT");
-        pdt[pdt_idx + i].pde.PT = reinterpret_cast<uint64_t>(pte);
-        pdt[pdt_idx + i].pde.P = 1;
-        pdt[pdt_idx + i].pde.RW = 1;
-      } else {
-          pte = reinterpret_cast<PTE *>(pdt[pdt_idx + i].pde.PT);
-      }
+        ctx->boot_services()->SetMem(pte, PAGE_SIZE, 0);
+        pdt[pdt_idx].pde.PT = reinterpret_cast<uint64_t>(pte) >> 12;
+        pdt[pdt_idx].pde.P = 1;
+        pdt[pdt_idx].pde.RW = 1;
+    } else {
+        pte = reinterpret_cast<PTE *>(pdt[pdt_idx].pde.PT << 12);
+    }
 
-      for (int i = 0; i < PAGE_TABLE_NUM_ENTRIES; i++) {
-        pte[i].P = 1;
-        pte[i].RW = 1;
-        pte[i].PAGE = addr;
-        addr += 4096;
-      }
+    uint64_t addr = kernel.m_kernelPaddr;
+    for (int i = 0; i < num_pte; i++) {
+      if (pt_idx + i >= PAGE_TABLE_NUM_ENTRIES)
+          ctx->halt(L"OUT OF RANGE");
+        pte[pt_idx + i].P = 1;
+        pte[pt_idx + i].RW = 1;
+        pte[pt_idx + i].PAGE = addr >> 12;
+        addr += PAGE_SIZE;
     }
 
     return EFI_SUCCESS;
@@ -149,44 +145,53 @@ identity_map_image()
     // To identity map the image, we will use 2MB identity paging
     // Round up to nearest 2 MB
     constexpr UINT64 TWO_MB = 2 * ONE_MB;
-    const UINT16 pml4_idx = (image_base >> 12) & 0x1ff;
-    const UINT16 pdpt_idx = (image_base >> 21) & 0x1ff;
-    const UINT16 pdt_idx  = (image_base >> 30) & 0x1ff;
-    const UINT16 pt_idx   = (image_base >> 39) & 0x1ff;
+    const UINT16 pt_idx = (image_base >> 12) & 0x1ff;
+    const UINT16 pdt_idx = (image_base >> 21) & 0x1ff;
+    const UINT16 pdpt_idx  = (image_base >> 30) & 0x1ff;
+    const UINT16 pml4_idx   = (image_base >> 39) & 0x1ff;
     const UINT16 image_size_2mb = (image_size + (TWO_MB - 1)) / TWO_MB;
 
-    if (EFI_ERROR(ctx->boot_services()->AllocatePages(AllocateAnyPages,EfiLoaderData,
-                                                      1, (EFI_PHYSICAL_ADDRESS *)&pml4t)))
-        ctx->halt(L"FAILED TO ALLOCATE PAGES FOR PML4");
+    if (pml4t == nullptr) {
+        if (EFI_ERROR(ctx->boot_services()->AllocatePages(AllocateAnyPages,EfiLoaderData,
+                                                          1, (EFI_PHYSICAL_ADDRESS *)&pml4t)))
+          ctx->halt(L"FAILED TO ALLOCATE PAGES FOR PML4");
+        ctx->boot_services()->SetMem(pml4t, PAGE_SIZE, 0);
+    }
 
-    PDPTE *pdpt = reinterpret_cast<PDPTE *>(&pml4t[pml4_idx]);
-
-    if (EFI_ERROR(ctx->boot_services()->AllocatePages(AllocateAnyPages,EfiLoaderData,
+    PDPTE *pdpt = nullptr;
+    if (pml4t[pml4_idx].P == 0) {
+        if (EFI_ERROR(ctx->boot_services()->AllocatePages(AllocateAnyPages,EfiLoaderData,
                                                       1, (EFI_PHYSICAL_ADDRESS *)&pdpt)))
-        ctx->halt(L"FAILED TO ALLOCATE PAGES FOR PDPT");
-    else {
-        pml4t[pml4_idx].PDPT = reinterpret_cast<UINT64>(pdpt);
+          ctx->halt(L"FAILED TO ALLOCATE PAGES FOR PDPT");
+        ctx->boot_services()->SetMem(pdpt, PAGE_SIZE, 0);
+        pml4t[pml4_idx].PDPT = reinterpret_cast<UINT64>(pdpt) >> 12;
         pml4t[pml4_idx].P = 1;
         pml4t[pml4_idx].RW = 1;
+    } else {
+        pdpt = reinterpret_cast<PDPTE *>(pml4t[pml4_idx].PDPT << 12);
     }
 
-    PDE *pdt = reinterpret_cast<PDE *>(&pdpt[pdpt_idx]);
-
-    if (EFI_ERROR(ctx->boot_services()->AllocatePages(AllocateAnyPages,EfiLoaderData,
-                                                      image_size_2mb, (EFI_PHYSICAL_ADDRESS *)&pdt)))
-        ctx->halt(L"FAILED TO ALLOCATE PAGES FOR PDT");
-    else {
-        pdpt[pdpt_idx].pdpe.PDT = reinterpret_cast<UINT64>(pdt);
+    PDE *pdt = nullptr;
+    if (pdpt[pdpt_idx].pdpe.P == 0) {
+        if (EFI_ERROR(ctx->boot_services()->AllocatePages(AllocateAnyPages,EfiLoaderData,
+                                                          1, (EFI_PHYSICAL_ADDRESS *)&pdt)))
+            ctx->halt(L"FAILED TO ALLOCATE PAGES FOR PDT");
+        ctx->boot_services()->SetMem(pdt, PAGE_SIZE, 0);
+        pdpt[pdpt_idx].pdpe.PDT = reinterpret_cast<UINT64>(pdt) >> 12;
         pdpt[pdpt_idx].pdpe.P = 1;
         pdpt[pdpt_idx].pdpe.RW = 1;
-        pdpt[pdpt_idx].pdpe.PS = 1;
+    } else {
+        pdt = reinterpret_cast<PDE *>(pdpt[pdpt_idx].pdpe.PDT << 12);
     }
 
+    image_base = image_base & ~(TWO_MB-1);
     for (int i = 0; i < image_size_2mb; i++) {
-        pdt[pdt_idx].pde_2mb.PT = image_base & TWO_MB;
-        pdt[pdt_idx].pde_2mb.P  = 1;
-        pdt[pdt_idx].pde_2mb.RW = 1;
-        pdt[pdt_idx].pde_2mb.PS = 1;
+        if (pdt_idx + i >= PAGE_TABLE_NUM_ENTRIES)
+          ctx->halt(L"OVERFLOW");
+        pdt[pdt_idx + i].pde_2mb.PT = image_base >> 21;
+        pdt[pdt_idx + i].pde_2mb.P  = 1;
+        pdt[pdt_idx + i].pde_2mb.RW = 1;
+        pdt[pdt_idx + i].pde_2mb.PS = 1;
         image_base += TWO_MB;
     }
 }
@@ -218,12 +223,22 @@ efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     if (EFI_ERROR(setup_paging(kernel, mem_map.m_total_mem)))
         ctx->halt(L"FAILED TO SETUP PAGES");
 
+    ctx->print(L"Jumping to kernel: ");
+    ctx->print_hex(kernel.m_kernelEntry);
     mem_map.refresh();
 
     if (EFI_ERROR(ctx->boot_services()->ExitBootServices(ImageHandle, mem_map.m_key)))
       ctx->halt(L"FAILED TO EXIT BOOT SERVICES");
 
-    enable_paging();
-    ctx->halt(L"SUCCESS");
+    asm volatile ("mov %[pml4], %%rax\n\t"
+                  "mov %%rax, %%cr3\n\t"
+                  //"mov %[args], %%r13\n\t"
+                  "jmp *%[entry]\n\t"
+                  :
+                  : [pml4] "r" (pml4t),
+                    [entry] "r" (kernel.m_kernelEntry)
+                    //[args] "r" (kernel)
+                  : "memory", "rax"
+                  );
     return EFI_SUCCESS;
 }

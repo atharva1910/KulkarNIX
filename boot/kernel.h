@@ -8,6 +8,7 @@ class Kernel {
 public:
     BootCtx *ctx = nullptr;
     uintptr_t m_kernelEntry;
+    uintptr_t m_kernelPaddr;
     UINTN m_kernelPages;
     UINTN m_minAddr;
     UINTN m_maxAddr;
@@ -76,20 +77,20 @@ public:
         m_kernelSize = m_maxAddr - m_minAddr;
         m_kernelPages = (m_kernelSize + 4095) >> 12;
 
-        uint8_t *kernel_entry = nullptr;
+        uint8_t *m_kernelPaddr = nullptr;
         if (EFI_SUCCESS !=
-            ctx->boot_services()->AllocatePages(AllocateAnyPages,EfiLoaderData, m_kernelPages, (EFI_PHYSICAL_ADDRESS *)&kernel_entry))
+            ctx->boot_services()->AllocatePages(AllocateAnyPages,EfiLoaderData, m_kernelPages, (EFI_PHYSICAL_ADDRESS *)&m_kernelPaddr))
             ctx->halt(L"FAILED TO ALLOCATE PAGES FOR KERNEL");
 
-        ctx->boot_services()->SetMem(kernel_entry, m_kernelPages << 12, 0);
+        ctx->boot_services()->SetMem(m_kernelPaddr, m_kernelPages << 12, 0);
 
-        uint8_t *itr = kernel_entry;
+        uint8_t *itr = m_kernelPaddr;
         for (uint16_t i = 0; i < elf_header->e_phnum; i++) {
             if (pheader[i].p_type != 1)
                 continue;
 
             UINTN offset = pheader[i].p_vaddr - m_minAddr;
-            itr = kernel_entry + offset;
+            itr = m_kernelPaddr + offset;
 
             if (EFI_ERROR(khandle.seek( pheader[i].p_offset)))
                 ctx->halt(L"FAILED TO SET POSITION");
