@@ -5,7 +5,9 @@ class BootCtx {
 public:
   BootCtx(EFI_SYSTEM_TABLE *pSystemTable, EFI_HANDLE handle)
       : m_st(pSystemTable), m_handle(handle) {
-        m_bs = m_st->BootServices;
+      m_bs = m_st->BootServices;
+      if (EFI_ERROR(m_bs->SetWatchdogTimer(0, 0, 0, nullptr)))
+          halt(L"FAILED TO SET WATCHDOG TIMER");
   }
 
   EFI_SYSTEM_TABLE *system_table() { return m_st; }
@@ -62,3 +64,19 @@ private:
     EFI_HANDLE m_handle;
     EFI_LOADED_IMAGE_PROTOCOL *m_loadedImage;
 };
+
+template <typename T>
+EFI_STATUS LocateProtocol(BootCtx *ctx, const EFI_GUID &guid, T **output)
+{
+    return ctx->boot_services()->LocateProtocol(const_cast<EFI_GUID *>(&guid),
+                                                nullptr,
+                                                reinterpret_cast<void **>(output));
+}
+
+template <typename T>
+EFI_STATUS HandleProtocol(BootCtx *ctx, EFI_HANDLE handle, const EFI_GUID &guid, T **output)
+{
+    return ctx->boot_services()->HandleProtocol(handle,
+                                                const_cast<EFI_GUID *>(&guid),
+                                                reinterpret_cast<void **>(output));
+}

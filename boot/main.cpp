@@ -1,7 +1,5 @@
 #include "boot_context.h"
 #include "kernel.h"
-#include "file.h"
-#include "elfheader.h"
 #include "paging.h"
 #include "memory_map.h"
 
@@ -12,116 +10,12 @@ constexpr UINT64 ONE_GB = ONE_MB * 1024;
 BootCtx *ctx = nullptr;
 PML4E *pml4t = nullptr;
 
-template <typename T>
-EFI_STATUS LocateProtocol(const EFI_GUID &guid, T **output)
-{
-    return ctx->boot_services()->LocateProtocol(const_cast<EFI_GUID *>(&guid),
-                                                nullptr,
-                                                reinterpret_cast<void **>(output));
-}
-
-template <typename T>
-EFI_STATUS HandleProtocol(EFI_HANDLE handle, const EFI_GUID &guid, T **output)
-{
-    return ctx->boot_services()->HandleProtocol(handle,
-                                                const_cast<EFI_GUID *>(&guid),
-                                                reinterpret_cast<void **>(output));
-}
-
-KernInfo read_kernel()
-{
-    KernInfo kernel_info;
-
-    EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *sfs = nullptr;
-    EFI_GUID guid = EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
-    if (EFI_ERROR(HandleProtocol<EFI_SIMPLE_FILE_SYSTEM_PROTOCOL>(ctx->loaded_image()->DeviceHandle,
-                                                                  guid, &sfs)))
-        ctx->halt(L"FAILED TO LOAD SFS PROTOCOL");
-
-
-    EFI_FILE_HANDLE volHandle = nullptr;
-    if (EFI_SUCCESS != sfs->OpenVolume(sfs, &volHandle))
-        ctx->halt(L"FAILED TO OPEN VOLUME");
-
-    EfiFile khandle = EfiFile(volHandle, L"\\Kernel.elf");
-
-    ELF_HEADER *elf_header = nullptr;
-    UINTN read_size = sizeof(ELF_HEADER);
-
-    if (EFI_SUCCESS !=
-        ctx->boot_services()->AllocatePool(EfiBootServicesData, sizeof(ELF_HEADER), (void **)&elf_header))
-      ctx->halt(L"FAILED TO ALLOCATE MEM FOR ELF_HEADER");
-
-    if (EFI_ERROR(khandle.read(read_size, (void *)elf_header)))
-        ctx->halt(L"FAILED TO READ ELF HEADER");
-
-    if (elf_header->ei_magic != ELF_MAGIC) {
-        ctx->halt(L"ELF MAGIC NOT MATCHING");
-    }
-
-    ctx->print(L"e_entry :");
-    ctx->print_hex(elf_header->e_entry);
-    kernel_info.kernel_entry = elf_header->e_entry;
-
-    UINTN phsize = elf_header->e_phnum * elf_header->e_phentsize;
-    ELF_PROG_HEADER *pheader = nullptr;
-
-    if (EFI_ERROR(khandle.seek(elf_header->e_phoff)))
-        ctx->halt(L"FAILED TO SET POSITION");
-
-    if (EFI_SUCCESS !=
-        ctx->boot_services()->AllocatePool(EfiBootServicesData, phsize, (void **)&pheader))
-      ctx->halt(L"FAILED TO ALLOCATE MEM FOR ELF_HEADER");
-
-    if (EFI_ERROR(khandle.read(phsize, (void *)pheader)))
-        ctx->halt(L"FAILED TO READ PROGRAM HEADER");
-
-    kernel_info.min_addr = -1;
-    kernel_info.max_addr = 0;
-
-    for (uint16_t i = 0; i < elf_header->e_phnum; i++) {
-        if (pheader[i].p_type != 1) continue;
-        if (pheader[i].p_paddr < kernel_info.min_addr)
-            kernel_info.min_addr = pheader[i].p_vaddr;
-        if (pheader[i].p_vaddr + pheader[i].p_memsz > kernel_info.max_addr)
-            kernel_info.max_addr = pheader[i].p_vaddr + pheader[i].p_memsz;
-    }
-
-    kernel_info.kernel_size = kernel_info.max_addr - kernel_info.min_addr;
-    kernel_info.kernel_pages = (kernel_info.kernel_size + 4095) >> 12;
-
-    uint8_t *kernel_entry = nullptr;
-    if (EFI_SUCCESS !=
-        ctx->boot_services()->AllocatePages(AllocateAnyPages,EfiLoaderData, kernel_info.kernel_pages, (EFI_PHYSICAL_ADDRESS *)&kernel_entry))
-      ctx->halt(L"FAILED TO ALLOCATE PAGES FOR KERNEL");
-
-    ctx->boot_services()->SetMem(kernel_entry, kernel_info.kernel_pages << 12, 0);
-
-    uint8_t *itr = kernel_entry;
-    for (uint16_t i = 0; i < elf_header->e_phnum; i++) {
-        if (pheader[i].p_type != 1)
-            continue;
-
-        UINTN offset = pheader[i].p_vaddr - kernel_info.min_addr;
-        itr = kernel_entry + offset;
-
-        if (EFI_ERROR(khandle.seek( pheader[i].p_offset)))
-            ctx->halt(L"FAILED TO SET POSITION");
-
-        auto phsize = pheader[i].p_filesz;
-        if (EFI_ERROR(khandle.read(phsize, (void *)itr)))
-            ctx->halt(L"FAILED TO READ PROGRAM HEADER");
-    }
-
-    return kernel_info;
-}
-
 EFI_STATUS
 init_gop()
 {
     EFI_GRAPHICS_OUTPUT_PROTOCOL *gop = nullptr;
-
-    if (EFI_ERROR(LocateProtocol<EFI_GRAPHICS_OUTPUT_PROTOCOL>(EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID, &gop)))
+    const EFI_GUID guid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
+    if (EFI_ERROR(LocateProtocol<EFI_GRAPHICS_OUTPUT_PROTOCOL>(ctx, guid,  &gop)))
         ctx->halt(L"Failed to locate GOP protocol");
 
     for (auto i = 0; i < gop->Mode->MaxMode; i++) {
@@ -145,8 +39,12 @@ bool is_1GB_map_supported(const UINTN total_mem) {
     return true;
 }
 
+void enable_paging() {
+    asm volatile("cli":::);
+}
+
 EFI_STATUS
-setup_paging(KernInfo kernel_info, const UINTN total_mem)
+setup_paging(const Kernel &kernel, const UINTN total_mem)
 {
     if (pml4t == nullptr)
         ctx->halt(L"PML4 not setup");
@@ -172,8 +70,8 @@ setup_paging(KernInfo kernel_info, const UINTN total_mem)
     }
 
     // Map the kernel to compiled addr
-    UINT64 image_base = reinterpret_cast<UINT64>(kernel_info.kernel_entry);
-    const UINTN num_pte = kernel_info.kernel_pages;
+    UINT64 image_base = reinterpret_cast<UINT64>(kernel.m_kernelEntry);
+    const UINTN num_pte = kernel.m_kernelPages;
     const UINTN num_pt = (num_pte >> 12) + 1;
     const UINTN num_pdt = (num_pt >> 12) + 1;
     const UINTN num_pdpt = (num_pdt >> 12) + 1;
@@ -181,29 +79,11 @@ setup_paging(KernInfo kernel_info, const UINTN total_mem)
     ctx->print(L"Image base: ");
     ctx->print_hex(image_base);
 
-    ctx->print(L"Num pte: ");
-    ctx->print_hex(num_pte);
-    ctx->print(L"Num pt: ");
-    ctx->print_hex(num_pt);
-    ctx->print(L"Num pdt: ");
-    ctx->print_hex(num_pdt);
-    ctx->print(L"Num pdpt: ");
-    ctx->print_hex(num_pdpt);
-
     // Todo: Make sure pte, pt, pdpt are 1
     const UINT16 pt_idx = (image_base >> 12) & 0x1ff;
     const UINT16 pdt_idx = (image_base >> 21) & 0x1ff;
     const UINT16 pdpt_idx  = (image_base >> 30) & 0x1ff;
     const UINT16 pml4_idx = (image_base >> 39) & 0x1ff;
-
-    ctx->print(L"pml4_idx: ");
-    ctx->print_hex(pml4_idx);
-    ctx->print(L"pdpt_idx: ");
-    ctx->print_hex(pdpt_idx);
-    ctx->print(L"pdt_idx: ");
-    ctx->print_hex(pdt_idx);
-    ctx->print(L"pt_idx: ");
-    ctx->print_hex(pt_idx);
 
     pdpt = nullptr;
     if (pml4t[pml4_idx].P == 1) {
@@ -319,9 +199,8 @@ efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 
     EFI_LOADED_IMAGE_PROTOCOL *loadedImage;
     EFI_GUID guid = EFI_LOADED_IMAGE_PROTOCOL_GUID;
-    if (EFI_ERROR(HandleProtocol<EFI_LOADED_IMAGE_PROTOCOL>(ImageHandle,
-                                                            guid,
-                                                            &loadedImage)))
+    if (EFI_ERROR(HandleProtocol<EFI_LOADED_IMAGE_PROTOCOL>(ctx, ImageHandle,
+                                                            guid, &loadedImage)))
         ctx->halt(L"FAILED TO LOAD LOADED IMAGE PROTOCOL");
 
     ctx->set_loaded_image(loadedImage);
@@ -333,17 +212,18 @@ efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     init_gop();
     identity_map_image();
 
-    auto kernel_info = read_kernel();
-
+    Kernel kernel(ctx);
     MemoryMap mem_map(ctx);
 
-    if (EFI_ERROR(setup_paging(kernel_info, mem_map.m_total_mem)))
+    if (EFI_ERROR(setup_paging(kernel, mem_map.m_total_mem)))
         ctx->halt(L"FAILED TO SETUP PAGES");
 
-    //mem_map.refresh();
+    mem_map.refresh();
+
     if (EFI_ERROR(ctx->boot_services()->ExitBootServices(ImageHandle, mem_map.m_key)))
       ctx->halt(L"FAILED TO EXIT BOOT SERVICES");
 
+    enable_paging();
     ctx->halt(L"SUCCESS");
     return EFI_SUCCESS;
 }
