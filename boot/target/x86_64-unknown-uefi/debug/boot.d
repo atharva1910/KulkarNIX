@@ -1,1 +1,0 @@
-/Users/qwn/KulkarNIX/boot/target/x86_64-unknown-uefi/debug/boot.efi: /Users/qwn/KulkarNIX/boot/src/boot_ctx.rs /Users/qwn/KulkarNIX/boot/src/elfheader.rs /Users/qwn/KulkarNIX/boot/src/kernel.rs /Users/qwn/KulkarNIX/boot/src/main.rs
