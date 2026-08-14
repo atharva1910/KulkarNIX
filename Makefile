@@ -1,88 +1,48 @@
-#export BOOT=arch
-export BOOT=i686
-export ARCH=i686
-export OUTPUT_DIR=$(CURDIR)/Bin
-export PUB_INC_DIR=$(CURDIR)/Inc
-export ARCH_INC_DIR=$(CURDIR)/Inc/Arch/$(ARCH)
-export UEFI_INC_DIR=$(CURDIR)/Inc/UEFI
-KERNEL=$(OUTPUT_DIR)/Kernel.bin
-OUTFILE=$(OUTPUT_DIR)/KulkarNIX.bin
+# --- Toolchain Configurations ---
+CC    := clang++
+LD    := ld.lld
+QEMU  := qemu-system-x86_64
 
-############################### Section : UEFI ###############################
-udebug: UEFI Kernel MakeUEFI
-	@echo "========== UEFI Debug Image =========="
-	qemu-system-x86_64 -s -S -bios /usr/share/ovmf/OVMF.fd -net none -drive format=raw,unit=0,file=$(OUTPUT_DIR)/UEFI.img
+# --- Build Targets & Inputs ---
+IMAGE     := nvme.img
+BUILD_DIR := build
+KERNEL    := $(BUILD_DIR)/Kernel.elf
+EFI_BIN   := $(BUILD_DIR)/BOOTX64.EFI
 
-urelease: UEFI Kernel MakeUEFI
-	@echo "========== UEFI Release Image =========="
-	qemu-system-x86_64 -bios /usr/share/ovmf/OVMF.fd -net none -drive format=raw,unit=0,file=$(OUTPUT_DIR)/UEFI.img
+# --- Bootloader Compilation Flags ---
+EFI_INCLUDES := -I./inc/UEFI -I./inc
+EFI_CFLAGS   := $(EFI_INCLUDES) -target x86_64-pc-windows-msvc -g -ffreestanding -fshort-wchar -mno-red-zone -nostdlib -std=c++23 -fno-exceptions -fno-rtti
+EFI_LDFLAGS  := -fuse-ld=lld -Wl,-entry:efi_main -Wl,-subsystem:efi_application
 
-UEFI:
-	$(MAKE) -C Arch/ $(BOOT)
+# --- Default Goal Target ---
+.PHONY: all bootloader kernel image run clean
 
-MakeUEFI: MakeFS MakeMount MakeCP MakeCleanup
+all: bootloader kernel image
 
-MakeFS:
-ifneq ("$(wildcard $(OUTPUT_DIR)/UEFI.img)","")
-	@echo "========== FS image exists, not recreating image =========="
-	sudo losetup --offset 1048576 --sizelimit 46934528 /dev/loop42 $(OUTPUT_DIR)/UEFI.img
-	sudo mkdosfs -F 32 /dev/loop42
-else
-	dd if=/dev/zero of=$(OUTPUT_DIR)/UEFI.img bs=512 count=93750
-	gdisk $(OUTPUT_DIR)/UEFI.img
-	sudo losetup --offset 1048576 --sizelimit 46934528 /dev/loop42 $(OUTPUT_DIR)/UEFI.img
-	sudo mkdosfs -F 32 /dev/loop42
-endif
+# --- Target: Bootloader Compile ---
+bootloader:
+	@mkdir -p $(BUILD_DIR)
+	$(CC) $(EFI_CFLAGS) $(EFI_LDFLAGS) -o $(EFI_BIN) boot/main.cpp boot/runtime.cpp
 
-MakeMount:
-	rm -rf $(OUTPUT_DIR)/FakeMount
-	mkdir $(OUTPUT_DIR)/FakeMount
-	sudo mount /dev/loop42 $(OUTPUT_DIR)/FakeMount
-	sudo mkdir -p $(OUTPUT_DIR)/FakeMount/EFI/BOOT
+# --- Target: Kernel Compile (Delegated to kernel/Makefile) ---
+kernel:
+	@mkdir -p $(BUILD_DIR)
+	$(MAKE) -C kernel
 
-MakeCP:
-	sudo cp $(OUTPUT_DIR)/BOOTX64.EFI $(OUTPUT_DIR)/FakeMount/EFI/BOOT/
-	sudo cp $(OUTPUT_DIR)/Kernel.bin $(OUTPUT_DIR)/FakeMount/
+# --- Target: Create Disk & Inject Bootloader ---
+image: bootloader kernel
+	dd if=/dev/zero of=$(IMAGE) bs=1M count=64
+	mkfs.fat -F 32 $(IMAGE)
+	mmd -i $(IMAGE) ::/EFI
+	mmd -i $(IMAGE) ::/EFI/BOOT
+	mcopy -i $(IMAGE) $(EFI_BIN) ::/EFI/BOOT
+	mcopy -i $(IMAGE) $(KERNEL) ::
 
-MakeCleanup:
-	sudo umount $(OUTPUT_DIR)/FakeMount
-	rm -rf $(OUTPUT_DIR)/FakeMount
-	sudo losetup -d /dev/loop42
+# --- Target: Emulation ---
+run: all
+	$(QEMU) -bios OVMF.fd -serial stdio -d cpu_reset -drive file=$(IMAGE),format=raw -display none -m 4G
 
-############################### Section : BIOS ###############################
-
-BOOT1=$(OUTPUT_DIR)/IStageBootloader.bin
-BOOT2=$(OUTPUT_DIR)/IIStageBootloader.bin
-
-debug: BIOS Kernel MakeLegacy
-	@echo "========== Debug Image =========="
-	qemu-system-x86_64 -s -S -drive file=$(OUTFILE),index=0,media=disk,format=raw -d cpu_reset
-
-release: BIOS Kernel MakeLegacy
-	@echo "========== Release Image =========="
-	qemu-system-x86_64 -drive file=$(OUTFILE),index=0,media=disk,format=raw -d cpu_reset
-
-BIOS:
-	$(MAKE) -C Arch/ $(ARCH)
-
-MakeLegacy:
-	dd if=$(BOOT1) of=$(OUTFILE) bs=512 seek=0
-	dd if=$(BOOT2) of=$(OUTFILE) bs=512 seek=1
-	dd if=$(KERNEL) of=$(OUTFILE) bs=512 seek=5
-
-# Section Kernel, common for both legacy and UEFI bootloaders
-Debug:
-	$(MAKE) -C Common/Debug
-KLibs:
-	$(MAKE) -C HAL/
-Kernel:
-	$(MAKE) -C Kernel/ all
-
-############################### Section : Clean ###############################
+# --- Target: Clean Artifacts ---
 clean:
-	-rm $(OUTPUT_DIR)/*.sym
-	-rm $(OUTPUT_DIR)/*.bin
-	-rm $(OUTPUT_DIR)/*.EFI
-	-rm $(OUTPUT_DIR)/*.img
-	$(MAKE) -C Arch/ clean
-	$(MAKE) -C Kernel/ clean
+	rm -rf $(BUILD_DIR) $(IMAGE)
+	$(MAKE) -C kernel clean
