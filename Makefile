@@ -21,8 +21,8 @@ all: bootloader kernel image
 
 # --- Target: Bootloader Compile ---
 bootloader:
-	@mkdir -p $(BUILD_DIR)
-	$(CC) $(EFI_CFLAGS) $(EFI_LDFLAGS) -o $(EFI_BIN) boot/main.cpp boot/runtime.cpp
+	cd boot && cargo build --release
+	cp /Users/qwn/KulkarNIX/boot/target/x86_64-unknown-uefi/release/boot.efi $(EFI_BIN)
 
 # --- Target: Kernel Compile (Delegated to kernel/Makefile) ---
 kernel:
