@@ -1,12 +1,23 @@
-use r_efi::efi;
+use core::ptr::slice_from_raw_parts_mut;
 use crate::{
     boot_ctx::BOOT_CTX,
-    elfheader::{ELF_MAGIC, Elf64Ehdr}, file::EfiFile,
+    elfheader::{ELF_MAGIC, Elf64Ehdr, Elf64Phdr}, file::EfiFile,
+    printer::PRINTER,
 };
-use r_efi::protocols::{loaded_image, simple_file_system};
-use alloc::format;
-use crate::printer::PRINTER;
-pub struct Kernel;
+use r_efi::{
+    efi::{self, ALLOCATE_ANY_PAGES, LOADER_DATA},
+    protocols::{loaded_image, simple_file_system},
+};
+use alloc::{
+    format,
+    vec::Vec,
+};
+
+const PAGE_SIZE: u64 = 4096; // TODO make this usize
+pub struct Kernel {
+    kernel_pages: usize,
+    kernel_base: r_efi::base::PhysicalAddress,
+}
 
 impl Kernel {
     pub fn new(h: efi::Handle) -> Result<Self, efi::Status> {
@@ -29,31 +40,73 @@ impl Kernel {
             return Err(status);
         }
         let sfs: *mut simple_file_system::Protocol = p.cast();
-        PRINTER.print("got the sfs\n");
 
-        let Some(fHandle) = EfiFile::open_handle(sfs, "\\Kernel.elf") else {
-            PRINTER.print("got the sfs\n");
+        let Some(fhandle) = EfiFile::open_handle(sfs, "\\Kernel.elf") else {
             return Err(efi::Status::ABORTED);
         };
-
-        fHandle.seek(0);
+        fhandle.seek(0);
 
         let mut elf_header: Elf64Ehdr = Elf64Ehdr::default();
-        let mut buf_size: usize = size_of::<Elf64Ehdr>();
-        status = unsafe {((*khandle).read)(fhandle, &mut buf_size, &mut elf_header as * mut _ as *mut core::ffi::c_void)};
+        status = fhandle.read_struct(&mut elf_header);
         if status != efi::Status::SUCCESS {
-            PRINTER.print(&format!("file read failed: {} {}\n", status, buf_size));
-            loop{};
             return Err(status);
         }
-        PRINTER.print("read succ\n");
 
-        if elf_header.e_ident[..4] == ELF_MAGIC {
-            let Some(st) =  BOOT_CTX.get_st() else {
-                return Err(status);
-            };
-            unsafe {((*st.con_out).clear_screen)(st.con_out);}
+        if elf_header.e_ident[..4] != ELF_MAGIC {
+            PRINTER.print("ELF HEADER does not match\n");
+            return Err(efi::Status::INVALID_PARAMETER);
         }
-        Ok(Self {})
+
+        fhandle.seek(elf_header.e_phoff as usize);
+
+        let ph_size =  elf_header.e_phentsize * elf_header.e_phnum;
+        let mut ph_buf = alloc::vec![ Elf64Phdr::default(); elf_header.e_phnum as usize];
+        let x = unsafe {
+            core::slice::from_raw_parts_mut(ph_buf.as_mut_ptr().cast::<u8>(), ph_size as usize)
+        };
+        status = fhandle.read_bytes(x);
+        if status != efi::Status::SUCCESS {
+            return Err(status);
+        }
+
+        let mut total_size = 0;
+        for ph in &ph_buf {
+            total_size += ph.p_memsz;
+        }
+        let kernel_pages = ((total_size + (PAGE_SIZE - 1))/PAGE_SIZE) as usize;
+        PRINTER.print(&format!("Total Pages : {}\n", kernel_pages));
+
+        let Some(bs) = BOOT_CTX.get_bs() else {
+            return Err(efi::Status::INVALID_PARAMETER);
+        };
+
+        let mut kernel_base: r_efi::base::PhysicalAddress = 0x0;
+        status = unsafe {
+            (bs.allocate_pages)(ALLOCATE_ANY_PAGES, LOADER_DATA, kernel_pages as usize, &mut kernel_base)
+        };
+        if status != efi::Status::SUCCESS {
+            return Err(status);
+        } else {
+            PRINTER.print(&format!("Kernel Base allocated at: {:x}\n", kernel_base));
+        }
+
+        let kbuffer = unsafe {
+            core::slice::from_raw_parts_mut(kernel_base as *mut u8, kernel_pages << 12)
+        };
+
+        let mut start:usize = 0;
+        for ph in &ph_buf {
+            fhandle.seek(ph.p_offset as usize);
+            let end = start + ph.p_offset as usize;
+            status = fhandle.read_bytes(&mut kbuffer[start..end]);
+            if status != efi::Status::SUCCESS {
+                return Err(status);
+            }
+            start = end;
+        }
+        Ok(Self {
+            kernel_pages: kernel_pages as usize,
+            kernel_base: kernel_base,
+        })
         }
     }

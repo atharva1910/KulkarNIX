@@ -33,15 +33,19 @@ impl EfiFile {
         }
     }
 
-    pub fn read(&self, mut size: usize, buffer: *mut core::ffi::c_void) {
-//pub type ProtocolRead = unsafe extern "efiapi" fn(
-//    *mut Protocol,
-//    *mut usize,
-//    *mut core::ffi::c_void,
-//) -> crate::base::Status;
-
+    pub fn read_bytes(&self, buffer: &mut [u8]) -> efi::Status {
+        let mut size = buffer.len();
+        let buf: *mut core::ffi::c_void = buffer.as_mut_ptr().cast::<core::ffi::c_void>();
         unsafe {
-            ((*self.file_handle).read)(self.file_handle, &mut size, buffer);
+            ((*self.file_handle).read)(self.file_handle, &mut size, buf)
+        }
+    }
+
+    pub fn read_struct<S:Sized>(&self, buffer: &mut S) -> efi::Status {
+        let mut size = size_of::<S>();
+        let buf: *mut core::ffi::c_void = (buffer as *mut S).cast::<core::ffi::c_void>();
+        unsafe {
+            ((*self.file_handle).read)(self.file_handle, &mut size, buf)
         }
     }
 }

@@ -18,7 +18,7 @@ pub struct Elf64Ehdr {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct Elf64Phdr {
     pub p_type: u32,   // Segment type
     pub p_flags: u32,  // Segment flags
