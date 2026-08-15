@@ -22,7 +22,7 @@ all: bootloader kernel image
 # --- Target: Bootloader Compile ---
 bootloader:
 	cd boot && cargo build --release
-	cp /Users/qwn/KulkarNIX/boot/target/x86_64-unknown-uefi/release/boot.efi $(EFI_BIN)
+	cp boot/target/x86_64-unknown-uefi/release/boot.efi $(EFI_BIN)
 
 # --- Target: Kernel Compile (Delegated to kernel/Makefile) ---
 kernel:

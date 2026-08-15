@@ -3,6 +3,7 @@
 mod boot_ctx;
 mod kernel;
 mod printer;
+mod file;
 mod elfheader;
 extern crate alloc;
 
@@ -24,8 +25,9 @@ pub extern "efiapi" fn main(h: efi::Handle,
     PRINTER.init(st);
     PRINTER.clrscr();
 
-    let Ok(kernel)= Kernel::new(h) else {
-        return efi::Status::INVALID_PARAMETER;
+    if let Ok(kernel)= Kernel::new(h)  {
+        PRINTER.print("Kernel setup failed");
     };
+    loop{};
     efi::Status::SUCCESS
 }

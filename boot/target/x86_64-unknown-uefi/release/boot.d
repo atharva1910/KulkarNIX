@@ -1,0 +1,1 @@
+/home/qwn/KulkarNIX/boot/target/x86_64-unknown-uefi/release/boot.efi: /home/qwn/KulkarNIX/boot/src/boot_ctx.rs /home/qwn/KulkarNIX/boot/src/elfheader.rs /home/qwn/KulkarNIX/boot/src/kernel.rs /home/qwn/KulkarNIX/boot/src/main.rs /home/qwn/KulkarNIX/boot/src/printer.rs
