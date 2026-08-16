@@ -35,6 +35,12 @@ impl BootCtx {
             BOOT_CTX.st.load(Ordering::Acquire).as_ref()
         }
     }
+
+    pub fn halt(&self) -> efi::Status {
+        unsafe {
+            (self.get_bs().unwrap().stall)(usize::MAX)
+        }
+    }
 }
 
 unsafe impl GlobalAlloc for BootCtx {

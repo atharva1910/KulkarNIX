@@ -1,7 +1,7 @@
 use core::ptr::slice_from_raw_parts_mut;
 use crate::{
     boot_ctx::BOOT_CTX,
-    elfheader::{ELF_MAGIC, Elf64Ehdr, Elf64Phdr}, file::EfiFile,
+    elfheader::{ELF_MAGIC, Elf64Ehdr, Elf64Phdr, PT_LOAD}, file::EfiFile,
     printer::PRINTER,
 };
 use r_efi::{
@@ -10,13 +10,12 @@ use r_efi::{
 };
 use alloc::{
     format,
-    vec::Vec,
 };
 
 const PAGE_SIZE: u64 = 4096; // TODO make this usize
 pub struct Kernel {
-    kernel_pages: usize,
-    kernel_base: r_efi::base::PhysicalAddress,
+    pub kernel_pages: usize,
+    pub kernel_base: r_efi::base::PhysicalAddress,
 }
 
 impl Kernel {
@@ -69,10 +68,24 @@ impl Kernel {
             return Err(status);
         }
 
-        let mut total_size = 0;
+        let mut min_paddr = u64::MAX;
+        let mut max_paddr = u64::MIN;
+
         for ph in &ph_buf {
-            total_size += ph.p_memsz;
+            if ph.p_type != PT_LOAD || ph.p_memsz == 0 {
+                continue;
+            }
+
+            if ph.p_paddr < min_paddr {
+                min_paddr = ph.p_paddr;
+            }
+
+            if ph.p_memsz + ph.p_paddr > max_paddr {
+                max_paddr = ph.p_memsz + ph.p_paddr;
+            }
         }
+
+        let total_size = max_paddr - min_paddr;
         let kernel_pages = ((total_size + (PAGE_SIZE - 1))/PAGE_SIZE) as usize;
         PRINTER.print(&format!("Total Pages : {}\n", kernel_pages));
 
@@ -86,27 +99,32 @@ impl Kernel {
         };
         if status != efi::Status::SUCCESS {
             return Err(status);
-        } else {
-            PRINTER.print(&format!("Kernel Base allocated at: {:x}\n", kernel_base));
         }
 
         let kbuffer = unsafe {
             core::slice::from_raw_parts_mut(kernel_base as *mut u8, kernel_pages << 12)
         };
+        kbuffer.fill(0);
 
-        let mut start:usize = 0;
         for ph in &ph_buf {
+            if ph.p_type != PT_LOAD || ph.p_memsz == 0 {
+                continue;
+            }
+
             fhandle.seek(ph.p_offset as usize);
-            let end = start + ph.p_offset as usize;
+            let start = (ph.p_paddr - min_paddr) as usize;
+            let end = start + ph.p_filesz as usize;
             status = fhandle.read_bytes(&mut kbuffer[start..end]);
             if status != efi::Status::SUCCESS {
+                PRINTER.print("Failed to load pgram header\n");
                 return Err(status);
             }
-            start = end;
         }
+
+        PRINTER.print(&format!("Kernel loaded at: {:x}\n", kernel_base));
+
         Ok(Self {
             kernel_pages: kernel_pages as usize,
-            kernel_base: kernel_base,
-        })
+            kernel_base: kernel_base })
         }
     }

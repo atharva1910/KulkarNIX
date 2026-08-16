@@ -5,12 +5,14 @@ mod kernel;
 mod printer;
 mod file;
 mod elfheader;
+mod memory_map;
 extern crate alloc;
 
+use alloc::format;
 use r_efi::efi;
 use boot_ctx::BOOT_CTX;
 use kernel::Kernel;
-use crate::printer::PRINTER;
+use crate::{memory_map::MemoryMap, printer::PRINTER};
 
 #[panic_handler]
 fn panic_handler(_info: &core::panic::PanicInfo) -> ! {
@@ -25,9 +27,16 @@ pub extern "efiapi" fn main(h: efi::Handle,
     PRINTER.init(st);
     PRINTER.clrscr();
 
-    if let Ok(kernel)= Kernel::new(h)  {
+    let Ok(kernel)= Kernel::new(h) else {
         PRINTER.print("Kernel setup failed");
+        return BOOT_CTX.halt();
     };
-    loop{};
+
+    let Ok(mem_map) = MemoryMap::new() else {
+        PRINTER.print("Failed to get memory map");
+        return BOOT_CTX.halt();
+    };
+    PRINTER.print(        &format!("Kernel: {:x} pages {:x}", kernel.kernel_base, kernel.kernel_pages));
+    PRINTER.print(        &format!("Memory: {:x}", mem_map.total_memory));
     efi::Status::SUCCESS
 }
