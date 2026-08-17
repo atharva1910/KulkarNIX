@@ -13,7 +13,6 @@ impl MemoryMap {
             return Err(efi::Status::INVALID_PARAMETER);
         };
 
-
         let mut desc_size: usize = 0;
         let mut mem_map_size: usize = 0;
         let mut key: usize = 0;
