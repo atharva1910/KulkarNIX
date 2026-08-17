@@ -10,3 +10,5 @@ Build/*
 Bin/*
 .vscode
 boot/target
+build/*
+bin/*

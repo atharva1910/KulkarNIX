@@ -1,8 +1,10 @@
-use r_efi::efi::{self, MemoryDescriptor};
+use r_efi::efi::{self, LOADER_DATA, BOOT_SERVICES_CODE,BOOT_SERVICES_DATA, CONVENTIONAL_MEMORY, LOADER_CODE, MemoryDescriptor};
 use crate::boot_ctx::BOOT_CTX;
 use alloc::vec;
 pub struct MemoryMap {
     pub total_memory: usize,
+    pub min_vaddr: u64,
+    pub min_paddr: u64,
 }
 
 impl MemoryMap {
@@ -37,15 +39,37 @@ impl MemoryMap {
         }
 
         let mut total_memory: usize = 0;
+        let mut min_paddr = 0;
+        let mut min_vaddr = 0;
         for chunk in mem_map[..mem_map_size].chunks_exact(desc_size) {
-            let desc = chunk.as_ptr().cast::<MemoryDescriptor>();
-            total_memory += unsafe {
-                ((*desc).number_of_pages << 12) as usize
+            let desc = unsafe {
+                chunk.as_ptr().cast::<MemoryDescriptor>().as_ref().unwrap()
+            };
+
+            if  desc.r#type != CONVENTIONAL_MEMORY &&
+                desc.r#type != BOOT_SERVICES_DATA &&
+                desc.r#type != LOADER_CODE &&
+                desc.r#type != LOADER_DATA {
+                    continue;
+                }
+
+            total_memory +=
+                (desc.number_of_pages << 12) as usize;
+
+            if desc.physical_start < min_paddr {
+                min_paddr = desc.physical_start;
             }
+
+            if desc.virtual_start < min_vaddr {
+                min_vaddr = desc.virtual_start;
+            }
+
         }
 
         Ok(Self{
-            total_memory
+            total_memory,
+            min_vaddr,
+            min_paddr,
         })
     }
 }
