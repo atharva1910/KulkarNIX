@@ -38,8 +38,7 @@ fn alloc_pages(num_pages: usize) -> Option<base::PhysicalAddress> {
     }
 
     unsafe {
-        (bs.set_mem)(paddr as *mut core::ffi::c_void,
-                     PAGE_SIZE, 0);
+        (bs.set_mem)(paddr as *mut core::ffi::c_void, PAGE_SIZE, 0);
     };
     Some(paddr)
 }
