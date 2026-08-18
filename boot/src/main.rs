@@ -16,6 +16,7 @@ use crate::{memory_map::MemoryMap, paging::PageTableManager, printer::PRINTER};
 const ONE_KB: usize = 1024;
 const ONE_MB: usize = ONE_KB * 1024;
 const ONE_GB: usize = ONE_MB * 1024;
+const PAGE_SIZE: usize = 4096; //1 << 12;
 
 #[panic_handler]
 fn panic_handler(_info: &core::panic::PanicInfo) -> ! {
@@ -36,20 +37,25 @@ fn alloc_pages(num_pages: usize) -> Option<base::PhysicalAddress> {
         return None;
     }
 
+    unsafe {
+        (bs.set_mem)(paddr as *mut core::ffi::c_void,
+                     PAGE_SIZE, 0);
+    };
     Some(paddr)
 }
 
 fn setup_paging(kernel: &Kernel, mem_map: &MemoryMap) -> Result<PageTableManager, efi::Status> {
     let total_mem = mem_map.total_memory;
     let num_1gb_pdpe = (total_mem + (ONE_GB - 1)) / ONE_GB;
+    assert!(total_mem < 512 * ONE_GB);
 
-    assert!(num_1gb_pdpe < paging::PAGE_TABLE_NUM_ENTRIES);
     PRINTER.print(&format!("num_1gb_pdpe: {:x}\n", num_1gb_pdpe));
 
     let Some(paddr) = alloc_pages(1) else {
         return Err(efi::Status::INVALID_PARAMETER);
     };
 
+    assert!(num_1gb_pdpe < paging::PAGE_TABLE_NUM_ENTRIES);
     let Some(pdpt) = alloc_pages(1) else {
         return Err(efi::Status::INVALID_PARAMETER);
     };
@@ -61,13 +67,19 @@ fn setup_paging(kernel: &Kernel, mem_map: &MemoryMap) -> Result<PageTableManager
 
     pml4t.pml4e[256].set_present();
     pml4t.pml4e[256].set_rw();
+    pml4t.pml4e[256].set_addr(pdpt);
 
-    // Why cant I do this?
     let Some(pdpt) = (unsafe {
         (pdpt as *mut paging::PDPT).as_mut()
     }) else {
         return Err(efi::Status::INVALID_PARAMETER);
     };
+
+    let mut addr = mem_map.min_paddr;
+    for i in 0..num_1gb_pdpe {
+        pdpt.set_1gb_paging(i, addr);
+        addr += ONE_GB as u64;
+    }
 
     Ok(pt_mgr)
 }

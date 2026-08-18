@@ -30,6 +30,7 @@ pub struct PT {
 impl PageEntry {
     const PRESENT: u64 = 1 << 0;
     const RW: u64 = 1 << 1;
+    const ADDR_MASK: u64 = (1 << 12) - 1;
 
     pub fn set_present(&mut self) {
         self.0 |= Self::PRESENT;
@@ -38,18 +39,31 @@ impl PageEntry {
     pub fn set_rw(&mut self) {
         self.0 |= Self::RW;
     }
+
+    fn clear_addr(&mut self) {
+    }
+
+    pub fn set_addr(&mut self, addr: u64) {
+        assert!(addr & Self::ADDR_MASK == 0, "ADDRESS NOT 4KB ALIGNED");
+        self.0 |= addr;
+    }
 }
 
 impl PDPT {
     const PS: u64 = 1 << 7;
-    pub fn set_1gb_paging(&mut self, idx: usize) {
-        self.pdpe[idx].0 |= Self::PS;
+    const ADDR_MASK: u64 = (1 << 30) - 1;
+    const PRESENT: u64 = 1 << 0;
+    const RW: u64 = 1 << 1;
+
+    pub fn set_1gb_paging(&mut self, idx: usize, addr: u64) {
+        assert!(addr & Self::ADDR_MASK == 0, "ADDRESS NOT 1GB ALIGNED");
+        self.pdpe[idx].0 = Self::PS | Self::PRESENT | Self::RW | addr;
     }
 }
 
 impl PDT {
     const PS: u64 = 1 << 7;
-    pub fn set_2mb_paging(&mut self, idx: usize) {
+    pub fn set_2mb_paging(&mut self, idx: usize, addr: u64) {
         self.pde[idx].0 |= Self::PS;
     }
 }
