@@ -1,4 +1,4 @@
-use r_efi::efi::{self, LOADER_DATA};
+use r_efi::efi::{self, Guid, LOADER_DATA};
 use core::alloc::{GlobalAlloc, Layout};
 use core::sync::atomic::{AtomicPtr, Ordering};
 
@@ -40,6 +40,20 @@ impl BootCtx {
         unsafe {
             (self.get_bs().unwrap().stall)(usize::MAX)
         }
+    }
+
+    pub fn handle_protocol<T>(&self, h: efi::Handle, mut guid: Guid) -> Option<*mut T> {
+        let mut p = core::ptr::null_mut();
+        // TODO FIX THIS
+        let bs = BOOT_CTX.get_bs().unwrap();
+        let  status = unsafe {
+            (bs.handle_protocol)(h, &mut guid, &mut p)
+        };
+        if status != efi::Status::SUCCESS {
+            return None;
+        }
+
+        Some(p as *mut T)
     }
 }
 

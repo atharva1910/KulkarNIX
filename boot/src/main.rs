@@ -7,16 +7,23 @@ mod file;
 mod elfheader;
 mod memory_map;
 mod paging;
+
 extern crate alloc;
 use alloc::format;
-use r_efi::{base, efi::{self, ALLOCATE_ANY_PAGES, LOADER_CODE}};
+use r_efi::{base, efi::{self, ALLOCATE_ANY_PAGES, LOADER_CODE}, protocols::loaded_image};
 use boot_ctx::BOOT_CTX;
 use kernel::Kernel;
-use crate::{memory_map::MemoryMap, paging::PageTableManager, printer::PRINTER};
+use crate::{
+    memory_map::MemoryMap,
+    paging::{PAGE_TABLE_NUM_ENTRIES, PageTableManager, PDPT, PML4T, PDT, PT},
+    printer::PRINTER
+};
+
 const ONE_KB: usize = 1024;
 const ONE_MB: usize = ONE_KB * 1024;
 const ONE_GB: usize = ONE_MB * 1024;
 const PAGE_SIZE: usize = 4096; //1 << 12;
+const KERNEL_START_ADDR: u64 = 0xfa0000000000;
 
 #[panic_handler]
 fn panic_handler(_info: &core::panic::PanicInfo) -> ! {
@@ -46,7 +53,8 @@ fn page_allocator(num_pages: usize) -> Option<u64> {
 
 fn setup_mem_paging<T>(pt_mgr: &PageTableManager<T>, mem_map: &MemoryMap)  ->  Result<(), efi::Status>
 where
-    T: Fn(usize) -> Option<u64> {
+    T: Fn(usize) -> Option<u64>
+{
     let total_mem = mem_map.total_memory;
     let num_1gb_pdpe = (total_mem + (ONE_GB - 1)) / ONE_GB;
 
@@ -88,24 +96,45 @@ where
 
 fn setup_kernel_paging<T>(pt_mgr: &PageTableManager<T>, kernel: &Kernel)  ->  Result<(), efi::Status>
 where
-    T: Fn(usize) -> Option<u64> {
-    let num_pte = kernel.kernel_pages;
-    let num_pt = (num_pte >> 12) + 1;
-    let num_pdt = (num_pt >> 12) + 1;
-    let num_pdpt = (num_pdt >> 12) + 1;
-    let num_pml4t = (num_pdpt >> 12) + 1;
+    T: Fn(usize) -> Option<u64>
+{
+    let mut start_paddr = kernel.kernel_base;
+    let mut start_vaddr = KERNEL_START_ADDR;
+    for _ in 0..kernel.kernel_pages {
+        if (pt_mgr.map_page(start_vaddr, start_paddr)) {
+            start_vaddr += PAGE_SIZE as u64;
+            start_paddr += PAGE_SIZE as u64;
+        } else {
+            PRINTER.print("FAILED TO MAP KERNEL\n");
+            return Err(efi::Status::OUT_OF_RESOURCES);
+        }
+    }
 
-    PRINTER.print(&format!("num_pte {:x} num_pt {:x} num_pdt {:x} num_pdpt {:x} num_pml4t {:x}\n", num_pte, num_pt, num_pdt, num_pdpt, num_pml4t));
+    Ok(())
+}
+
+fn setup_image_identity_map(h: efi::Handle) -> Result<(), efi::Status> {
+    let loaded_image =
+        BOOT_CTX.handle_protocol::<loaded_image::Protocol>(h, loaded_image::PROTOCOL_GUID).ok_or(efi::Status::PROTOCOL_ERROR)?;
+    let image_base = unsafe {
+        (*loaded_image).image_base as u64
+    };
+    let image_size = unsafe {
+        (*loaded_image).image_size as u64
+    };
     Ok(())
 }
 
 
-fn setup_paging(kernel: &Kernel, mem_map: &MemoryMap) -> Result<PageTableManager, efi::Status> {
+fn setup_paging(h: efi::Handle, kernel: &Kernel, mem_map: &MemoryMap) -> Result<PageTableManager<impl Fn(usize) -> Option<u64>>, efi::Status> {
     let Some(pt_mgr) = PageTableManager::new(page_allocator) else {
+        PRINTER.print("setup_paging failed");
         return Err(efi::Status::OUT_OF_RESOURCES);
     };
 
     setup_mem_paging(&pt_mgr, mem_map)?;
+    setup_kernel_paging(&pt_mgr, kernel)?;
+    setup_image_identity_map(h)?;
     Ok(pt_mgr)
 }
 
@@ -127,8 +156,10 @@ pub extern "efiapi" fn main(h: efi::Handle,
         return BOOT_CTX.halt();
     };
 
-    setup_paging(&kernel, &mem_map);
-    PRINTER.print(        &format!("Kernel: {:x} pages {:x}", kernel.kernel_base, kernel.kernel_pages));
-    PRINTER.print(        &format!("Memory: {:x}", mem_map.total_memory));
-    efi::Status::SUCCESS
+    let _ = match setup_paging(h,&kernel, &mem_map) {
+        Ok(x) => x,
+        Err(s) => return s,
+    };
+
+    BOOT_CTX.halt()
 }

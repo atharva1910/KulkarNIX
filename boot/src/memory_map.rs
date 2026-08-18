@@ -1,6 +1,9 @@
 use r_efi::efi::{self, LOADER_DATA, BOOT_SERVICES_CODE,BOOT_SERVICES_DATA, CONVENTIONAL_MEMORY, LOADER_CODE, MemoryDescriptor};
-use crate::boot_ctx::BOOT_CTX;
-use alloc::vec;
+use crate::{
+    boot_ctx::BOOT_CTX,
+    printer::PRINTER
+};
+use alloc::{format, vec};
 pub struct MemoryMap {
     pub total_memory: usize,
     pub min_vaddr: u64,
@@ -10,6 +13,7 @@ pub struct MemoryMap {
 impl MemoryMap {
     pub fn new() -> Result<Self, efi::Status> {
         let Some(bs) = BOOT_CTX.get_bs() else {
+            PRINTER.print("GET BS FAIL\n");
             return Err(efi::Status::INVALID_PARAMETER);
         };
 
@@ -25,6 +29,7 @@ impl MemoryMap {
                                 &mut desc_version);
         }
 
+        mem_map_size += 4096;
         let mut mem_map = vec![0 as u8; mem_map_size];
         let status = unsafe {
             (bs.get_memory_map)(&mut mem_map_size,
@@ -34,6 +39,7 @@ impl MemoryMap {
                                 &mut desc_version)
         };
         if status != efi::Status::SUCCESS {
+            PRINTER.print(&format!("status: {} memory_map size : {} desc_size {} desc_version {} \n", status, mem_map_size, desc_size, desc_version));
             return Err(status);
         }
 

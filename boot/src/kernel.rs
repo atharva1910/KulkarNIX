@@ -20,25 +20,11 @@ pub struct Kernel {
 
 impl Kernel {
     pub fn new(h: efi::Handle) -> Result<Self, efi::Status> {
-        let bs = BOOT_CTX.get_bs().unwrap();
-
-        // Get the loaded image protocol for the handle
-        let mut guid = loaded_image::PROTOCOL_GUID;
-        let mut p = core::ptr::null_mut();
-        let mut status = unsafe { (bs.handle_protocol)(h, &mut guid, &mut p) };
-        if status != efi::Status::SUCCESS {
-            return Err(status);
-        }
-        let loaded_image: *mut loaded_image::Protocol = p.cast();
-
-        // Get the sfs protocol to read the file
-        guid = simple_file_system::PROTOCOL_GUID;
-        p = core::ptr::null_mut();
-        status = unsafe { (bs.handle_protocol)((*loaded_image).device_handle, &mut guid, &mut p) };
-        if status != efi::Status::SUCCESS {
-            return Err(status);
-        }
-        let sfs: *mut simple_file_system::Protocol = p.cast();
+        let loaded_image =
+            BOOT_CTX.handle_protocol::<loaded_image::Protocol>(h, loaded_image::PROTOCOL_GUID).ok_or(efi::Status::PROTOCOL_ERROR)?;
+        let sfs =
+            BOOT_CTX.handle_protocol::<simple_file_system::Protocol>(unsafe {(*loaded_image).device_handle},
+                                                                     simple_file_system::PROTOCOL_GUID).ok_or(efi::Status::PROTOCOL_ERROR)?;
 
         let Some(fhandle) = EfiFile::open_handle(sfs, "\\Kernel.elf") else {
             return Err(efi::Status::ABORTED);
@@ -46,7 +32,7 @@ impl Kernel {
         fhandle.seek(0);
 
         let mut elf_header: Elf64Ehdr = Elf64Ehdr::default();
-        status = fhandle.read_struct(&mut elf_header);
+        let mut status = fhandle.read_struct(&mut elf_header);
         if status != efi::Status::SUCCESS {
             return Err(status);
         }
