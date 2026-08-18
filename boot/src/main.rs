@@ -23,7 +23,7 @@ fn panic_handler(_info: &core::panic::PanicInfo) -> ! {
     loop {}
 }
 
-fn alloc_pages(num_pages: usize) -> Option<base::PhysicalAddress> {
+fn page_allocator(num_pages: usize) -> Option<u64> {
     let Some(bs) = BOOT_CTX.get_bs() else {
         return None;
     };
@@ -40,33 +40,36 @@ fn alloc_pages(num_pages: usize) -> Option<base::PhysicalAddress> {
     unsafe {
         (bs.set_mem)(paddr as *mut core::ffi::c_void, PAGE_SIZE, 0);
     };
+
     Some(paddr)
 }
 
-fn setup_paging(kernel: &Kernel, mem_map: &MemoryMap) -> Result<PageTableManager, efi::Status> {
+fn setup_mem_paging<T>(pt_mgr: &PageTableManager<T>, mem_map: &MemoryMap)  ->  Result<(), efi::Status>
+where
+    T: Fn(usize) -> Option<u64> {
     let total_mem = mem_map.total_memory;
     let num_1gb_pdpe = (total_mem + (ONE_GB - 1)) / ONE_GB;
-    assert!(total_mem < 512 * ONE_GB);
 
+    assert!(total_mem < 512 * ONE_GB);
+    assert!(num_1gb_pdpe < paging::PAGE_TABLE_NUM_ENTRIES);
     PRINTER.print(&format!("num_1gb_pdpe: {:x}\n", num_1gb_pdpe));
 
-    let Some(paddr) = alloc_pages(1) else {
-        return Err(efi::Status::INVALID_PARAMETER);
-    };
-
-    assert!(num_1gb_pdpe < paging::PAGE_TABLE_NUM_ENTRIES);
-    let Some(pdpt) = alloc_pages(1) else {
-        return Err(efi::Status::INVALID_PARAMETER);
-    };
-
-    let mut pt_mgr: PageTableManager = PageTableManager::new(paddr);
     let Some(pml4t) = pt_mgr.get_pml4t() else {
         return Err(efi::Status::INVALID_PARAMETER);
+    };
+
+    if pml4t.pml4e[256].is_entry_present() {
+        assert!(false, "Entry already present");
+    }
+
+    let Some(pdpt) = pt_mgr.allocate_tables(1) else {
+        return Err(efi::Status::OUT_OF_RESOURCES);
     };
 
     pml4t.pml4e[256].set_present();
     pml4t.pml4e[256].set_rw();
     pml4t.pml4e[256].set_addr(pdpt);
+
 
     let Some(pdpt) = (unsafe {
         (pdpt as *mut paging::PDPT).as_mut()
@@ -74,12 +77,35 @@ fn setup_paging(kernel: &Kernel, mem_map: &MemoryMap) -> Result<PageTableManager
         return Err(efi::Status::INVALID_PARAMETER);
     };
 
-    let mut addr = mem_map.min_paddr;
+    let mut addr = 0x0;
     for i in 0..num_1gb_pdpe {
         pdpt.set_1gb_paging(i, addr);
         addr += ONE_GB as u64;
     }
 
+    Ok(())
+}
+
+fn setup_kernel_paging<T>(pt_mgr: &PageTableManager<T>, kernel: &Kernel)  ->  Result<(), efi::Status>
+where
+    T: Fn(usize) -> Option<u64> {
+    let num_pte = kernel.kernel_pages;
+    let num_pt = (num_pte >> 12) + 1;
+    let num_pdt = (num_pt >> 12) + 1;
+    let num_pdpt = (num_pdt >> 12) + 1;
+    let num_pml4t = (num_pdpt >> 12) + 1;
+
+    PRINTER.print(&format!("num_pte {:x} num_pt {:x} num_pdt {:x} num_pdpt {:x} num_pml4t {:x}\n", num_pte, num_pt, num_pdt, num_pdpt, num_pml4t));
+    Ok(())
+}
+
+
+fn setup_paging(kernel: &Kernel, mem_map: &MemoryMap) -> Result<PageTableManager, efi::Status> {
+    let Some(pt_mgr) = PageTableManager::new(page_allocator) else {
+        return Err(efi::Status::OUT_OF_RESOURCES);
+    };
+
+    setup_mem_paging(&pt_mgr, mem_map)?;
     Ok(pt_mgr)
 }
 
