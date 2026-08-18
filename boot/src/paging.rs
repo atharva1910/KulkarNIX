@@ -31,7 +31,7 @@ impl PageEntry {
     const PRESENT: u64 = 1 << 0;
     const RW: u64 = 1 << 1;
     const ADDR_ALIGNMENT: u64 = (1 << 12) - 1;
-    const ADDR_MASK:u64 = !0x00FF_FFFF_FFFF_0000;
+    const ADDR_MASK:u64 = !0x000F_FFFF_FFFF_F000;
 
     pub fn set_present(&mut self) {
         self.0 |= Self::PRESENT;
@@ -50,6 +50,10 @@ impl PageEntry {
         self.0 &= Self::ADDR_MASK;
         self.0 |= addr;
     }
+
+    pub fn is_entry_present(&self) -> bool {
+        self.0 != 0
+    }
 }
 
 impl PDPT {
@@ -66,24 +70,43 @@ impl PDPT {
 
 impl PDT {
     const PS: u64 = 1 << 7;
+    const ADDR_ALIGNMENT: u64 = (1 << 20) - 1;
+    const PRESENT: u64 = 1 << 0;
+    const RW: u64 = 1 << 1;
     pub fn set_2mb_paging(&mut self, idx: usize, addr: u64) {
-        self.pde[idx].0 |= Self::PS;
+        assert!(addr & Self::ADDR_ALIGNMENT == 0, "ADDRESS NOT 2MB ALIGNED");
+        self.pde[idx].0 = Self::PS | Self::PRESENT | Self::RW | addr;
     }
 }
 
-pub struct PageTableManager {
-    cr3_base: *mut PML4T
+pub struct PageTableManager<T>
+where
+    T: Fn(usize) -> Option<u64> {
+    pml4t: *mut PML4T,
+    page_allocator: T,
 }
 
-impl PageTableManager {
-    pub fn new(page: u64) -> Self {
-        let cr3_base = page as *mut PML4T;
-        Self{
-            cr3_base
-        }
+impl<T> PageTableManager<T>
+where
+    T: Fn(usize) -> Option<u64> {
+    pub fn new(page_allocator: T) -> Option<Self> {
+        let Some(pml4t) = page_allocator(1) else {
+            return None;
+        };
+
+        Some(Self{
+            pml4t: (pml4t as *mut PML4T),
+            page_allocator
+        })
     }
 
     pub fn get_pml4t(&self) -> Option<&mut PML4T> {
-        unsafe { self.cr3_base.as_mut() }
+        unsafe {
+            self.pml4t.as_mut()
+        }
+    }
+
+    pub fn allocate_tables(&self, num_tables: usize) -> Option<u64> {
+        (self.page_allocator)(num_tables) // No method found??
     }
 }
