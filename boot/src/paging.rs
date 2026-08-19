@@ -1,6 +1,3 @@
-use core::sync::atomic::AtomicPtr;
-use r_efi::efi;
-use crate:: memory_map::MemoryMap;
 pub const PAGE_TABLE_NUM_ENTRIES: usize = 512;
 
 #[repr(transparent)]
@@ -122,9 +119,15 @@ where
         })
     }
 
-    pub fn get_pml4t(&self) -> Option<&mut PML4T> {
+    pub fn get_pml4t_mut(&self) -> Option<&mut PML4T> {
         unsafe {
             self.pml4t.as_mut()
+        }
+    }
+
+    pub fn get_pml4t(&self) -> Option<&PML4T> {
+        unsafe {
+            self.pml4t.as_ref()
         }
     }
 
@@ -146,7 +149,7 @@ where
 
     pub fn map_page(&self, phy: u64, virt: u64) -> bool {
         let v = VAddr(virt);
-        let Some(pml4t) = self.get_pml4t() else {
+        let Some(pml4t) = self.get_pml4t_mut() else {
             return false;
         };
 

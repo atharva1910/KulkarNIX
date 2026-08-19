@@ -1,8 +1,4 @@
 use r_efi::efi::{self, protocols::simple_text_output};
-use crate::{
-    boot_ctx::BOOT_CTX,
-    elfheader::{ELF_MAGIC, Elf64Ehdr},
-};
 use core::sync::atomic::{AtomicPtr, Ordering};
 use alloc::vec::Vec;
 

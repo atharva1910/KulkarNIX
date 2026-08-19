@@ -1,4 +1,4 @@
-use r_efi::efi::{self, LOADER_DATA, BOOT_SERVICES_CODE,BOOT_SERVICES_DATA, CONVENTIONAL_MEMORY, LOADER_CODE, MemoryDescriptor};
+use r_efi::efi::{self, LOADER_DATA, BOOT_SERVICES_DATA, CONVENTIONAL_MEMORY, LOADER_CODE, MemoryDescriptor};
 use crate::{
     boot_ctx::BOOT_CTX,
     printer::PRINTER
@@ -8,6 +8,7 @@ pub struct MemoryMap {
     pub total_memory: usize,
     pub min_vaddr: u64,
     pub min_paddr: u64,
+    pub key: usize
 }
 
 impl MemoryMap {
@@ -71,10 +72,11 @@ impl MemoryMap {
 
         }
 
-        Ok(Self{
+        Ok(Self {
             total_memory,
             min_vaddr,
             min_paddr,
+            key,
         })
     }
 }

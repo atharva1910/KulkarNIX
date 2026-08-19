@@ -10,12 +10,12 @@ mod paging;
 
 extern crate alloc;
 use alloc::format;
-use r_efi::{base, efi::{self, ALLOCATE_ANY_PAGES, LOADER_CODE}, protocols::loaded_image};
+use r_efi::{ efi::{self, ALLOCATE_ANY_PAGES, LOADER_CODE}, protocols::loaded_image};
 use boot_ctx::BOOT_CTX;
 use kernel::Kernel;
 use crate::{
     memory_map::MemoryMap,
-    paging::{PAGE_TABLE_NUM_ENTRIES, PageTableManager, PDPT, PML4T, PDT, PT},
+    paging::PageTableManager,
     printer::PRINTER
 };
 
@@ -23,7 +23,6 @@ const ONE_KB: usize = 1024;
 const ONE_MB: usize = ONE_KB * 1024;
 const ONE_GB: usize = ONE_MB * 1024;
 const PAGE_SIZE: usize = 4096; //1 << 12;
-const KERNEL_START_ADDR: u64 = 0xfa0000000000;
 
 #[panic_handler]
 fn panic_handler(_info: &core::panic::PanicInfo) -> ! {
@@ -62,7 +61,7 @@ where
     assert!(num_1gb_pdpe < paging::PAGE_TABLE_NUM_ENTRIES);
     PRINTER.print(&format!("num_1gb_pdpe: {:x}\n", num_1gb_pdpe));
 
-    let Some(pml4t) = pt_mgr.get_pml4t() else {
+    let Some(pml4t) = pt_mgr.get_pml4t_mut() else {
         return Err(efi::Status::INVALID_PARAMETER);
     };
 
@@ -99,9 +98,9 @@ where
     T: Fn(usize) -> Option<u64>
 {
     let mut start_paddr = kernel.kernel_base;
-    let mut start_vaddr = KERNEL_START_ADDR;
+    let mut start_vaddr = kernel.kernel_vaddr;
     for _ in 0..kernel.kernel_pages {
-        if (pt_mgr.map_page(start_vaddr, start_paddr)) {
+        if pt_mgr.map_page(start_vaddr, start_paddr) {
             start_vaddr += PAGE_SIZE as u64;
             start_paddr += PAGE_SIZE as u64;
         } else {
@@ -113,15 +112,26 @@ where
     Ok(())
 }
 
-fn setup_image_identity_map(h: efi::Handle) -> Result<(), efi::Status> {
+fn setup_image_identity_map<T>(h: efi::Handle, pt_mgr: &PageTableManager<T>) -> Result<(), efi::Status>
+where
+    T: Fn(usize) -> Option<u64> {
     let loaded_image =
         BOOT_CTX.handle_protocol::<loaded_image::Protocol>(h, loaded_image::PROTOCOL_GUID).ok_or(efi::Status::PROTOCOL_ERROR)?;
-    let image_base = unsafe {
+
+    let mut image_base = unsafe {
         (*loaded_image).image_base as u64
     };
+
     let image_size = unsafe {
         (*loaded_image).image_size as u64
     };
+
+    let pages = image_size >> 12;
+
+    for _ in 0..pages {
+        pt_mgr.map_page(image_base, image_base);
+        image_base += PAGE_SIZE as u64;
+    }
     Ok(())
 }
 
@@ -129,12 +139,12 @@ fn setup_image_identity_map(h: efi::Handle) -> Result<(), efi::Status> {
 fn setup_paging(h: efi::Handle, kernel: &Kernel, mem_map: &MemoryMap) -> Result<PageTableManager<impl Fn(usize) -> Option<u64>>, efi::Status> {
     let Some(pt_mgr) = PageTableManager::new(page_allocator) else {
         PRINTER.print("setup_paging failed");
-        return Err(efi::Status::OUT_OF_RESOURCES);
+        return  Err(efi::Status::INVALID_PARAMETER);
     };
 
     setup_mem_paging(&pt_mgr, mem_map)?;
     setup_kernel_paging(&pt_mgr, kernel)?;
-    setup_image_identity_map(h)?;
+    setup_image_identity_map(h, &pt_mgr)?;
     Ok(pt_mgr)
 }
 
@@ -146,6 +156,14 @@ pub extern "efiapi" fn main(h: efi::Handle,
     PRINTER.init(st);
     PRINTER.clrscr();
 
+    let Some(bs) = BOOT_CTX.get_bs() else {
+        return BOOT_CTX.halt();
+    };
+
+    unsafe {
+        (bs.set_watchdog_timer)(0,0,0,core::ptr::null_mut());
+    }
+
     let Ok(kernel)= Kernel::new(h) else {
         PRINTER.print("Kernel setup failed");
         return BOOT_CTX.halt();
@@ -156,10 +174,40 @@ pub extern "efiapi" fn main(h: efi::Handle,
         return BOOT_CTX.halt();
     };
 
-    let _ = match setup_paging(h,&kernel, &mem_map) {
+    let pt_mgr = match setup_paging(h, &kernel, &mem_map) {
         Ok(x) => x,
         Err(s) => return s,
     };
+
+    let Some(pml4t) = pt_mgr.get_pml4t() else {
+        PRINTER.print("PML4 not setup!?");
+        return BOOT_CTX.halt();
+    };
+
+    PRINTER.print(&format!("Jumping to Kernel at : {}", kernel.kernel_vaddr));
+
+    let Ok(mem_map) = MemoryMap::new() else {
+        PRINTER.print("Failed to get memory map");
+        return BOOT_CTX.halt();
+    };
+
+    // TODO make this a retry-loop
+    let status = unsafe {
+        (bs.exit_boot_services)(h, mem_map.key)
+    };
+    if status != efi::Status::SUCCESS {
+        PRINTER.print("Failed to exit boot services");
+        return BOOT_CTX.halt();
+    }
+    unsafe {
+        core::arch::asm!(
+            "cli",
+            "mov cr3, {}",
+            "jmp {entry}",
+            in(reg) pml4t,
+            entry = in(reg) kernel.kernel_vaddr,
+        );
+    }
 
     BOOT_CTX.halt()
 }

@@ -30,12 +30,6 @@ impl BootCtx {
         }
     }
 
-    pub fn get_st(&self) -> Option<&efi::SystemTable> {
-        unsafe {
-            BOOT_CTX.st.load(Ordering::Acquire).as_ref()
-        }
-    }
-
     pub fn halt(&self) -> efi::Status {
         unsafe {
             (self.get_bs().unwrap().stall)(usize::MAX)
@@ -73,7 +67,7 @@ unsafe impl GlobalAlloc for BootCtx {
         p.cast()
     }
 
-    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+    unsafe fn dealloc(&self, ptr: *mut u8, _: Layout) {
         if let Some(bs) =  BOOT_CTX.get_bs()  {
             unsafe {
                 (bs.free_pool)(ptr.cast());

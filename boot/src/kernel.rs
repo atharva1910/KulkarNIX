@@ -1,8 +1,5 @@
-use core::ptr::slice_from_raw_parts_mut;
 use crate::{
-    boot_ctx::BOOT_CTX,
-    elfheader::{ELF_MAGIC, Elf64Ehdr, Elf64Phdr, PT_LOAD}, file::EfiFile,
-    printer::PRINTER,
+    boot_ctx::BOOT_CTX, elfheader::{ELF_MAGIC, Elf64Ehdr, Elf64Phdr, PT_LOAD}, file::EfiFile, printer::PRINTER
 };
 use r_efi::{
     efi::{self, ALLOCATE_ANY_PAGES, LOADER_DATA},
@@ -13,9 +10,12 @@ use alloc::{
 };
 
 const PAGE_SIZE: u64 = 4096; // TODO make this usize
+const KERNEL_VADDR: u64 = 0xfffffa0000000000;
+
 pub struct Kernel {
     pub kernel_pages: usize,
     pub kernel_base: r_efi::base::PhysicalAddress,
+    pub kernel_vaddr: u64,
 }
 
 impl Kernel {
@@ -111,6 +111,7 @@ impl Kernel {
 
         Ok(Self {
             kernel_pages: kernel_pages as usize,
-            kernel_base: kernel_base })
+            kernel_base,
+            kernel_vaddr: KERNEL_VADDR})
         }
     }
