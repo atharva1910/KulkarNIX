@@ -6,8 +6,13 @@ version = 4
 name = "boot"
 version = "0.1.0"
 dependencies = [
+ "common",
  "r-efi",
 ]
+
+[[package]]
+name = "common"
+version = "0.1.0"
 
 [[package]]
 name = "r-efi"

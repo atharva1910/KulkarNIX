@@ -6,16 +6,15 @@ mod printer;
 mod file;
 mod elfheader;
 mod memory_map;
-mod paging;
 
 extern crate alloc;
 use alloc::format;
 use r_efi::{ efi::{self, ALLOCATE_ANY_PAGES, LOADER_CODE}, protocols::loaded_image};
 use boot_ctx::BOOT_CTX;
 use kernel::Kernel;
+use common::paging::{self, PageTableManager};
 use crate::{
     memory_map::MemoryMap,
-    paging::PageTableManager,
     printer::PRINTER
 };
 

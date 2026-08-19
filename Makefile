@@ -6,7 +6,7 @@ QEMU  := qemu-system-x86_64
 # --- Build Targets & Inputs ---
 IMAGE     := nvme.img
 BUILD_DIR := build
-KERNEL    := $(BUILD_DIR)/Kernel.elf
+KERNEL_BIN:= $(BUILD_DIR)/Kernel.elf
 EFI_BIN   := $(BUILD_DIR)/BOOTX64.EFI
 
 # --- Bootloader Compilation Flags ---
@@ -21,13 +21,15 @@ all: bootloader kernel image
 
 # --- Target: Bootloader Compile ---
 bootloader:
+	@mkdir -p $(BUILD_DIR)
 	cd boot && cargo build --release
 	cp boot/target/x86_64-unknown-uefi/release/boot.efi $(EFI_BIN)
 
 # --- Target: Kernel Compile (Delegated to kernel/Makefile) ---
 kernel:
-	@mkdir -p $(BUILD_DIR)
-	$(MAKE) -C kernel
+	cd kernel && cargo build --release
+	cp kernel/target/x86_64-unknown-none/release/kernel $(KERNEL_BIN)
+
 
 # --- Target: Create Disk & Inject Bootloader ---
 image: bootloader kernel
@@ -36,7 +38,7 @@ image: bootloader kernel
 	mmd -i $(IMAGE) ::/EFI
 	mmd -i $(IMAGE) ::/EFI/BOOT
 	mcopy -i $(IMAGE) $(EFI_BIN) ::/EFI/BOOT
-	mcopy -i $(IMAGE) $(KERNEL) ::
+	mcopy -i $(IMAGE) $(KERNEL_BIN) ::
 
 # --- Target: Emulation ---
 run: all

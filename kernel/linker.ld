@@ -4,25 +4,25 @@ SECTIONS
 {
     . = 0xfffffa0000000000;
 
-    .text : ALIGN(4K)
-    {
-        *(.text)
+    .text : {
+        *(.text .text.*)
     }
 
-    .rodata : ALIGN(4K)
-    {
-        *(.rodata*)
+    .rodata : {
+        *(.rodata .rodata.*)
     }
 
-    .data : ALIGN(4K)
-    {
-        *(.data)
+    .data : {
+        *(.data .data.*)
     }
 
-    .bss : ALIGN(4K)
-    {
-        *(.bss)
+    .bss : {
+        *(.bss .bss.*)
         *(COMMON)
     }
 
+    /DISCARD/ : {
+        *(.eh_frame)
+        *(.note .note.*)
+    }
 }
