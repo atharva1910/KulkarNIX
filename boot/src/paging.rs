@@ -141,6 +141,8 @@ where
         if table_addr == 0 {
             table_addr = (self.page_allocator)(1)?;
             entry.set_addr(table_addr);
+            entry.set_present();
+            entry.set_rw();
         }
         unsafe {
             (table_addr as *mut TABLE).as_mut()

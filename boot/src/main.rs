@@ -59,7 +59,6 @@ where
 
     assert!(total_mem < 512 * ONE_GB);
     assert!(num_1gb_pdpe < paging::PAGE_TABLE_NUM_ENTRIES);
-    PRINTER.print(&format!("num_1gb_pdpe: {:x}\n", num_1gb_pdpe));
 
     let Some(pml4t) = pt_mgr.get_pml4t_mut() else {
         return Err(efi::Status::INVALID_PARAMETER);
@@ -100,7 +99,7 @@ where
     let mut start_paddr = kernel.kernel_base;
     let mut start_vaddr = kernel.kernel_vaddr;
     for _ in 0..kernel.kernel_pages {
-        if pt_mgr.map_page(start_vaddr, start_paddr) {
+        if pt_mgr.map_page( start_paddr, start_vaddr) {
             start_vaddr += PAGE_SIZE as u64;
             start_paddr += PAGE_SIZE as u64;
         } else {
@@ -128,6 +127,7 @@ where
 
     let pages = image_size >> 12;
 
+    PRINTER.print(&format!("Mapping image. Base 0x{:x} Size 0x{:x}\n", image_base, image_size));
     for _ in 0..pages {
         pt_mgr.map_page(image_base, image_base);
         image_base += PAGE_SIZE as u64;
@@ -184,30 +184,30 @@ pub extern "efiapi" fn main(h: efi::Handle,
         return BOOT_CTX.halt();
     };
 
-    PRINTER.print(&format!("Jumping to Kernel at : {}", kernel.kernel_vaddr));
+    PRINTER.print(&format!("Jumping to Kernel at : 0x{:x}. PML4T 0x{:x}\n", kernel.kernel_vaddr, pml4t as *const _ as u64));
 
-    let Ok(mem_map) = MemoryMap::new() else {
-        PRINTER.print("Failed to get memory map");
-        return BOOT_CTX.halt();
-    };
+	let Ok(mem_map) = MemoryMap::new() else {
+	    PRINTER.print("Failed to get memory map\n");
+	    return BOOT_CTX.halt();
+	};
 
-    // TODO make this a retry-loop
-    let status = unsafe {
-        (bs.exit_boot_services)(h, mem_map.key)
-    };
-    if status != efi::Status::SUCCESS {
-        PRINTER.print("Failed to exit boot services");
+	// TODO make this a retry-loop
+	let status = unsafe {
+	    (bs.exit_boot_services)(h, mem_map.key)
+	};
+	if status != efi::Status::SUCCESS {
+	    PRINTER.print(&format!("Failed to exit boot services {}\n", status));
         return BOOT_CTX.halt();
     }
+
     unsafe {
         core::arch::asm!(
             "cli",
-            "mov cr3, {}",
+            "mov cr3, {pml4}",
             "jmp {entry}",
-            in(reg) pml4t,
-            entry = in(reg) kernel.kernel_vaddr,
+            pml4 = in(reg) pml4t as *const _ as u64,
+            entry = in(reg) kernel.kernel_entry,
+            options(noreturn)
         );
     }
-
-    BOOT_CTX.halt()
 }

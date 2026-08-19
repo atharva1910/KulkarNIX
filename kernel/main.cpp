@@ -6,6 +6,7 @@ __asm__(
     ".type   __start, @function\n"
 
 "__start:\n"
+    "hlt\n"
     "cli\n"
     /*
     Cannot reset ss and es for i686. For amd64 it should be 0

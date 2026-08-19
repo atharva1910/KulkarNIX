@@ -16,6 +16,7 @@ pub struct Kernel {
     pub kernel_pages: usize,
     pub kernel_base: r_efi::base::PhysicalAddress,
     pub kernel_vaddr: u64,
+    pub kernel_entry: u64,
 }
 
 impl Kernel {
@@ -73,7 +74,7 @@ impl Kernel {
 
         let total_size = max_paddr - min_paddr;
         let kernel_pages = ((total_size + (PAGE_SIZE - 1))/PAGE_SIZE) as usize;
-        PRINTER.print(&format!("Total Pages : {}\n", kernel_pages));
+        PRINTER.print(&format!("Total Pages : {:x} Min_Paddr: {:x} Max_Paddr: {:x}\n", kernel_pages, min_paddr, max_paddr));
 
         let Some(bs) = BOOT_CTX.get_bs() else {
             return Err(efi::Status::INVALID_PARAMETER);
@@ -104,14 +105,17 @@ impl Kernel {
             if status != efi::Status::SUCCESS {
                 PRINTER.print("Failed to load pgram header\n");
                 return Err(status);
+            } else {
+                PRINTER.print(&format!("pgram header loaded at start kbuffer[{:x}] end kbuffer[{:x}]\n", start, end));
             }
         }
 
-        PRINTER.print(&format!("Kernel loaded at: {:x}\n", kernel_base));
+        PRINTER.print(&format!("Kernel loaded at: {:x} Kernel Entry: 0x{:x}\n", kernel_base, elf_header.e_entry));
 
         Ok(Self {
             kernel_pages: kernel_pages as usize,
             kernel_base,
-            kernel_vaddr: KERNEL_VADDR})
+            kernel_vaddr: KERNEL_VADDR,
+            kernel_entry: elf_header.e_entry})
         }
     }

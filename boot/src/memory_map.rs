@@ -8,7 +8,8 @@ pub struct MemoryMap {
     pub total_memory: usize,
     pub min_vaddr: u64,
     pub min_paddr: u64,
-    pub key: usize
+    pub key: usize,
+    pub buffer: vec::Vec<u8>,
 }
 
 impl MemoryMap {
@@ -77,6 +78,7 @@ impl MemoryMap {
             min_vaddr,
             min_paddr,
             key,
+            buffer: mem_map
         })
     }
 }
