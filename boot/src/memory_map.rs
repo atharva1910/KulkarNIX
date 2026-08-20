@@ -9,6 +9,8 @@ pub struct MemoryMap {
     pub min_vaddr: u64,
     pub min_paddr: u64,
     pub key: usize,
+    pub desc_size: usize,
+    pub mem_map_size: usize,
     pub buffer: vec::Vec<u8>,
 }
 
@@ -41,7 +43,6 @@ impl MemoryMap {
                                 &mut desc_version)
         };
         if status != efi::Status::SUCCESS {
-            PRINTER.print(&format!("status: {} memory_map size : {} desc_size {} desc_version {} \n", status, mem_map_size, desc_size, desc_version));
             return Err(status);
         }
 
@@ -70,7 +71,6 @@ impl MemoryMap {
             if desc.virtual_start < min_vaddr {
                 min_vaddr = desc.virtual_start;
             }
-
         }
 
         Ok(Self {
@@ -78,6 +78,8 @@ impl MemoryMap {
             min_vaddr,
             min_paddr,
             key,
+            desc_size,
+            mem_map_size,
             buffer: mem_map
         })
     }
