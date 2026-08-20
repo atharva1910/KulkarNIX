@@ -36,6 +36,20 @@ impl BootCtx {
         }
     }
 
+    pub fn locate_protocol<T>(&self, mut guid: Guid) -> Option<*mut T> {
+        let mut p = core::ptr::null_mut();
+        let bs = BOOT_CTX.get_bs().unwrap();
+        let  status = unsafe {
+            (bs.locate_protocol)(&mut guid, core::ptr::null_mut(), &mut p)
+        };
+
+        if status != efi::Status::SUCCESS {
+            return None;
+        }
+
+        Some(p as *mut T)
+    }
+
     pub fn handle_protocol<T>(&self, h: efi::Handle, mut guid: Guid) -> Option<*mut T> {
         let mut p = core::ptr::null_mut();
         // TODO FIX THIS

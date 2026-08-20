@@ -9,7 +9,7 @@ mod memory_map;
 
 extern crate alloc;
 use alloc::format;
-use r_efi::{ efi::{self, ALLOCATE_ANY_PAGES, LOADER_CODE}, protocols::loaded_image};
+use r_efi::{ efi::{self, ALLOCATE_ANY_PAGES, LOADER_CODE}, protocols::{graphics_output::{self, ModeInformation}, loaded_image}};
 use boot_ctx::BOOT_CTX;
 use kernel::Kernel;
 use common::{KernelArgs, paging::{self, PageTableManager}};
@@ -49,12 +49,29 @@ fn page_allocator(num_pages: usize) -> Option<u64> {
     Some(paddr)
 }
 
-fn prepare_kernel_args(paddr: u64, mem_map: &MemoryMap) {
-    if let Some(args) = unsafe {(paddr as *mut KernelArgs).as_mut()} {
-        args.desc_size = mem_map.desc_size;
-        args.mem_map_size = mem_map.mem_map_size;
-        args.buffer[..args.mem_map_size].copy_from_slice(&mem_map.buffer[..mem_map.mem_map_size]);
-    }
+fn prepare_kernel_args(paddr: u64, mem_map: &MemoryMap) -> bool {
+    let Some(args) = (unsafe {(paddr as *mut KernelArgs).as_mut()}) else {
+        return false;
+    };
+
+    args.desc_size = mem_map.desc_size;
+    args.mem_map_size = mem_map.mem_map_size;
+
+    args.buffer[..args.mem_map_size].copy_from_slice(&mem_map.buffer[..mem_map.mem_map_size]);
+    let Some(gop) = BOOT_CTX.locate_protocol::<graphics_output::Protocol>(graphics_output::PROTOCOL_GUID)  else {
+        return false;
+    };
+
+    let Some(mode) = (unsafe {(*gop).mode.as_ref()}) else {
+        return false;
+    };
+
+    args.frame_buf_info.mode_information = unsafe {
+        mode.info.as_ref().unwrap().clone()
+    };
+    args.frame_buf_info.frame_base =  mode.frame_buffer_base;
+    args.frame_buf_info.frame_size =  mode.frame_buffer_size;
+    true
 }
 
 
@@ -192,6 +209,7 @@ pub extern "efiapi" fn main(h: efi::Handle,
         return BOOT_CTX.halt();
     };
 
+
     PRINTER.print(&format!("Jumping to Kernel at : 0x{:x}. PML4T 0x{:x}\n", kernel.kernel_vaddr, pml4t as *const _ as u64));
 
     let Some(paddr) = page_allocator(1) else {
@@ -203,7 +221,10 @@ pub extern "efiapi" fn main(h: efi::Handle,
 	    return BOOT_CTX.halt();
 	};
 
-    prepare_kernel_args(paddr, &mem_map);
+    if !prepare_kernel_args(paddr, &mem_map) {
+	    PRINTER.print("Failed to setup kernel args\n");
+	    return BOOT_CTX.halt();
+    }
 
 	// TODO make this a retry-loop
 	let status = unsafe {

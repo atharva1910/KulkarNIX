@@ -46,5 +46,6 @@ run: all
 
 # --- Target: Clean Artifacts ---
 clean:
-	rm -rf $(BUILD_DIR) $(IMAGE)
-	$(MAKE) -C kernel clean
+	rm -rf boot/target
+	rm -rf kernel/target
+	rm -rf common/target

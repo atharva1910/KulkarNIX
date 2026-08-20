@@ -11,6 +11,7 @@ Bin/*
 .vscode
 boot/target
 kernel/target
+common/target
 /target
 build/*
 bin/*

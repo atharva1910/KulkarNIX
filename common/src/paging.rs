@@ -1,23 +1,8 @@
+use crate::address::VirtualAddress;
+
 pub const PAGE_TABLE_NUM_ENTRIES: usize = 512;
 pub const PAGE_SIZE: usize = 4096;
-
-#[repr(transparent)]
-pub struct VAddr(u64);
-
-impl VAddr{
-    pub fn pt_idx(&self) -> usize{
-        (self.0 as usize >> 12) & 0x1FF
-    }
-    pub fn pdt_idx(&self) -> usize{
-        (self.0 as usize >> 21) & 0x1FF
-    }
-    pub fn pdpt_idx(&self) -> usize{
-        (self.0 as usize >> 30) & 0x1FF
-    }
-    pub fn pml4_idx(&self) -> usize{
-        (self.0 as usize >> 39) & 0x1FF
-    }
-}
+pub const PHYS_OFFSET: usize = 0xFFFF_FA00_0000_0000;
 
 #[repr(transparent)]
 pub struct PageEntry(pub u64);
@@ -151,7 +136,7 @@ where
     }
 
     pub fn map_page(&self, phy: u64, virt: u64) -> bool {
-        let v = VAddr(virt);
+        let v = VirtualAddress(virt);
         let Some(pml4t) = self.get_pml4t_mut() else {
             return false;
         };
