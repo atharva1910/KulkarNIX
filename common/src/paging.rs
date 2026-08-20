@@ -1,4 +1,5 @@
 pub const PAGE_TABLE_NUM_ENTRIES: usize = 512;
+pub const PAGE_SIZE: usize = 4096;
 
 #[repr(transparent)]
 pub struct VAddr(u64);
