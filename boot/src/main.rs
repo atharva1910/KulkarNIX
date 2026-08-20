@@ -12,7 +12,7 @@ use alloc::format;
 use r_efi::{ efi::{self, ALLOCATE_ANY_PAGES, LOADER_CODE}, protocols::loaded_image};
 use boot_ctx::BOOT_CTX;
 use kernel::Kernel;
-use common::paging::{self, PageTableManager};
+use common::{KernelArgs, paging::{self, PageTableManager}};
 use crate::{
     memory_map::MemoryMap,
     printer::PRINTER
@@ -48,6 +48,15 @@ fn page_allocator(num_pages: usize) -> Option<u64> {
 
     Some(paddr)
 }
+
+fn prepare_kernel_args(paddr: u64, mem_map: &MemoryMap) {
+    if let Some(args) = unsafe {(paddr as *mut KernelArgs).as_mut()} {
+        args.desc_size = mem_map.desc_size;
+        args.mem_map_size = mem_map.mem_map_size;
+        args.buffer[..args.mem_map_size].copy_from_slice(&mem_map.buffer[..mem_map.mem_map_size]);
+    }
+}
+
 
 fn setup_mem_paging<T>(pt_mgr: &PageTableManager<T>, mem_map: &MemoryMap)  ->  Result<(), efi::Status>
 where
@@ -185,10 +194,16 @@ pub extern "efiapi" fn main(h: efi::Handle,
 
     PRINTER.print(&format!("Jumping to Kernel at : 0x{:x}. PML4T 0x{:x}\n", kernel.kernel_vaddr, pml4t as *const _ as u64));
 
+    let Some(paddr) = page_allocator(1) else {
+        return BOOT_CTX.halt();
+    };
+
 	let Ok(mem_map) = MemoryMap::new() else {
 	    PRINTER.print("Failed to get memory map\n");
 	    return BOOT_CTX.halt();
 	};
+
+    prepare_kernel_args(paddr, &mem_map);
 
 	// TODO make this a retry-loop
 	let status = unsafe {
@@ -202,8 +217,10 @@ pub extern "efiapi" fn main(h: efi::Handle,
     unsafe {
         core::arch::asm!(
             "cli",
+            "mov r13, {kargs}",
             "mov cr3, {pml4}",
             "jmp {entry}",
+            kargs = in(reg) paddr,
             pml4 = in(reg) pml4t as *const _ as u64,
             entry = in(reg) kernel.kernel_entry,
             options(noreturn)
