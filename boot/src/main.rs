@@ -1,250 +1,44 @@
-#![no_main]
 #![no_std]
-mod boot_ctx;
-mod kernel;
-mod printer;
-mod file;
-mod elfheader;
-mod memory_map;
+#![no_main]
+mod serial_port;
+mod hal;
 
-extern crate alloc;
-use alloc::format;
-use r_efi::{ efi::{self, ALLOCATE_ANY_PAGES, LOADER_CODE}, protocols::{graphics_output::{self, ModeInformation}, loaded_image}};
-use boot_ctx::BOOT_CTX;
-use kernel::Kernel;
-use common::{KernelArgs, paging::{self, PageTableManager}};
-use crate::{
-    memory_map::MemoryMap,
-    printer::PRINTER
-};
-
-const ONE_KB: usize = 1024;
-const ONE_MB: usize = ONE_KB * 1024;
-const ONE_GB: usize = ONE_MB * 1024;
-const PAGE_SIZE: usize = 4096; //1 << 12;
+use core::arch::global_asm;
+use core::panic::PanicInfo;
+use serial_port::{SERIAL_PORT, SerialPort};
+use common::KernelArgs;
 
 #[panic_handler]
-fn panic_handler(_info: &core::panic::PanicInfo) -> ! {
+fn panic(_info: &PanicInfo) -> ! {
     loop {}
 }
 
-fn page_allocator(num_pages: usize) -> Option<u64> {
-    let Some(bs) = BOOT_CTX.get_bs() else {
-        return None;
-    };
+global_asm!(
+    ".section .text",
+    ".global __start",
+    "__start:",
+    "cli",
+    "lea rsp, [rip + stack_top]",
+    "call kernel_main",
 
-    let mut paddr: r_efi::base::PhysicalAddress = 0;
-    let status =
-    unsafe {
-        (bs.allocate_pages)(ALLOCATE_ANY_PAGES, LOADER_CODE, num_pages, &mut paddr)
-    };
-    if status != efi::Status::SUCCESS {
-        return None;
-    }
+    /* r13 as an argument to kernel_main */
+    "mov rdi, r13",
 
-    unsafe {
-        (bs.set_mem)(paddr as *mut core::ffi::c_void, PAGE_SIZE, 0);
-    };
+    "hang:",
+    "hlt",
+    "jmp hang",
 
-    Some(paddr)
-}
+    ".section .bss\n",
+    "stack_bottom:",
+    ".skip 0x4000",
+    "stack_top:",
 
-fn prepare_kernel_args(paddr: u64, mem_map: &MemoryMap) -> bool {
-    let Some(args) = (unsafe {(paddr as *mut KernelArgs).as_mut()}) else {
-        return false;
-    };
+    /* Restore the data section */
+    ".section .text\n",
+);
 
-    args.desc_size = mem_map.desc_size;
-    args.mem_map_size = mem_map.mem_map_size;
-
-    args.buffer[..args.mem_map_size].copy_from_slice(&mem_map.buffer[..mem_map.mem_map_size]);
-    let Some(gop) = BOOT_CTX.locate_protocol::<graphics_output::Protocol>(graphics_output::PROTOCOL_GUID)  else {
-        return false;
-    };
-
-    let Some(mode) = (unsafe {(*gop).mode.as_ref()}) else {
-        return false;
-    };
-
-    args.frame_buf_info.mode_information = unsafe {
-        mode.info.as_ref().unwrap().clone()
-    };
-    args.frame_buf_info.frame_base =  mode.frame_buffer_base;
-    args.frame_buf_info.frame_size =  mode.frame_buffer_size;
-    true
-}
-
-
-fn setup_mem_paging<T>(pt_mgr: &PageTableManager<T>, mem_map: &MemoryMap)  ->  Result<(), efi::Status>
-where
-    T: Fn(usize) -> Option<u64>
-{
-    let total_mem = mem_map.total_memory;
-    let num_1gb_pdpe = (total_mem + (ONE_GB - 1)) / ONE_GB;
-
-    assert!(total_mem < 512 * ONE_GB);
-    assert!(num_1gb_pdpe < paging::PAGE_TABLE_NUM_ENTRIES);
-
-    let Some(pml4t) = pt_mgr.get_pml4t_mut() else {
-        return Err(efi::Status::INVALID_PARAMETER);
-    };
-
-    if pml4t.pml4e[256].is_entry_present() {
-        assert!(false, "Entry already present");
-    }
-
-    let Some(pdpt) = pt_mgr.allocate_tables(1) else {
-        return Err(efi::Status::OUT_OF_RESOURCES);
-    };
-
-    pml4t.pml4e[256].set_present();
-    pml4t.pml4e[256].set_rw();
-    pml4t.pml4e[256].set_addr(pdpt);
-
-
-    let Some(pdpt) = (unsafe {
-        (pdpt as *mut paging::PDPT).as_mut()
-    }) else {
-        return Err(efi::Status::INVALID_PARAMETER);
-    };
-
-    let mut addr = 0x0;
-    for i in 0..num_1gb_pdpe {
-        pdpt.set_1gb_paging(i, addr);
-        addr += ONE_GB as u64;
-    }
-
-    Ok(())
-}
-
-fn setup_kernel_paging<T>(pt_mgr: &PageTableManager<T>, kernel: &Kernel)  ->  Result<(), efi::Status>
-where
-    T: Fn(usize) -> Option<u64>
-{
-    let mut start_paddr = kernel.kernel_base;
-    let mut start_vaddr = kernel.kernel_vaddr;
-    for _ in 0..kernel.kernel_pages {
-        if pt_mgr.map_page( start_paddr, start_vaddr) {
-            start_vaddr += PAGE_SIZE as u64;
-            start_paddr += PAGE_SIZE as u64;
-        } else {
-            PRINTER.print("FAILED TO MAP KERNEL\n");
-            return Err(efi::Status::OUT_OF_RESOURCES);
-        }
-    }
-
-    Ok(())
-}
-
-fn setup_image_identity_map<T>(h: efi::Handle, pt_mgr: &PageTableManager<T>) -> Result<(), efi::Status>
-where
-    T: Fn(usize) -> Option<u64> {
-    let loaded_image =
-        BOOT_CTX.handle_protocol::<loaded_image::Protocol>(h, loaded_image::PROTOCOL_GUID).ok_or(efi::Status::PROTOCOL_ERROR)?;
-
-    let mut image_base = unsafe {
-        (*loaded_image).image_base as u64
-    };
-
-    let image_size = unsafe {
-        (*loaded_image).image_size as u64
-    };
-
-    let pages = image_size >> 12;
-
-    PRINTER.print(&format!("Mapping image. Base 0x{:x} Size 0x{:x}\n", image_base, image_size));
-    for _ in 0..pages {
-        pt_mgr.map_page(image_base, image_base);
-        image_base += PAGE_SIZE as u64;
-    }
-    Ok(())
-}
-
-
-fn setup_paging(h: efi::Handle, kernel: &Kernel, mem_map: &MemoryMap) -> Result<PageTableManager<impl Fn(usize) -> Option<u64>>, efi::Status> {
-    let Some(pt_mgr) = PageTableManager::new(page_allocator) else {
-        PRINTER.print("setup_paging failed");
-        return  Err(efi::Status::INVALID_PARAMETER);
-    };
-
-    setup_mem_paging(&pt_mgr, mem_map)?;
-    setup_kernel_paging(&pt_mgr, kernel)?;
-    setup_image_identity_map(h, &pt_mgr)?;
-    Ok(pt_mgr)
-}
-
-#[unsafe(export_name = "efi_main")]
-pub extern "efiapi" fn main(h: efi::Handle,
-                            st: *mut efi::SystemTable) -> efi::Status {
-
-    BOOT_CTX.new(st);
-    PRINTER.init(st);
-    PRINTER.clrscr();
-
-    let Some(bs) = BOOT_CTX.get_bs() else {
-        return BOOT_CTX.halt();
-    };
-
-    unsafe {
-        (bs.set_watchdog_timer)(0,0,0,core::ptr::null_mut());
-    }
-
-    let Ok(kernel)= Kernel::new(h) else {
-        PRINTER.print("Kernel setup failed");
-        return BOOT_CTX.halt();
-    };
-
-    let Ok(mem_map) = MemoryMap::new() else {
-        PRINTER.print("Failed to get memory map");
-        return BOOT_CTX.halt();
-    };
-
-    let pt_mgr = match setup_paging(h, &kernel, &mem_map) {
-        Ok(x) => x,
-        Err(s) => return s,
-    };
-
-    let Some(pml4t) = pt_mgr.get_pml4t() else {
-        PRINTER.print("PML4 not setup!?");
-        return BOOT_CTX.halt();
-    };
-
-
-    PRINTER.print(&format!("Jumping to Kernel at : 0x{:x}. PML4T 0x{:x}\n", kernel.kernel_vaddr, pml4t as *const _ as u64));
-
-    let Some(paddr) = page_allocator(1) else {
-        return BOOT_CTX.halt();
-    };
-
-	let Ok(mem_map) = MemoryMap::new() else {
-	    PRINTER.print("Failed to get memory map\n");
-	    return BOOT_CTX.halt();
-	};
-
-    if !prepare_kernel_args(paddr, &mem_map) {
-	    PRINTER.print("Failed to setup kernel args\n");
-	    return BOOT_CTX.halt();
-    }
-
-	// TODO make this a retry-loop
-	let status = unsafe {
-	    (bs.exit_boot_services)(h, mem_map.key)
-	};
-	if status != efi::Status::SUCCESS {
-	    PRINTER.print(&format!("Failed to exit boot services {}\n", status));
-        return BOOT_CTX.halt();
-    }
-
-    unsafe {
-        core::arch::asm!(
-            "cli",
-            "mov r13, {kargs}",
-            "mov cr3, {pml4}",
-            "jmp {entry}",
-            kargs = in(reg) paddr,
-            pml4 = in(reg) pml4t as *const _ as u64,
-            entry = in(reg) kernel.kernel_entry,
-            options(noreturn)
-        );
-    }
+#[unsafe(no_mangle)]
+pub extern "C" fn kernel_main(args: &'static KernelArgs) {
+    SerialPort::init();
+    loop{}
 }
