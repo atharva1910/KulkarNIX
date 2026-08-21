@@ -1,9 +1,15 @@
 #![no_std]
 #![no_main]
+mod serial_port;
+mod errors;
+mod hal;
 use core::arch::global_asm;
+use core::fmt::Write;
 use core::panic::PanicInfo;
-
 use common::KernelArgs;
+use common::serial_port::SERIAL_PORT;
+
+use crate::serial_port::SerialPort;
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
@@ -16,15 +22,16 @@ global_asm!(
     "__start:",
     "cli",
     "lea rsp, [rip + stack_top]",
-    "call kernel_main",
 
     /* r13 as an argument to kernel_main */
     "mov rdi, r13",
+    "call kernel_main",
 
     "hang:",
     "hlt",
     "jmp hang",
 
+    /* Setup the stack */
     ".section .bss\n",
     "stack_bottom:",
     ".skip 0x4000",
@@ -36,5 +43,10 @@ global_asm!(
 
 #[unsafe(no_mangle)]
 pub extern "C" fn kernel_main(args: &'static KernelArgs) {
-    loop{}
+    if !SerialPort::init() {
+        loop {};
+    }
+
+    let mut serial: SerialPort = SerialPort;
+    write!(serial, "Welcome to the kernel\n");
 }
