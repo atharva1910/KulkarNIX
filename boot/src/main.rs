@@ -211,11 +211,12 @@ pub extern "efiapi" fn main(h: efi::Handle,
         return BOOT_CTX.halt();
     };
 
-    PRINTER.print(&format!("Jumping to Kernel at : 0x{:x}. PML4T 0x{:x}\n", kernel.kernel_vaddr, pml4t as *const _ as u64));
 
     let Some(paddr) = page_allocator(KERNEL_ARGS_PAGES) else {
         return BOOT_CTX.halt();
     };
+
+    PRINTER.print(&format!("Jumping to Kernel at : 0x{:x}. Args 0x{:x}\n", kernel.kernel_entry, paddr));
 
 	let Ok(mem_map) = MemoryMap::new() else {
 	    PRINTER.print("Failed to get memory map\n");
@@ -239,10 +240,9 @@ pub extern "efiapi" fn main(h: efi::Handle,
     unsafe {
         core::arch::asm!(
             "cli",
-            "mov r13, {kargs}",
             "mov cr3, {pml4}",
             "jmp {entry}",
-            kargs = in(reg) paddr,
+            in("rdi") paddr,
             pml4 = in(reg) pml4t as *const _ as u64,
             entry = in(reg) kernel.kernel_entry,
             options(noreturn)

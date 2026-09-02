@@ -7,6 +7,7 @@ use core::arch::global_asm;
 use core::fmt::Write;
 use core::panic::PanicInfo;
 use common::KernelArgs;
+use r_efi::efi::MemoryDescriptor;
 use common::serial_port::SERIAL_PORT;
 
 use crate::serial_port::SerialPort;
@@ -22,9 +23,6 @@ global_asm!(
     "__start:",
     "cli",
     "lea rsp, [rip + stack_top]",
-
-    /* r13 as an argument to kernel_main */
-    "mov rdi, r13",
     "call kernel_main",
 
     "hang:",
@@ -32,7 +30,8 @@ global_asm!(
     "jmp hang",
 
     /* Setup the stack */
-    ".section .bss\n",
+    ".section .bss",
+    ".align 16",
     "stack_bottom:",
     ".skip 0x4000",
     "stack_top:",
@@ -42,11 +41,8 @@ global_asm!(
 );
 
 #[unsafe(no_mangle)]
-pub extern "C" fn kernel_main(args: &'static KernelArgs) {
-    if !SerialPort::init() {
-        loop {};
-    }
-
-    let mut serial: SerialPort = SerialPort;
-    write!(serial, "Welcome to the kernel\n");
+pub extern "C" fn kernel_main(addr: u64) {
+    let mut s = SerialPort{ test: 42};
+    write!(s, "test 0x{:x}\n", addr);
+    loop {};
 }

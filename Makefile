@@ -35,7 +35,7 @@ image: bootloader kernel
 
 # --- Target: Emulation ---
 run: all
-	$(QEMU) -bios OVMF.fd -serial stdio -d cpu_reset -drive file=$(IMAGE),format=raw -display none -m 4G
+	$(QEMU) -bios OVMF.fd -serial stdio -d cpu_reset -drive file=$(IMAGE),format=raw  -m 4G
 
 # --- Target: Clean Artifacts ---
 clean:

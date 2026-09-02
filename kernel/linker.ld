@@ -4,19 +4,19 @@ SECTIONS
 {
     . = 0xfffffa0000000000;
 
-    .text : {
+    .text : ALIGN(4096) {
         *(.text .text.*)
     }
 
-    .rodata : {
+    .rodata : ALIGN(4096) {
         *(.rodata .rodata.*)
     }
 
-    .data : {
+    .data : ALIGN(4096) {
         *(.data .data.*)
     }
 
-    .bss : {
+    .bss : ALIGN(4096) {
         *(.bss .bss.*)
         *(COMMON)
     }

@@ -19,8 +19,10 @@ impl Offset {
     pub const SCRATCH_REG: Offset = Offset(7);
 }
 
-pub struct SerialPort;
-pub static mut SERIAL_PORT: SerialPort = SerialPort;
+pub struct SerialPort {
+    pub test: u64,
+}
+pub static mut SERIAL_PORT: SerialPort = SerialPort{test:0};
 
 impl SerialPort {
     pub fn init() -> bool {
@@ -41,10 +43,14 @@ impl SerialPort {
         true
     }
 
-    pub fn write(&self, x: &str) {
+    pub fn write_u8(byte: u8) {
+        while hal::inb(COM1 + Offset::LINE_STATUS_REG.0) & 0x20 == 0 {}
+        hal::outb(COM1 + Offset::BUFFER.0, byte);
+    }
+
+    pub fn write(x: &str) {
         for byte in x.bytes() {
-            while hal::inb(COM1 + Offset::LINE_STATUS_REG.0) & 0x20 == 0 {}
-            hal::outb(COM1 + Offset::BUFFER.0, byte);
+            Self::write_u8(byte);
         }
     }
 
@@ -56,7 +62,7 @@ impl SerialPort {
 
 impl fmt::Write for SerialPort {
     fn write_str(&mut self, s: &str) -> fmt::Result {
-        self.write(s);
+        SerialPort::write(s);
         Ok(())
     }
 }

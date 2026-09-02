@@ -74,7 +74,7 @@ impl Kernel {
 
         let total_size = max_paddr - min_paddr;
         let kernel_pages = ((total_size + (PAGE_SIZE - 1))/PAGE_SIZE) as usize;
-        PRINTER.print(&format!("Total Pages : {:x} Min_Paddr: {:x} Max_Paddr: {:x}\n", kernel_pages, min_paddr, max_paddr));
+        PRINTER.print(&format!("Total Size: 0x{:x} Total Pages : {:x} Min_Paddr: {:x} Max_Paddr: {:x}\n", total_size, kernel_pages, min_paddr, max_paddr));
 
         let Some(bs) = BOOT_CTX.get_bs() else {
             return Err(efi::Status::INVALID_PARAMETER);
@@ -100,13 +100,18 @@ impl Kernel {
 
             fhandle.seek(ph.p_offset as usize);
             let start = (ph.p_paddr - min_paddr) as usize;
-            let end = start + ph.p_filesz as usize;
+            let end = start + ph.p_memsz as usize;
+
+            PRINTER.print(&format!("pgram header eloaded at start 0x{:x} end {:x}\n", start as u64 + min_paddr, end as u64 + min_paddr));
+            if ph.p_type != PT_LOAD || ph.p_memsz == 0 {
+                continue;
+            }
+
             status = fhandle.read_bytes(&mut kbuffer[start..end]);
             if status != efi::Status::SUCCESS {
                 PRINTER.print("Failed to load pgram header\n");
                 return Err(status);
-            } else {
-                PRINTER.print(&format!("pgram header loaded at start kbuffer[{:x}] end kbuffer[{:x}]\n", start, end));
+
             }
         }
 
