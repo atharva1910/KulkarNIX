@@ -45,15 +45,12 @@ pub struct Elf64Shdr {
     pub sh_entsize: u64,   // Entry size if section holds a table
 }
 
-#[repr(C)]
-#[derive(Debug, Copy, Clone, Default)]
-pub struct Elf64Rela {
-    pub r_offset: u64,
-    pub r_info: u64,
-    pub r_append: u64,
-}
-
 // ELF Magic Identifier & Segment Types
 pub const ELF_MAGIC: [u8; 4] = [0x7F, b'E', b'L', b'F'];
 pub const PT_LOAD: u32 = 1;
 pub const SHT_RELA: u32 = 4;
+
+
+pub struct Elf64;
+impl Elf64 {
+}

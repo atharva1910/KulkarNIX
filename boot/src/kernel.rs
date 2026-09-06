@@ -1,12 +1,12 @@
 use crate::{
-    boot_ctx::BOOT_CTX, elfheader::{ELF_MAGIC, Elf64Ehdr, Elf64Phdr, PT_LOAD}, file::EfiFile, printer::PRINTER
+    boot_ctx::BOOT_CTX, elfheader::{ELF_MAGIC, Elf64Ehdr, Elf64Phdr, Elf64Rela, Elf64Shdr, PT_LOAD, SHT_RELA}, file::EfiFile, printer::PRINTER
 };
 use r_efi::{
     efi::{self, ALLOCATE_ANY_PAGES, LOADER_DATA},
     protocols::{loaded_image, simple_file_system},
 };
 use alloc::{
-    format,
+    format, slice, vec::Vec
 };
 
 const PAGE_SIZE: u64 = 4096; // TODO make this usize
@@ -19,6 +19,15 @@ pub struct Kernel {
     pub kernel_entry: u64,
 }
 
+fn vec_to_byte<S>(input: &mut [S]) -> &mut [u8] {
+     unsafe
+    {
+        slice::from_raw_parts_mut(
+            input.as_mut_ptr().cast::<u8>(),
+            input.len() * size_of::<S>(),
+        )
+    }
+}
 impl Kernel {
     pub fn new(h: efi::Handle) -> Result<Self, efi::Status> {
         let loaded_image =
@@ -45,12 +54,8 @@ impl Kernel {
 
         fhandle.seek(elf_header.e_phoff as usize);
 
-        let ph_size =  elf_header.e_phentsize * elf_header.e_phnum;
         let mut ph_buf = alloc::vec![ Elf64Phdr::default(); elf_header.e_phnum as usize];
-        let x = unsafe {
-            core::slice::from_raw_parts_mut(ph_buf.as_mut_ptr().cast::<u8>(), ph_size as usize)
-        };
-        status = fhandle.read_bytes(x);
+        status = fhandle.read_bytes(vec_to_byte::<Elf64Phdr>(&mut ph_buf));
         if status != efi::Status::SUCCESS {
             return Err(status);
         }
@@ -116,6 +121,40 @@ impl Kernel {
         }
 
         PRINTER.print(&format!("Kernel loaded at: {:x} Kernel Entry: 0x{:x}\n", kernel_base, elf_header.e_entry));
+
+        // Read section Header
+        fhandle.seek(elf_header.e_shoff as usize);
+        let sh_size =  elf_header.e_shentsize * elf_header.e_shnum;
+
+        let mut sh_buf = alloc::vec![ Elf64Shdr::default(); elf_header.e_shnum as usize];
+        let x = unsafe {
+            core::slice::from_raw_parts_mut(sh_buf.as_mut_ptr().cast::<u8>(),sh_size as usize)
+        };
+        status = fhandle.read_bytes(vec_to_byte::<Elf64Shdr>(&mut sh_buf));
+        if status != efi::Status::SUCCESS {
+            return Err(status);
+        }
+
+        for sh in sh_buf.iter() {
+            if sh.sh_type != SHT_RELA {
+                continue;
+            }
+
+            fhandle.seek(sh.sh_offset as usize);
+            let mut rela_buf = alloc::vec![ Elf64Rela::default(); sh.sh_size as usize/size_of::<Elf64Rela>()];
+            status = fhandle.read_bytes(vec_to_byte::<Elf64Rela>(&mut rela_buf));
+            if status != efi::Status::SUCCESS {
+                PRINTER.print("Failed to read section relocation bytes\n");
+                return Err(status);
+            }
+
+            let target = &sh_buf[sh.sh_info as usize];
+            for rela in rela_buf.iter() {
+                let r_type = (rela.r_info & 0xFFFF_FFFF) as u32;
+                let r_sym = (rela.r_info >> 32) as u32 & 0xFFFF_FFFF;
+                let patch = target.sh_addr + rela.r_offset;
+            }
+        }
 
         Ok(Self {
             kernel_pages: kernel_pages as usize,
