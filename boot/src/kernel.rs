@@ -1,5 +1,5 @@
 use crate::{
-    boot_ctx::BOOT_CTX, elfheader::{ELF_MAGIC, Elf64Ehdr, Elf64Phdr, Elf64Rela, Elf64Shdr, PT_LOAD, SHT_RELA}, file::EfiFile, printer::PRINTER
+    boot_ctx::BOOT_CTX, elfheader::{ELF_MAGIC, Elf64Dyn, Elf64Ehdr, Elf64Phdr, Elf64Rela, Elf64Shdr, PT_DYNAMIC, PT_LOAD, SHT_RELA}, file::EfiFile, printer::PRINTER
 };
 use r_efi::{
     efi::{self, ALLOCATE_ANY_PAGES, LOADER_DATA},
@@ -19,7 +19,7 @@ pub struct Kernel {
     pub kernel_entry: u64,
 }
 
-fn vec_to_byte<S>(input: &mut [S]) -> &mut [u8] {
+fn vec_to_byte_slice<S>(input: &mut [S]) -> &mut [u8] {
      unsafe
     {
         slice::from_raw_parts_mut(
@@ -28,6 +28,16 @@ fn vec_to_byte<S>(input: &mut [S]) -> &mut [u8] {
         )
     }
 }
+
+unsafe fn addr_to_byte_slice(input: u64, size: usize) -> &'static mut [u8] {
+    unsafe {
+        slice::from_raw_parts_mut(
+            input as *mut u8,
+            size
+        )
+    }
+}
+
 impl Kernel {
     pub fn new(h: efi::Handle) -> Result<Self, efi::Status> {
         let loaded_image =
@@ -55,7 +65,7 @@ impl Kernel {
         fhandle.seek(elf_header.e_phoff as usize);
 
         let mut ph_buf = alloc::vec![ Elf64Phdr::default(); elf_header.e_phnum as usize];
-        status = fhandle.read_bytes(vec_to_byte::<Elf64Phdr>(&mut ph_buf));
+        status = fhandle.read_bytes(vec_to_byte_slice::<Elf64Phdr>(&mut ph_buf));
         if status != efi::Status::SUCCESS {
             return Err(status);
         }
@@ -120,41 +130,44 @@ impl Kernel {
             }
         }
 
-        PRINTER.print(&format!("Kernel loaded at: {:x} Kernel Entry: 0x{:x}\n", kernel_base, elf_header.e_entry));
-
-        // Read section Header
-        fhandle.seek(elf_header.e_shoff as usize);
-        let sh_size =  elf_header.e_shentsize * elf_header.e_shnum;
-
-        let mut sh_buf = alloc::vec![ Elf64Shdr::default(); elf_header.e_shnum as usize];
-        let x = unsafe {
-            core::slice::from_raw_parts_mut(sh_buf.as_mut_ptr().cast::<u8>(),sh_size as usize)
-        };
-        status = fhandle.read_bytes(vec_to_byte::<Elf64Shdr>(&mut sh_buf));
-        if status != efi::Status::SUCCESS {
-            return Err(status);
-        }
-
-        for sh in sh_buf.iter() {
-            if sh.sh_type != SHT_RELA {
+        for ph in ph_buf.iter() {
+            if ph.p_type != PT_DYNAMIC {
                 continue;
             }
 
-            fhandle.seek(sh.sh_offset as usize);
-            let mut rela_buf = alloc::vec![ Elf64Rela::default(); sh.sh_size as usize/size_of::<Elf64Rela>()];
-            status = fhandle.read_bytes(vec_to_byte::<Elf64Rela>(&mut rela_buf));
-            if status != efi::Status::SUCCESS {
-                PRINTER.print("Failed to read section relocation bytes\n");
-                return Err(status);
+            let mut dyn_arr_start = (ph.p_vaddr - KERNEL_VADDR + kernel_base) as usize;
+            PRINTER.print(&format!("PT_DYNAMIC vaddr: {:x}  kernel_base: {:x} dyn_arr: {:x}\n", ph.p_vaddr,  kernel_base, dyn_arr_start));
+            let mut rela_addr = 0;
+            let mut rela_size = 0;
+            let mut rela_count = 0;
+            loop {
+                let dyn_arr = dyn_arr_start as *const Elf64Dyn;
+
+                unsafe {
+                    match (*dyn_arr).d_tag {
+                        7 => rela_addr = (*dyn_arr).d_val - KERNEL_VADDR + kernel_base,
+                        8 => rela_size = (*dyn_arr).d_val,
+                        0 => break,
+                        _ => {},
+                    }
+                }
+                dyn_arr_start += size_of::<Elf64Dyn>();
             }
 
-            let target = &sh_buf[sh.sh_info as usize];
-            for rela in rela_buf.iter() {
-                let r_type = (rela.r_info & 0xFFFF_FFFF) as u32;
-                let r_sym = (rela.r_info >> 32) as u32 & 0xFFFF_FFFF;
-                let patch = target.sh_addr + rela.r_offset;
+            rela_count = rela_size as usize/size_of::<Elf64Rela>();
+            PRINTER.print(&format!("rela_addr: {:x} rela_size: {:x} rela_count: {}\n", rela_addr, rela_size, rela_count));
+
+            let rela_arr = unsafe {
+                core::slice::from_raw_parts(rela_addr as *const Elf64Rela, rela_count)
+            };
+
+            for rela in rela_arr {
+                PRINTER.print(&format!("rela r_offset: {:x} r_info: {:x} r_append: {:x}\n", rela.r_offset, rela.r_info, rela.r_append));
             }
+
         }
+        PRINTER.print(&format!("Kernel loaded at: {:x} Kernel Entry: 0x{:x}\n", kernel_base, elf_header.e_entry));
+
 
         Ok(Self {
             kernel_pages: kernel_pages as usize,

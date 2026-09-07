@@ -53,7 +53,15 @@ pub struct Elf64Rela {
     pub r_append: u64,
 }
 
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Default)]
+pub struct Elf64Dyn {
+    pub d_tag: u64,  // Identification tag (e.g., DT_RELA, DT_RELASZ)
+    pub d_val: u64,  // Represents an integer value or a virtual address
+}
+
 // ELF Magic Identifier & Segment Types
 pub const ELF_MAGIC: [u8; 4] = [0x7F, b'E', b'L', b'F'];
 pub const PT_LOAD: u32 = 1;
+pub const PT_DYNAMIC: u32 = 2;
 pub const SHT_RELA: u32 = 4;
