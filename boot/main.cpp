@@ -2,6 +2,7 @@
 #include "kernel.h"
 #include "paging.h"
 #include "memory_map.h"
+#include "PagingMgr.h"
 
 constexpr UINT64 ONE_KB = 1 * 1024;
 constexpr UINT64 ONE_MB = ONE_KB * 1024;

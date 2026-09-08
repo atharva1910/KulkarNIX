@@ -1,7 +1,19 @@
 #pragma once
 
 constexpr uint32_t PAGE_TABLE_NUM_ENTRIES = 512;
-constexpr UINT64 PAGE_SIZE = 4096;
+constexpr uint64_t PAGE_SIZE = 4096;
+
+namespace PagingEntry {
+    inline void set_present(uint64_t &raw) { raw |= 0x1; }
+    inline void set_rw(uint64_t &raw) { raw |= 0x2; }
+};
+
+union alignas(8) GenericPagingEntry {
+public:
+    uint64_t raw;
+    inline void set_present() { raw |= 0x1; }
+    inline void set_rw() { raw |= 0x2; }
+};
 
 union alignas(8) PML5E {
     struct {
