@@ -10,7 +10,7 @@ KERNEL    := $(BUILD_DIR)/Kernel.elf
 EFI_BIN   := $(BUILD_DIR)/BOOTX64.EFI
 
 # --- Bootloader Compilation Flags ---
-EFI_INCLUDES := -I./inc/UEFI -I./inc -I./common/inc
+EFI_INCLUDES := -I./inc/UEFI -I./inc #-I./common/inc
 EFI_CFLAGS   := $(EFI_INCLUDES) -target x86_64-pc-windows-msvc -g -ffreestanding -fshort-wchar -mno-red-zone -nostdlib -std=c++23 -fno-exceptions -fno-rtti
 EFI_LDFLAGS  := -fuse-ld=lld -Wl,-entry:efi_main -Wl,-subsystem:efi_application
 
@@ -22,7 +22,7 @@ all: bootloader kernel image
 # --- Target: Bootloader Compile ---
 bootloader:
 	@mkdir -p $(BUILD_DIR)
-	$(CC) $(EFI_CFLAGS) $(EFI_LDFLAGS) -o $(EFI_BIN) boot/main.cpp boot/runtime.cpp common/*.cpp
+	$(CC) $(EFI_CFLAGS) $(EFI_LDFLAGS) -o $(EFI_BIN) boot/main.cpp boot/runtime.cpp #common/*.cpp
 
 # --- Target: Kernel Compile (Delegated to kernel/Makefile) ---
 kernel:

@@ -1,161 +1,183 @@
 #pragma once
+#include <stdint.h>
 
 constexpr uint32_t PAGE_TABLE_NUM_ENTRIES = 512;
 constexpr uint64_t PAGE_SIZE = 4096;
 
-namespace PagingEntry {
-    inline void set_present(uint64_t &raw) { raw |= 0x1; }
-    inline void set_rw(uint64_t &raw) { raw |= 0x2; }
-};
+#pragma pack(push, 1)
+class PageTableEntry {
+private:
+  static constexpr uint64_t ADDR_MASK = 0xFFFFFFFFFF000;
 
-union alignas(8) GenericPagingEntry {
 public:
-    uint64_t raw;
-    inline void set_present() { raw |= 0x1; }
-    inline void set_rw() { raw |= 0x2; }
+  uint64_t raw;
+  inline void set_present() { raw |= 0x1; }
+
+  inline void set_rw() { raw |= 0x2; }
+
+  inline bool is_clear() { return raw == 0; }
+
+  inline bool is_clear() const { return raw == 0; }
+
+  inline void set_raw(uint64_t input) { raw = input; }
+
+  inline uint64_t get_addr() const { return raw & ADDR_MASK; }
+
+  inline void set_addr(uint64_t addr) {
+    raw &= ~ADDR_MASK;
+    raw |= addr & ADDR_MASK;
+  }
 };
 
-union alignas(8) PML5E {
+class PageTable {
+private:
+  static constexpr uint32_t NUM_ENTRIES = 512;
+
+public:
+  PageTableEntry pte[NUM_ENTRIES];
+
+  PageTableEntry &operator[](uint32_t idx) { return pte[idx]; }
+
+  const PageTableEntry &operator[](uint32_t idx) const { return pte[idx]; }
+
+  bool is_clear(uint16_t idx) { return pte[idx].is_clear(); }
+
+  bool is_clear(uint16_t idx) const { return pte[idx].is_clear(); }
+
+  PageTableEntry &get(uint32_t idx) { return pte[idx]; }
+};
+
+class PML4E : public PageTableEntry {
+public:
+  union {
     struct {
-        uint64_t P         : 1;  // Bit 0: Present
-        uint64_t RW        : 1;  // Bit 1: Read/Write
-        uint64_t US        : 1;  // Bit 2: User/Supervisor
-        uint64_t PWT       : 1;  // Bit 3: Page-level write-through
-        uint64_t PCD       : 1;  // Bit 4: Page-level cache disable
-        uint64_t A         : 1;  // Bit 5: Accessed
-        uint64_t IGN1      : 1;  // Bit 6: Ignored
-        uint64_t MBZ       : 1;  // Bit 7: Must be zero
-        uint64_t IGN2      : 2;  // Bit 8-10: Ignored
-        uint64_t R         : 1;  // Bit 11: Ignored/HLAT
-        uint64_t PDPT      : 40; // Bits 12-51: Physical Address of PDPT (>> 12)
-        uint64_t IGN3      : 11; // Bits 52-62: Ignored
-        uint64_t XD        : 1;  // Bit 63: Execute Disable
+      uint64_t P : 1;     // Bit 0: Present
+      uint64_t RW : 1;    // Bit 1: Read/Write
+      uint64_t US : 1;    // Bit 2: User/Supervisor
+      uint64_t PWT : 1;   // Bit 3: Page-level write-through
+      uint64_t PCD : 1;   // Bit 4: Page-level cache disable
+      uint64_t A : 1;     // Bit 5: Accessed
+      uint64_t IGN1 : 1;  // Bit 6: Ignored
+      uint64_t MBZ : 1;   // Bit 7: Must be zero
+      uint64_t IGN2 : 2;  // Bit 8-10: Ignored
+      uint64_t R : 1;     // Bit 11: Ignored/HLAT
+      uint64_t PDPT : 40; // Bits 12-51: Physical Address of PDPT (>> 12)
+      uint64_t IGN3 : 11; // Bits 52-62: Ignored
+      uint64_t XD : 1;    // Bit 63: Execute Disable
     } __attribute__((packed));
     uint64_t raw;
+  };
 };
 
-// PML4 Entry (Points to PDP Table)
-union alignas(8) PML4E {
+class PDPTE : public PageTableEntry {
+public:
+  union {
     struct {
-        uint64_t P         : 1;  // Bit 0: Present
-        uint64_t RW        : 1;  // Bit 1: Read/Write
-        uint64_t US        : 1;  // Bit 2: User/Supervisor
-        uint64_t PWT       : 1;  // Bit 3: Page-level write-through
-        uint64_t PCD       : 1;  // Bit 4: Page-level cache disable
-        uint64_t A         : 1;  // Bit 5: Accessed
-        uint64_t IGN1      : 1;  // Bit 6: Ignored
-        uint64_t MBZ       : 1;  // Bit 7: Must be zero
-        uint64_t IGN2      : 2;  // Bit 8-10: Ignored
-        uint64_t R         : 1;  // Bit 11: Ignored/HLAT
-        uint64_t PDPT      : 40; // Bits 12-51: Physical Address of PDPT (>> 12)
-        uint64_t IGN3      : 11; // Bits 52-62: Ignored
-        uint64_t XD        : 1;  // Bit 63: Execute Disable
-    } __attribute__((packed));
-    uint64_t raw;
-};
-
-// PDP Entry (Points to PD Table OR 1 GiB Page)
-union alignas(8) PDPTE {
-    // 1 GB
-    struct {
-        uint64_t P         : 1;  // Bit 0: Present
-        uint64_t RW        : 1;  // Bit 1: Read/Write
-        uint64_t US        : 1;  // Bit 2: User/Supervisor
-        uint64_t PWT       : 1;  // Bit 3: Page-level write-through
-        uint64_t PCD       : 1;  // Bit 4: Page-level cache disable
-        uint64_t A         : 1;  // Bit 5: Accessed
-        uint64_t D         : 1;  // Bit 6: Dirty
-        uint64_t PS        : 1;  // Bit 7: Page Size (0 = points to PDT, 1 = 1 GiB page)
-        uint64_t G         : 1;  // Bit 8: Global
-        uint64_t IGN1      : 2;  // Bit 9-10: Ignored
-        uint64_t R         : 1;  // Bit 11: Ignored/HLAT
-        uint64_t PAT       : 1;  // Bit 12: Memory Type
-        uint64_t IGN2      : 17; // Bit 13-29: Ignored
-        uint64_t PDT       : 22; // Bits 30-51: Physical Address of PDT
-        uint64_t IGN3      : 7;  // Bits 52-58: Available for OS
-        uint64_t PK        : 4;  // Bits 52-58: Protection Key/Ignored
-        uint64_t XD        : 1;  // Bit 63: No Execute
+      uint64_t P : 1;    // Bit 0: Present
+      uint64_t RW : 1;   // Bit 1: Read/Write
+      uint64_t US : 1;   // Bit 2: User/Supervisor
+      uint64_t PWT : 1;  // Bit 3: Page-level write-through
+      uint64_t PCD : 1;  // Bit 4: Page-level cache disable
+      uint64_t A : 1;    // Bit 5: Accessed
+      uint64_t D : 1;    // Bit 6: Dirty
+      uint64_t PS : 1;   // Bit 7: Page Size (0 = points to PDT, 1 = 1 GiB page)
+      uint64_t G : 1;    // Bit 8: Global
+      uint64_t IGN1 : 2; // Bit 9-10: Ignored
+      uint64_t R : 1;    // Bit 11: Ignored/HLAT
+      uint64_t PAT : 1;  // Bit 12: Memory Type
+      uint64_t IGN2 : 17; // Bit 13-29: Ignored
+      uint64_t PDT : 22;  // Bits 30-51: Physical Address of PDT
+      uint64_t IGN3 : 7;  // Bits 52-58: Available for OS
+      uint64_t PK : 4;    // Bits 52-58: Protection Key/Ignored
+      uint64_t XD : 1;    // Bit 63: No Execute
     } __attribute__((packed)) pdpe_1gb;
 
     struct {
-        uint64_t P         : 1;  // Bit 0: Present
-        uint64_t RW        : 1;  // Bit 1: Read/Write
-        uint64_t US        : 1;  // Bit 2: User/Supervisor
-        uint64_t PWT       : 1;  // Bit 3: Page-level write-through
-        uint64_t PCD       : 1;  // Bit 4: Page-level cache disable
-        uint64_t A         : 1;  // Bit 5: Accessed
-        uint64_t IGN1      : 1;  // Bit 6: Ignored
-        uint64_t PS        : 1;  // Bit 7: Page Size (0 = points to PDT, 1 = 1 GiB page)
-        uint64_t IGN2      : 3;  // Bit 8-10: Must be zero (if PS = 0)
-        uint64_t R         : 1;  // Bit 11: Ignored/HLAT
-        uint64_t PDT       : 40; // Bits 12-51: Physical Address of PDT (>> 12)
-        uint64_t IGN3      : 11; // Bits 52-62: Ignored
-        uint64_t XD        : 1;  // Bit 63: No Execute
+      uint64_t P : 1;    // Bit 0: Present
+      uint64_t RW : 1;   // Bit 1: Read/Write
+      uint64_t US : 1;   // Bit 2: User/Supervisor
+      uint64_t PWT : 1;  // Bit 3: Page-level write-through
+      uint64_t PCD : 1;  // Bit 4: Page-level cache disable
+      uint64_t A : 1;    // Bit 5: Accessed
+      uint64_t IGN1 : 1; // Bit 6: Ignored
+      uint64_t PS : 1;   // Bit 7: Page Size (0 = points to PDT, 1 = 1 GiB page)
+      uint64_t IGN2 : 3; // Bit 8-10: Must be zero (if PS = 0)
+      uint64_t R : 1;    // Bit 11: Ignored/HLAT
+      uint64_t PDT : 40; // Bits 12-51: Physical Address of PDT (>> 12)
+      uint64_t IGN3 : 11; // Bits 52-62: Ignored
+      uint64_t XD : 1;    // Bit 63: No Execute
     } __attribute__((packed)) pdpe;
 
     uint64_t raw;
+  };
 };
 
-union alignas(8) PDE {
-    // 2MB
+class PDTE : public PageTableEntry {
+public:
+  union {
     struct {
-        uint64_t P         : 1;  // Bit 0: Present
-        uint64_t RW        : 1;  // Bit 1: Read/Write
-        uint64_t US        : 1;  // Bit 2: User/Supervisor
-        uint64_t PWT       : 1;  // Bit 3: Page-level write-through
-        uint64_t PCD       : 1;  // Bit 4: Page-level cache disable
-        uint64_t A         : 1;  // Bit 5: Accessed
-        uint64_t D         : 1;  // Bit 6: Dirty
-        uint64_t PS        : 1;  // Bit 7: Must be 0 for 4 KB Page Table, 1 for 2MB
-        uint64_t G         : 1;  // Bit 8: Global
-        uint64_t IGN1      : 2;  // Bit 9-10: Ignored
-        uint64_t R         : 1;  // Bit 11: Ignored/HLAT
-        uint64_t PAT       : 1;  // Bit 12: Memory Type
-        uint64_t MBZ       : 8;  // Bits 13-20: Must be Zero
-        uint64_t PT        : 31; // Bits 21-51: Physical address of 2MB PT
-        uint64_t IGN2      : 7;  // Bits 52-58: Ignored
-        uint64_t PK        : 4;  // Bits 59-62: Protection Key/Ignored
-        uint64_t XD        : 1;  // Bit 63: No Execute
+      uint64_t P : 1;    // Bit 0: Present
+      uint64_t RW : 1;   // Bit 1: Read/Write
+      uint64_t US : 1;   // Bit 2: User/Supervisor
+      uint64_t PWT : 1;  // Bit 3: Page-level write-through
+      uint64_t PCD : 1;  // Bit 4: Page-level cache disable
+      uint64_t A : 1;    // Bit 5: Accessed
+      uint64_t D : 1;    // Bit 6: Dirty
+      uint64_t PS : 1;   // Bit 7: Must be 0 for 4 KB Page Table, 1 for 2MB
+      uint64_t G : 1;    // Bit 8: Global
+      uint64_t IGN1 : 2; // Bit 9-10: Ignored
+      uint64_t R : 1;    // Bit 11: Ignored/HLAT
+      uint64_t PAT : 1;  // Bit 12: Memory Type
+      uint64_t MBZ : 8;  // Bits 13-20: Must be Zero
+      uint64_t PT : 31;  // Bits 21-51: Physical address of 2MB PT
+      uint64_t IGN2 : 7; // Bits 52-58: Ignored
+      uint64_t PK : 4;   // Bits 59-62: Protection Key/Ignored
+      uint64_t XD : 1;   // Bit 63: No Execute
     } __attribute__((packed)) pde_2mb;
 
     struct {
-        uint64_t P         : 1;  // Bit 0: Present
-        uint64_t RW        : 1;  // Bit 1: Read/Write
-        uint64_t US        : 1;  // Bit 2: User/Supervisor
-        uint64_t PWT       : 1;  // Bit 3: Page-level write-through
-        uint64_t PCD       : 1;  // Bit 4: Page-level cache disable
-        uint64_t A         : 1;  // Bit 5: Accessed
-        uint64_t IGN       : 1;  // Bit 6: Ignored
-        uint64_t PS        : 1;  // Bit 7: Must be 1 for 2 MB Page, 0 for 4KB
-        uint64_t IGN1      : 2;  // Bit 8-10: Ignored
-        uint64_t R         : 1;  // Bit 11: Ignored/HLAT
-        uint64_t AVL_Low   : 3;  // Bits 9-11: Available for OS
-        uint64_t PT        : 40; // Bit 12-51: PDT
-        uint64_t IGN2      : 11; // Bits 52-62: Ignored
-        uint64_t XD        : 1;  // Bit 63: No Execute
+      uint64_t P : 1;       // Bit 0: Present
+      uint64_t RW : 1;      // Bit 1: Read/Write
+      uint64_t US : 1;      // Bit 2: User/Supervisor
+      uint64_t PWT : 1;     // Bit 3: Page-level write-through
+      uint64_t PCD : 1;     // Bit 4: Page-level cache disable
+      uint64_t A : 1;       // Bit 5: Accessed
+      uint64_t IGN : 1;     // Bit 6: Ignored
+      uint64_t PS : 1;      // Bit 7: Must be 1 for 2 MB Page, 0 for 4KB
+      uint64_t IGN1 : 2;    // Bit 8-10: Ignored
+      uint64_t R : 1;       // Bit 11: Ignored/HLAT
+      uint64_t AVL_Low : 3; // Bits 9-11: Available for OS
+      uint64_t PT : 40;     // Bit 12-51: PDT
+      uint64_t IGN2 : 11;   // Bits 52-62: Ignored
+      uint64_t XD : 1;      // Bit 63: No Execute
     } __attribute__((packed)) pde;
 
     uint64_t raw;
+  };
 };
 
-union alignas(8) PTE {
+class PTE : public PageTableEntry {
+public:
+  union {
     struct {
-        uint64_t P         : 1;  // Bit 0: Present
-        uint64_t RW        : 1;  // Bit 1: Read/Write
-        uint64_t US        : 1;  // Bit 2: User/Supervisor
-        uint64_t PWT       : 1;  // Bit 3: Page-level write-through
-        uint64_t PCD       : 1;  // Bit 4: Page-level cache disable
-        uint64_t A         : 1;  // Bit 5: Accessed
-        uint64_t D         : 1;  // Bit 6: Dirty
-        uint64_t PAT       : 1;  // Bit 7: Memory Type
-        uint64_t G         : 1;  // Bit 8: Global
-        uint64_t IGN1      : 2;  // Bit 9-10: Ignored
-        uint64_t R         : 1;  // Bit 11: Ignored/HLAT
-        uint64_t PAGE      : 40; // Bit 12-51: PDT
-        uint64_t IGN2      : 7;  // Bits 52-58: Available for OS
-        uint64_t PK        : 4;  // Bits 52-58: Protection Key/Ignored
-        uint64_t XD        : 1;  // Bit 63: No Execute
+      uint64_t P : 1;     // Bit 0: Present
+      uint64_t RW : 1;    // Bit 1: Read/Write
+      uint64_t US : 1;    // Bit 2: User/Supervisor
+      uint64_t PWT : 1;   // Bit 3: Page-level write-through
+      uint64_t PCD : 1;   // Bit 4: Page-level cache disable
+      uint64_t A : 1;     // Bit 5: Accessed
+      uint64_t D : 1;     // Bit 6: Dirty
+      uint64_t PAT : 1;   // Bit 7: Memory Type
+      uint64_t G : 1;     // Bit 8: Global
+      uint64_t IGN1 : 2;  // Bit 9-10: Ignored
+      uint64_t R : 1;     // Bit 11: Ignored/HLAT
+      uint64_t PAGE : 40; // Bit 12-51: PDT
+      uint64_t IGN2 : 7;  // Bits 52-58: Available for OS
+      uint64_t PK : 4;    // Bits 52-58: Protection Key/Ignored
+      uint64_t XD : 1;    // Bit 63: No Execute
     } __attribute__((packed));
 
     uint64_t raw;
+  };
 };
+#pragma pack(pop)
