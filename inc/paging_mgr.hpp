@@ -9,7 +9,7 @@ public:
     m_pml4t = reinterpret_cast<PageTable *>(m_allocator(1));
   }
 
-  PageTable *get_or_create_table(PageTable *table, uint16_t idx) {
+  PageTable *get_or_create_table(PageTable *table, uint16_t idx) const {
     auto &pte = table->get(idx);
     if (pte.is_clear()) {
       // TODO check if allocation is successful. Ignore for now
@@ -23,7 +23,7 @@ public:
   }
 
   // Standard 4KB mapping
-  bool map_page(uint64_t paddr, uint64_t vaddr) {
+  bool map_page(uint64_t paddr, uint64_t vaddr) const {
     if (m_pml4t == nullptr)
       return false;
 
@@ -39,11 +39,20 @@ public:
     return true;
   }
 
-  bool map_page_2mb(uint64_t paddr, uint64_t vaddr) {
+  bool map_page_2mb(uint64_t paddr, uint64_t vaddr) const {
     auto offsets = get_offsets(vaddr);
+    auto pdpt = get_or_create_table(m_pml4t, offsets.pml4_idx);
+    auto pdt = get_or_create_table(pdpt, offsets.pdpt_idx);
+
+    auto &pdte = reinterpret_cast<PDTE &>(pdpt->get(offsets.pdt_idx));
+    pdte.pde_2mb.PT = paddr >> 21;
+    pdte.pde_2mb.P = 1;
+    pdte.pde_2mb.RW = 1;
+    pdte.pde_2mb.PS = 1;
+    return true;
   }
 
-  bool map_page_1gb(uint64_t paddr, uint64_t vaddr) {
+  bool map_page_1gb(uint64_t paddr, uint64_t vaddr) const {
     auto offsets = get_offsets(vaddr);
     auto pdpt = get_or_create_table(m_pml4t, offsets.pml4_idx);
     auto &pdpte = reinterpret_cast<PDPTE &>(pdpt->get(offsets.pdpt_idx));
@@ -51,6 +60,7 @@ public:
     pdpte.pdpe_1gb.RW = 1;
     pdpte.pdpe_1gb.PS = 1; // 1GB mapping
     pdpte.pdpe_1gb.PDT = paddr >> 30;
+    return true;
   }
 private:
   struct page_offsets {
@@ -60,7 +70,7 @@ private:
     uint16_t pt_idx;
   };
 
-  page_offsets get_offsets(uint64_t addr) {
+  page_offsets get_offsets(uint64_t addr) const {
     return page_offsets{
         static_cast<uint16_t>((addr >> 39) & 0x1FF),
         static_cast<uint16_t>((addr >> 30) & 0x1FF),
