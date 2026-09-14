@@ -74,20 +74,20 @@ class PDPTE  {
 public:
   union {
     struct {
-      uint64_t P : 1;    // Bit 0: Present
-      uint64_t RW : 1;   // Bit 1: Read/Write
-      uint64_t US : 1;   // Bit 2: User/Supervisor
-      uint64_t PWT : 1;  // Bit 3: Page-level write-through
-      uint64_t PCD : 1;  // Bit 4: Page-level cache disable
-      uint64_t A : 1;    // Bit 5: Accessed
-      uint64_t D : 1;    // Bit 6: Dirty
-      uint64_t PS : 1;   // Bit 7: Page Size (0 = points to PDT, 1 = 1 GiB page)
-      uint64_t G : 1;    // Bit 8: Global
-      uint64_t IGN1 : 2; // Bit 9-10: Ignored
-      uint64_t R : 1;    // Bit 11: Ignored/HLAT
-      uint64_t PAT : 1;  // Bit 12: Memory Type
+      uint64_t P : 1;     // Bit 0: Present
+      uint64_t RW : 1;    // Bit 1: Read/Write
+      uint64_t US : 1;    // Bit 2: User/Supervisor
+      uint64_t PWT : 1;   // Bit 3: Page-level write-through
+      uint64_t PCD : 1;   // Bit 4: Page-level cache disable
+      uint64_t A : 1;     // Bit 5: Accessed
+      uint64_t D : 1;     // Bit 6: Dirty
+      uint64_t PS : 1;    // Bit 7: Page Size (0 = points to PDT, 1 = 1 GiB page)
+      uint64_t G : 1;     // Bit 8: Global
+      uint64_t IGN1 : 2;  // Bit 9-10: Ignored
+      uint64_t R : 1;     // Bit 11: Ignored/HLAT
+      uint64_t PAT : 1;   // Bit 12: Memory Type
       uint64_t IGN2 : 17; // Bit 13-29: Ignored
-      uint64_t PDT : 22;  // Bits 30-51: Physical Address of PDT
+      uint64_t PAGE : 22; // Bits 30-51: Physical Address of PDT
       uint64_t IGN3 : 7;  // Bits 52-58: Available for OS
       uint64_t PK : 4;    // Bits 52-58: Protection Key/Ignored
       uint64_t XD : 1;    // Bit 63: No Execute
@@ -117,23 +117,23 @@ class PDTE  {
 public:
   union {
     struct {
-      uint64_t P : 1;    // Bit 0: Present
-      uint64_t RW : 1;   // Bit 1: Read/Write
-      uint64_t US : 1;   // Bit 2: User/Supervisor
-      uint64_t PWT : 1;  // Bit 3: Page-level write-through
-      uint64_t PCD : 1;  // Bit 4: Page-level cache disable
-      uint64_t A : 1;    // Bit 5: Accessed
-      uint64_t D : 1;    // Bit 6: Dirty
-      uint64_t PS : 1;   // Bit 7: Must be 0 for 4 KB Page Table, 1 for 2MB
-      uint64_t G : 1;    // Bit 8: Global
-      uint64_t IGN1 : 2; // Bit 9-10: Ignored
-      uint64_t R : 1;    // Bit 11: Ignored/HLAT
-      uint64_t PAT : 1;  // Bit 12: Memory Type
-      uint64_t MBZ : 8;  // Bits 13-20: Must be Zero
-      uint64_t PT : 31;  // Bits 21-51: Physical address of 2MB PT
-      uint64_t IGN2 : 7; // Bits 52-58: Ignored
-      uint64_t PK : 4;   // Bits 59-62: Protection Key/Ignored
-      uint64_t XD : 1;   // Bit 63: No Execute
+      uint64_t P : 1;      // Bit 0: Present
+      uint64_t RW : 1;     // Bit 1: Read/Write
+      uint64_t US : 1;     // Bit 2: User/Supervisor
+      uint64_t PWT : 1;    // Bit 3: Page-level write-through
+      uint64_t PCD : 1;    // Bit 4: Page-level cache disable
+      uint64_t A : 1;      // Bit 5: Accessed
+      uint64_t D : 1;      // Bit 6: Dirty
+      uint64_t PS : 1;     // Bit 7: Must be 0 for 4 KB Page Table, 1 for 2MB
+      uint64_t G : 1;      // Bit 8: Global
+      uint64_t IGN1 : 2;   // Bit 9-10: Ignored
+      uint64_t R : 1;      // Bit 11: Ignored/HLAT
+      uint64_t PAT : 1;    // Bit 12: Memory Type
+      uint64_t MBZ : 8;    // Bits 13-20: Must be Zero
+      uint64_t PAGE : 31;  // Bits 21-51: Physical address of 2MB PT
+      uint64_t IGN2 : 7;   // Bits 52-58: Ignored
+      uint64_t PK : 4;     // Bits 59-62: Protection Key/Ignored
+      uint64_t XD : 1;     // Bit 63: No Execute
     } __attribute__((packed)) pde_2mb;
 
     struct {

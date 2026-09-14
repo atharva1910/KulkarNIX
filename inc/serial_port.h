@@ -24,6 +24,7 @@ public:
       HAL::outb(LINE_CTRL_REG, 0x80);
       HAL::outb(BAUD_LSB, 0x3);
       HAL::outb(BAUD_MSB, 0x0);
+      HAL::outb(LINE_CTRL_REG, 0x03);
       HAL::outb(FIFO_CTRL_REG, 0xC7);
       HAL::outb(MODEM_CTRL_REG, 0x0F);
     }

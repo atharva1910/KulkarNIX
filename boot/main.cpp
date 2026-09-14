@@ -3,7 +3,7 @@
 #include "kernel.h"
 #include "memory_map.h"
 #include "KulkarNIX.h"
-#include "paging_mgr.hpp"
+#include "paging_mgr.h"
 #include "serial_port.h"
 
 constexpr uint64_t ONE_KB = 1 * 1024;

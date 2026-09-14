@@ -1,3 +1,4 @@
+#include "serial_port.h"
 
 __asm__(
     /* Set up the global function __start */
@@ -33,5 +34,7 @@ __asm__(
 
 extern "C" void main()
 {
-    asm("hlt");
+  SerialPort sp;
+  sp.write("\nTEST\n");
+  asm("hlt");
 }

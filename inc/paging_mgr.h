@@ -44,7 +44,7 @@ public:
     auto pdt = get_or_create_table(pdpt, offsets.pdpt_idx);
 
     auto &pdte = reinterpret_cast<PDTE &>(pdt->get(offsets.pdt_idx));
-    pdte.pde_2mb.PT = paddr >> 21;
+    pdte.pde_2mb.PAGE = paddr >> 21;
     pdte.pde_2mb.P = 1;
     pdte.pde_2mb.RW = 1;
     pdte.pde_2mb.PS = 1;
@@ -58,7 +58,7 @@ public:
     pdpte.pdpe_1gb.P = 1;
     pdpte.pdpe_1gb.RW = 1;
     pdpte.pdpe_1gb.PS = 1; // 1GB mapping
-    pdpte.pdpe_1gb.PDT = paddr >> 30;
+    pdpte.pdpe_1gb.PAGE = paddr >> 30;
     return true;
   }
 
