@@ -11,6 +11,7 @@ private:
 
 public:
   uint64_t raw;
+
   inline void set_present() { raw |= 0x1; }
 
   inline void set_rw() { raw |= 0x2; }
@@ -47,7 +48,7 @@ public:
   PageTableEntry &get(uint32_t idx) { return pte[idx]; }
 };
 
-class PML4E : public PageTableEntry {
+class PML4E {
 public:
   union {
     struct {
@@ -69,7 +70,7 @@ public:
   };
 };
 
-class PDPTE : public PageTableEntry {
+class PDPTE  {
 public:
   union {
     struct {
@@ -112,7 +113,7 @@ public:
   };
 };
 
-class PDTE : public PageTableEntry {
+class PDTE  {
 public:
   union {
     struct {
@@ -156,7 +157,7 @@ public:
   };
 };
 
-class PTE : public PageTableEntry {
+class PTE  {
 public:
   union {
     struct {

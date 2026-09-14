@@ -8,7 +8,7 @@ class Kernel {
 public:
     BootCtx *ctx = nullptr;
     uintptr_t m_kernelEntry;
-    uintptr_t m_kernelPaddr;
+    uint8_t *m_kernelPaddr;
     UINTN m_kernelPages;
     UINTN m_minAddr;
     UINTN m_maxAddr;
@@ -49,6 +49,8 @@ public:
         }
 
         m_kernelEntry = elf_header->e_entry;
+        ctx->print(L"Elf entry: ");
+        ctx->print_hex(elf_header->e_entry);
 
         UINTN phsize = elf_header->e_phnum * elf_header->e_phentsize;
         ELF_PROG_HEADER *pheader = nullptr;
@@ -77,12 +79,15 @@ public:
         m_kernelSize = m_maxAddr - m_minAddr;
         m_kernelPages = (m_kernelSize + 4095) >> 12;
 
-        uint8_t *m_kernelPaddr = nullptr;
+        m_kernelPaddr = nullptr;
         if (EFI_SUCCESS !=
             ctx->boot_services()->AllocatePages(AllocateAnyPages,EfiLoaderData, m_kernelPages, (EFI_PHYSICAL_ADDRESS *)&m_kernelPaddr))
             ctx->halt(L"FAILED TO ALLOCATE PAGES FOR KERNEL");
 
         ctx->boot_services()->SetMem(m_kernelPaddr, m_kernelPages << 12, 0);
+
+        ctx->print(L"Kernel Base: ");
+        ctx->print_hex(reinterpret_cast<uint64_t>(m_kernelPaddr));
 
         uint8_t *itr = m_kernelPaddr;
         for (uint16_t i = 0; i < elf_header->e_phnum; i++) {

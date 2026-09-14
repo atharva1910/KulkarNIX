@@ -1,5 +1,6 @@
 #pragma once
 #include "efi.h"
+#include "serial_port.h"
 
 class BootCtx {
 public:
@@ -30,6 +31,7 @@ public:
       if (string)
           print(string);
       m_st->BootServices->Stall(0xFFFFFFFF);
+
   }
 
   void print_hex(uint64_t num)
@@ -57,6 +59,8 @@ public:
       print(&numstr[i + 1]);
       print(L"\n");
   }
+
+
 
 private:
     EFI_SYSTEM_TABLE *m_st;

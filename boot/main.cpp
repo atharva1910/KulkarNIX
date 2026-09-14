@@ -4,13 +4,13 @@
 #include "memory_map.h"
 #include "KulkarNIX.h"
 #include "paging_mgr.hpp"
+#include "serial_port.h"
 
 constexpr uint64_t ONE_KB = 1 * 1024;
 constexpr uint64_t ONE_MB = ONE_KB * 1024;
 constexpr uint64_t ONE_GB = ONE_MB * 1024;
 
 BootCtx *ctx = nullptr;
-PML4E *pml4t = nullptr;
 
 EFI_STATUS
 init_gop() {
@@ -40,12 +40,15 @@ bool is_1GB_map_supported(const UINTN total_mem) {
 }
 
 EFI_STATUS
-setup_paging(const PagingManager<PAGE_ALLOCATOR> &pagingMgr,const Kernel &kernel, const UINTN total_mem)
+setup_paging(const PagingManager<PAGE_ALLOCATOR> &pagingMgr,
+             const Kernel &kernel,
+             const UINTN total_mem)
 {
   const UINTN num_gb = (total_mem + (ONE_GB - 1)) / ONE_GB;
 
   uint64_t paddr = 0x0;
   uint64_t vaddr = HIGHER_MEMORY_VADDR;
+
   for (int i = 0; i < num_gb; i++) {
     pagingMgr.map_page_1gb(paddr, vaddr);
     paddr += ONE_GB;
@@ -53,9 +56,8 @@ setup_paging(const PagingManager<PAGE_ALLOCATOR> &pagingMgr,const Kernel &kernel
   }
 
   const UINTN num_pte = kernel.m_kernelPages;
-  paddr = kernel.m_kernelPaddr;
+  paddr = reinterpret_cast<uint64_t>(kernel.m_kernelPaddr);
   vaddr = KERNEL_START_VADDR;
-
   for (int i = 0; i < num_pte; i++) {
       pagingMgr.map_page(paddr, vaddr);
       paddr += PAGE_SIZE;
@@ -74,44 +76,56 @@ identity_map_image(const PagingManager<PAGE_ALLOCATOR> &pagingMgr)
   UINT64 image_base = reinterpret_cast<UINT64>(ctx->loaded_image()->ImageBase);
   UINT64 image_size = reinterpret_cast<UINT64>(ctx->loaded_image()->ImageSize);
 
-  // To identity map the image, we will use 2MB identity paging
-  // Round up to nearest 2 MB
   constexpr UINT64 TWO_MB = 2 * ONE_MB;
   const UINT16 image_size_2mb = (image_size + (TWO_MB - 1)) / TWO_MB;
   image_base = image_base & ~(TWO_MB - 1);
+
   for (int i = 0; i < image_size_2mb; i++) {
-      auto addr = image_base + (i * TWO_MB);
+    auto addr = image_base + (i * TWO_MB);
+      ctx->print(L"Mapping TWO MB Pages: ");
+      ctx->print_hex(addr);
       if (!pagingMgr.map_page_2mb(addr, addr)) {
           ctx->halt(L"FAILED TO MAP 2MB PAGE");
       }
   }
 }
 
-void *page_allocator(uint64_t num_pages) {
-  return nullptr;
+void *
+page_allocator(uint64_t num_pages)
+{
+    void *ret = nullptr;
+    if (EFI_SUCCESS == ctx->boot_services()->AllocatePages(
+                           AllocateAnyPages, EfiLoaderData, num_pages,
+                           (EFI_PHYSICAL_ADDRESS *)&ret)) {
+        ctx->boot_services()->SetMem(ret, PAGE_SIZE * num_pages, 0);
+    }
+    ctx->print(L"Page_allocator: ");
+    ctx->print_hex(reinterpret_cast<uint64_t>(ret));
+    return ret;
 }
 
 EFI_STATUS
-efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
+efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
+{
   auto boot_ctx = BootCtx(SystemTable, ImageHandle);
-
   ctx = &boot_ctx;
-
-  auto pagingMgr = PagingManager<PAGE_ALLOCATOR>(page_allocator);
+  ctx->clrscr();
 
   EFI_LOADED_IMAGE_PROTOCOL *loadedImage;
   EFI_GUID guid = EFI_LOADED_IMAGE_PROTOCOL_GUID;
   if (EFI_ERROR(HandleProtocol<EFI_LOADED_IMAGE_PROTOCOL>(ctx, ImageHandle,
                                                           guid, &loadedImage)))
-    ctx->halt(L"FAILED TO LOAD LOADED IMAGE PROTOCOL");
+      ctx->halt(L"FAILED TO LOAD LOADED IMAGE PROTOCOL");
 
   ctx->set_loaded_image(loadedImage);
-  ctx->clrscr();
 
   if (EFI_ERROR(ctx->boot_services()->SetWatchdogTimer(0, 0, 0, nullptr)))
-    ctx->halt(L"FAILED TO SET WATCHDOG TIMER");
+      ctx->halt(L"FAILED TO SET WATCHDOG TIMER");
+
+  auto pagingMgr = PagingManager<PAGE_ALLOCATOR>(page_allocator);
 
   init_gop();
+
   identity_map_image(pagingMgr);
 
   Kernel kernel(ctx);
@@ -122,19 +136,20 @@ efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
 
   ctx->print(L"Jumping to kernel: ");
   ctx->print_hex(kernel.m_kernelEntry);
+
   mem_map.refresh();
 
   if (EFI_ERROR(
           ctx->boot_services()->ExitBootServices(ImageHandle, mem_map.m_key)))
     ctx->halt(L"FAILED TO EXIT BOOT SERVICES");
 
-  asm volatile("mov %[pml4], %%rax\n\t"
-               "mov %%rax, %%cr3\n\t"
+  asm volatile("mov %[pml4], %%cr3\n\t"
                //"mov %[args], %%r13\n\t"
                "jmp *%[entry]\n\t"
                :
-               : [pml4] "r"(pml4t), [entry] "r"(kernel.m_kernelEntry)
+               : [pml4] "r"(pagingMgr.get_base()),
+                 [entry] "r"(kernel.m_kernelEntry)
                //[args] "r" (kernel)
-               : "memory", "rax");
+               : "memory");
   return EFI_SUCCESS;
 }

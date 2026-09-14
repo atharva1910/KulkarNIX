@@ -42,6 +42,8 @@ image: bootloader kernel
 run: all
 	$(QEMU) -bios OVMF.fd -serial stdio -d cpu_reset -drive file=$(IMAGE),format=raw -display none -m 4G
 
+display_run: all
+	$(QEMU) -bios OVMF.fd -serial stdio -d cpu_reset -drive file=$(IMAGE),format=raw -m 4G
 # --- Target: Clean Artifacts ---
 clean:
 	rm -rf $(BUILD_DIR) $(IMAGE)
