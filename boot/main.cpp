@@ -4,6 +4,7 @@
 #include "memory_map.h"
 #include "KulkarNIX.h"
 #include "paging_mgr.h"
+#include "kernel_args.h"
 #include "serial_port.h"
 
 constexpr uint64_t ONE_KB = 1 * 1024;
@@ -11,6 +12,18 @@ constexpr uint64_t ONE_MB = ONE_KB * 1024;
 constexpr uint64_t ONE_GB = ONE_MB * 1024;
 
 BootCtx *ctx = nullptr;
+
+void *
+page_allocator(uint64_t num_pages)
+{
+    void *ret = nullptr;
+    if (EFI_SUCCESS == ctx->boot_services()->AllocatePages(
+                           AllocateAnyPages, EfiLoaderData, num_pages,
+                           (EFI_PHYSICAL_ADDRESS *)&ret)) {
+        ctx->boot_services()->SetMem(ret, PAGE_SIZE * num_pages, 0);
+    }
+    return ret;
+}
 
 EFI_STATUS
 init_gop() {
@@ -37,6 +50,31 @@ init_gop() {
 bool is_1GB_map_supported(const UINTN total_mem) {
   // check cpuid here
   return true;
+}
+
+void*
+setup_kernel_args(const MemoryMap &mm, const Kernel &kernel)
+{
+    uint64_t total_size = mm.m_size + sizeof(KernelArgs);
+    uint64_t pages = CEILING<uint64_t>(total_size, PAGE_SIZE);
+    auto kernel_args = reinterpret_cast<KernelArgs *>(page_allocator(pages));
+    if (kernel_args == nullptr) {
+        ctx->halt(L"FAILED TO SETUP KERNEL ARGS");
+    }
+
+    kernel_args->kernel_info.kernelPages = kernel.m_kernelPages;
+    kernel_args->kernel_info.kernelSize = kernel.m_kernelSize;
+    kernel_args->kernel_info.minAddr = kernel.m_minAddr;
+
+    kernel_args->mem_map_info.dsize = mm.m_dsize;
+    kernel_args->mem_map_info.size = mm.m_size;
+    kernel_args->mem_map_info.num_desc = mm.m_num_desc;
+    kernel_args->mem_map_info.mm = PA2VA<uint8_t*>(mm.mm);
+
+    const char * str = "KERNELARG";
+    for(int i = 0; i < sizeof(kernel_args->magic); i++)
+        kernel_args->magic[i] = str[i];
+    return kernel_args;
 }
 
 EFI_STATUS
@@ -90,19 +128,7 @@ identity_map_image(const PagingManager<PAGE_ALLOCATOR> &pagingMgr)
   }
 }
 
-void *
-page_allocator(uint64_t num_pages)
-{
-    void *ret = nullptr;
-    if (EFI_SUCCESS == ctx->boot_services()->AllocatePages(
-                           AllocateAnyPages, EfiLoaderData, num_pages,
-                           (EFI_PHYSICAL_ADDRESS *)&ret)) {
-        ctx->boot_services()->SetMem(ret, PAGE_SIZE * num_pages, 0);
-    }
-    ctx->print(L"Page_allocator: ");
-    ctx->print_hex(reinterpret_cast<uint64_t>(ret));
-    return ret;
-}
+
 
 EFI_STATUS
 efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
@@ -125,11 +151,18 @@ efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
   auto pagingMgr = PagingManager<PAGE_ALLOCATOR>(page_allocator);
 
   init_gop();
-
   identity_map_image(pagingMgr);
 
   Kernel kernel(ctx);
   MemoryMap mem_map(ctx);
+
+  auto kernel_args = setup_kernel_args(mem_map, kernel);
+  if (kernel_args == nullptr) {
+    ctx->halt(L"FAILED TO SETUP KERNEL ARGS");
+  } else {
+      ctx->print(L"Kernel args: ");
+      ctx->print_hex(reinterpret_cast<uint64_t>(kernel_args));
+  }
 
   if (EFI_ERROR(setup_paging(pagingMgr, kernel, mem_map.m_total_mem)))
     ctx->halt(L"FAILED TO SETUP PAGES");
@@ -144,12 +177,12 @@ efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     ctx->halt(L"FAILED TO EXIT BOOT SERVICES");
 
   asm volatile("mov %[pml4], %%cr3\n\t"
-               //"mov %[args], %%r13\n\t"
+               "mov %[args], %%rdi\n\t"
                "jmp *%[entry]\n\t"
                :
                : [pml4] "r"(pagingMgr.get_base()),
-                 [entry] "r"(kernel.m_kernelEntry)
-               //[args] "r" (kernel)
-               : "memory");
+                 [entry] "r"(kernel.m_kernelEntry),
+                 [args] "r" (reinterpret_cast<uint64_t>(kernel_args))
+               : "memory", "rdi");
   return EFI_SUCCESS;
 }
