@@ -7,12 +7,12 @@
 class Kernel {
 public:
     BootCtx *ctx = nullptr;
-    uintptr_t m_kernelEntry;
+    uint64_t m_kernelEntry;
+    uint64_t m_kernelPages;
+    uint64_t m_minAddr;
+    uint64_t m_maxAddr;
+    uint64_t m_kernelSize;
     uint8_t *m_kernelPaddr;
-    UINTN m_kernelPages;
-    UINTN m_minAddr;
-    UINTN m_maxAddr;
-    UINTN m_kernelSize;
 
 
     Kernel(BootCtx *c) {
