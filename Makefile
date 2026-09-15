@@ -8,6 +8,7 @@ IMAGE     := nvme.img
 BUILD_DIR := build
 KERNEL    := $(BUILD_DIR)/Kernel.elf
 EFI_BIN   := $(BUILD_DIR)/BOOTX64.EFI
+LINKER_SCRIPT := linker.ld
 
 # --- Bootloader Compilation Flags ---
 EFI_INCLUDES := -I./inc/UEFI -I./inc #-I./common/inc
