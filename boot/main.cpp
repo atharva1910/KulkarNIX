@@ -62,17 +62,17 @@ setup_kernel_args(const MemoryMap &mm, const Kernel &kernel)
         ctx->halt(L"FAILED TO SETUP KERNEL ARGS");
     }
 
-    kernel_args->kernel_info.kernelPages = kernel.m_kernelPages;
-    kernel_args->kernel_info.kernelSize = kernel.m_kernelSize;
-    kernel_args->kernel_info.minAddr = kernel.m_minAddr;
+    kernel_args->k_info.kernelPages = kernel.m_kernelPages;
+    kernel_args->k_info.kernelSize = kernel.m_kernelSize;
+    kernel_args->k_info.minAddr = kernel.m_minAddr;
 
-    kernel_args->mem_map_info.dsize = mm.m_dsize;
-    kernel_args->mem_map_info.size = mm.m_size;
-    kernel_args->mem_map_info.num_desc = mm.m_num_desc;
-    kernel_args->mem_map_info.mm = PA2VA<uint8_t*>(mm.mm);
+    kernel_args->mm_info.dsize = mm.m_dsize;
+    kernel_args->mm_info.size = mm.m_size;
+    kernel_args->mm_info.num_desc = mm.m_num_desc;
+    kernel_args->mm_info.mm = reinterpret_cast<uint8_t *>(PA2VA<uint8_t*>(mm.mm));
 
-    const char * str = "KERNELARG";
-    for(int i = 0; i < sizeof(kernel_args->magic); i++)
+    const char * str = "KNIXARG";
+    for(int i = 0; i < sizeof(kernel_args->magic) - 1; i++)
         kernel_args->magic[i] = str[i];
     return kernel_args;
 }

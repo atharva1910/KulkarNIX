@@ -1,6 +1,5 @@
 #include "KulkarNIX.h"
-#include "kernel_args.h"
-#include "serial_port.h"
+#include "memory_map.h"
 
 __asm__(
     /* Set up the global function __start */
@@ -40,7 +39,10 @@ __asm__(
 extern "C"
 void main(void *args)
 {
-    auto kernel_args = reinterpret_cast<KernelArgs *>(PA2VA<void *>(args));
-    SerialPort sp;
-    sp.write("Welcome to kernel :) ");
+    Logger logger;
+    logger.print("Welcome to the kernel :)");
+
+    auto m_args = reinterpret_cast<KernelArgs *>(PA2VA<void *>(args));
+    MemoryMap mm(logger,m_args->mm_info);
+
 }

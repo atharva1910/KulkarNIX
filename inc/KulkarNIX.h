@@ -15,7 +15,7 @@ constexpr T CEILING(T x, T y) {
 }
 
 template <typename T>
-constexpr T PA2VA(T PA)
+constexpr uint64_t PA2VA(T PA)
 {
-    return reinterpret_cast<T>(reinterpret_cast<uint64_t>(PA) + HIGHER_MEMORY_VADDR);
+    return reinterpret_cast<uint64_t>(PA) + HIGHER_MEMORY_VADDR;
 }

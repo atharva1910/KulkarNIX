@@ -25,7 +25,8 @@
  {
   "directory": "/home/qwn/KulkarNIX",
   "arguments": [
-   "clang++",
+      "clang++",
+   "-I./inc",
    "-target",
    "x86_64-unknown-none-elf",
    "-ffreestanding",
