@@ -2,7 +2,6 @@
 #include <stdint.h>
 
 constexpr uint32_t PAGE_TABLE_NUM_ENTRIES = 512;
-constexpr uint64_t PAGE_SIZE = 4096;
 
 #pragma pack(push, 1)
 class PageTableEntry {
