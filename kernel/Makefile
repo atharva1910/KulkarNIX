@@ -20,8 +20,8 @@ CFLAGS  := -target x86_64-unknown-none-elf \
            -fno-exceptions -fno-rtti \
            -nostdlib \
            -std=c++20 \
-		   -mcmodel=kernel	\
-           -I../inc
+		   -mcmodel=large	\
+           -I../inc      \
 
 LDFLAGS := -T $(LINKER_SCRIPT)
 
