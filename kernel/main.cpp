@@ -43,6 +43,7 @@ void main(void *args)
     logger.print("Welcome to the kernel :)");
 
     auto m_args = reinterpret_cast<KernelArgs *>(PA2VA<void *>(args));
+    logger.print(m_args->magic);
     MemoryMap mm(logger,m_args->mm_info);
 
 }

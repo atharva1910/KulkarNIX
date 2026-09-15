@@ -17,7 +17,6 @@ class MemoryMap {
       size = mm_info.size;
       num_desc = mm_info.num_desc;
       mm = mm_info.mm;
-
-      m_logger.print("Initialised MemoryMap. %x\n", size);
+      m_logger.print("Initialised MemoryMap. %x", size);
     }
 };
