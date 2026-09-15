@@ -1,8 +1,5 @@
 #pragma once
-#include "Logger.h"
 #include "kernel_args.h"
-#include "KulkarNIX.h"
-#include "memory_map.h"
 
 class KernelContext {
 private:
