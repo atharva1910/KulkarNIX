@@ -1,3 +1,5 @@
+#include "KulkarNIX.h"
+#include "kernel_args.h"
 #include "serial_port.h"
 
 __asm__(
@@ -17,8 +19,10 @@ __asm__(
     */
     "movabs $stack_top, %rsp\n"
     "call main\n"
-    "ret\n"
+    "hang:\n"
     "hlt\n"
+    "jmp hang\n"
+    "ret\n"
 
     /* Set up the stack area */
     ".section .bss\n"
@@ -32,9 +36,11 @@ __asm__(
     ".section .text\n"
 );
 
-extern "C" void main()
+
+extern "C"
+void main(void *args)
 {
-  SerialPort sp;
-  sp.write("\nTEST\n");
-  asm("hlt");
+    auto kernel_args = reinterpret_cast<KernelArgs *>(PA2VA<void *>(args));
+    SerialPort sp;
+    sp.write("Welcome to kernel :) ");
 }
