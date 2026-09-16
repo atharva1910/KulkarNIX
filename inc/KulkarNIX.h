@@ -1,6 +1,6 @@
 #pragma once
 #include <stdint.h>
-#include "slice.h"
+
 /////////////////////////////////////////////////////////////////////////////////
 // This file contains all common MACROS and defines needed for all the modules //
 /////////////////////////////////////////////////////////////////////////////////
@@ -8,8 +8,6 @@
 constexpr uint64_t KERNEL_START_PADDR = 0x100000;
 constexpr uint64_t KERNEL_START_VADDR = 0xfffffa0000000000;
 constexpr uint64_t HIGHER_MEMORY_VADDR = 0xFFFF800000000000;
-constexpr uint16_t PAGE_SIZE = 4096;
-constexpr uint16_t PAGE_SIZE_SHIFT = 12;
 
 template <typename T>
 constexpr T CEILING(T x, T y) {

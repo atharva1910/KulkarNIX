@@ -3,9 +3,8 @@
 #include "kernel.h"
 #include "memory_map.h"
 #include "KulkarNIX.h"
-#include "paging_mgr.h"
+#include "PagingManager.h"
 #include "KernelArgs.h"
-#include "serial_port.h"
 
 constexpr uint64_t ONE_KB = 1 * 1024;
 constexpr uint64_t ONE_MB = ONE_KB * 1024;

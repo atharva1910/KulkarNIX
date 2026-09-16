@@ -1,5 +1,5 @@
 #pragma once
-#include "hal.h"
+#include "HAL.h"
 
 class SerialPort {
 public:

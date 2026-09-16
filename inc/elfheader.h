@@ -1,4 +1,5 @@
 #pragma once
+#include <stdint.h>
 
 #define ELF_MAGIC 0x464c457f
 #define EXE_MAX_HEADERS 3

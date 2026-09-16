@@ -2,7 +2,7 @@
 #include "boot_context.h"
 #include "efi.h"
 #include "file.h"
-#include "elfheader.h"
+#include "ELFHeader.h"
 
 class Kernel {
 public:

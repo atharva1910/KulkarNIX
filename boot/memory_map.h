@@ -1,7 +1,7 @@
 #pragma once
 #include "efi.h"
 #include "boot_context.h"
-#include "paging.h"
+#include "Paging.h"
 
 class MemoryMap {
 public:

@@ -1,7 +1,5 @@
 #pragma once
 #include "efi.h"
-#include "KulkarNIX.h"
-#include "serial_port.h"
 
 class BootCtx {
 public:

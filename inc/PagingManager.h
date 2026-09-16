@@ -1,5 +1,5 @@
 #pragma once
-#include "paging.h"
+#include "Paging.h"
 
 using PAGE_ALLOCATOR = void *(*)(uint64_t);
 
