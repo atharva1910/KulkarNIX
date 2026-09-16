@@ -1,0 +1,28 @@
+BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+# Language and Standard
+Language: Cpp
+Standard: Auto
+
+# Alignment and Formatting Rules
+AllowShortBlocksOnASingleLine: Empty
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+
+# Bracing Style (Attach braces to control statements, break for functions/classes)
+BreakBeforeBraces: Attach
+
+# Space Options
+SpaceAfterCStyleCast: false
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeParens: ControlStatements
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+
+# Column Limit
+ColumnLimit: 80
+PointerAlignment: Left

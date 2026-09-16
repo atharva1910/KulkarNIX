@@ -4,7 +4,7 @@
 #include "memory_map.h"
 #include "KulkarNIX.h"
 #include "paging_mgr.h"
-#include "kernel_args.h"
+#include "KernelArgs.h"
 #include "serial_port.h"
 
 constexpr uint64_t ONE_KB = 1 * 1024;
@@ -66,6 +66,7 @@ setup_kernel_args(const MemoryMap &mm, const Kernel &kernel)
     kernel_args->k_info.kernelSize = kernel.m_kernelSize;
     kernel_args->k_info.minAddr = kernel.m_minAddr;
 
+    kernel_args->mm_info.total_memory = mm.m_total_mem;
     kernel_args->mm_info.dsize = mm.m_dsize;
     kernel_args->mm_info.size = mm.m_size;
     kernel_args->mm_info.num_desc = mm.m_num_desc;

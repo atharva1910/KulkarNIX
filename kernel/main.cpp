@@ -1,5 +1,5 @@
 #include "KulkarNIX.h"
-#include "memory_map.h"
+#include "PMemManager.h"
 
 __asm__(
     /* Set up the global function __start */
@@ -44,6 +44,5 @@ void main(void *args)
 
     auto m_args = reinterpret_cast<KernelArgs *>(PA2VA<void *>(args));
     logger.print(m_args->magic);
-    MemoryMap mm(logger,m_args->mm_info);
-
+    PMemManager mm(logger,m_args->mm_info);
 }

@@ -64,6 +64,5 @@ public:
     uint8_t *mm = nullptr;
     uint64_t m_min_paddr = -1, m_max_paddr = 0;
     uint64_t m_min_vaddr = -1, m_max_vaddr = 0;
-    UINT64 m_total_mem = 0;
-
+    uint64_t m_total_mem = 0;
 };

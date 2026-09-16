@@ -2,13 +2,14 @@
 #include "serial_port.h"
 #include "slice.h"
 #include <stdarg.h>
+
 class Logger {
   private:
     SerialPort sp;
     inline static char m_buffer[1024];
     inline static const char digits[] = "0123456789abcdef";
 
-    size_t itoa(int number, Slice<char> s, int radix) {
+    size_t itoa(uint64_t number, Slice<char> s, int radix) {
         size_t idx = 0;
         char b[21] = {0};
         do {
@@ -43,11 +44,11 @@ class Logger {
 
             switch (*itr) {
             case 'd': {
-                idx += itoa(va_arg(args, int), s.sub_slice(idx, s.size()), 10);
+                idx += itoa(va_arg(args, uint64_t), s.sub_slice(idx, s.size()), 10);
             } break;
 
             case 'x': {
-                idx += itoa(va_arg(args, int), s.sub_slice(idx, s.size()), 16);
+                idx += itoa(va_arg(args, uint64_t), s.sub_slice(idx, s.size()), 16);
             } break;
 
             default:
@@ -68,15 +69,12 @@ class Logger {
 
   public:
     void print(const char* str, ...) {
-        auto buf = Slice(m_buffer, sizeof(m_buffer));
-
         va_list valist;
+        auto buf = Slice(m_buffer, sizeof(m_buffer));
         va_start(valist, str);
-
         if (vsprintf(buf, str, valist)) {
             sp.write(m_buffer);
         }
-
         va_end(valist);
     }
 };

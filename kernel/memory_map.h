@@ -1,5 +1,5 @@
 #pragma once
-#include "kernel_args.h"
+#include "KernelArgs.h"
 #include "Logger.h"
 
 class MemoryMap {
