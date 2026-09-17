@@ -22,4 +22,14 @@ template <typename T> class Slice {
     Slice sub_slice(size_t start, size_t end) {
         return Slice<T>(m_buf + start, end - start);
     }
+
+    const T* begin() const { return m_buf; }
+    const T* end() const { return m_buf + m_size; }
+    T* begin() { return m_buf; }
+    T* end() { return m_buf + m_size; }
+
+    void fill(T c) {
+        for (size_t i = 0; i < m_size; i++)
+            m_buf[i] = c;
+    }
 };

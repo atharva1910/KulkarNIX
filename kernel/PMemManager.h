@@ -31,8 +31,7 @@ class PMemManager {
 
     bool init(const KernelArgs* kernelArgs) {
         auto& mm_info = kernelArgs->mm_info;
-        m_logger.print("Initialising MemoryMap. Total Memory %x",
-                       mm_info.total_memory);
+        m_logger.fprint("Initialising MemoryMap. Total Memory {}", mm_info.total_memory);
 
         auto total_bits = mm_info.total_memory >> PAGE_SIZE_SHIFT;
         auto total_bytes = total_bits >> 3;
@@ -51,21 +50,22 @@ class PMemManager {
             if (pdesc->NumberOfPages < total_pages)
                 continue;
 
+            /*
             m_logger.print("Selecting: %d required pages: %d. Desc Pages "
                            "%d. PhyStart: 0x%x",
                            i, total_pages, pdesc->NumberOfPages,
                            pdesc->PhysicalStart);
-
+            */
             auto bitmap_pointer =
                 reinterpret_cast<uint8_t *>(PA2VA(pdesc->PhysicalStart));
 
             m_bitmap = Slice<uint8_t>(bitmap_pointer, total_bytes);
-            m_logger.print("Initialised MemoryMap");
+            //m_logger.print("Initialised MemoryMap");
             break;
         }
 
         if (m_bitmap.size() == 0) {
-            m_logger.print("Failed to init PhyMemoryMap");
+            //            m_logger.print("Failed to init PhyMemoryMap");
             return false;
         }
 

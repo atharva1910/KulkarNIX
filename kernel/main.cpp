@@ -40,9 +40,9 @@ extern "C"
 void main(void *args)
 {
     Logger logger;
-    logger.print("Welcome to the kernel :)");
 
     auto m_args = reinterpret_cast<KernelArgs *>(PA2VA<void *>(args));
-    logger.print(m_args->magic);
-    PMemManager mm(logger,m_args->mm_info);
+    PMemManager mm(logger);
+    mm.init(m_args);
+    logger.print("Welcome to the kernel :)");
 }
