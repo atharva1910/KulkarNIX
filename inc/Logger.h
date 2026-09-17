@@ -25,7 +25,6 @@ class Logger {
         }
     }
 
-    // TODO
     void write(const char c) { m_buf[m_idx++] = c; }
 
     void write(const char* str) {
@@ -45,11 +44,11 @@ class Logger {
     void write(int64_t i) {
         bool is_negative = i < 0 ? true : false;
         if (is_negative) {
-            i *= -1;
             m_buf[m_idx++] = '-';
+            itoa(static_cast<uint64_t>(-i), 16);
+        } else {
+            itoa(i, 16);
         }
-
-        itoa(i, 16);
     }
 
     void write(uint64_t i) { itoa(i, 16); }
@@ -62,7 +61,7 @@ class Logger {
         }
     }
 
-    void fprint_impl(const char* str) {
+    void print_impl(const char* str) {
         while (*str != '\0') {
             write(*str);
             str++;
@@ -70,30 +69,37 @@ class Logger {
     }
 
     template <typename First, typename... Rest>
-    void fprint_impl(const char* str, First& first, const Rest&... rest) {
+    void print_impl(const char* str, First& first, const Rest&... rest) {
         while (*str != '\0') {
             if (*str == '{' and *(str + 1) == '}') {
                 write(first);
                 str += 2;
-                fprint_impl(str, rest...);
+                return print_impl(str, rest...);
             } else {
                 write(*str);
+                str++;
             }
-
-            str++;
         }
     }
 
   public:
     Logger() {}
 
+    // void printf(const char* str, const Args&... args) {
     template <typename... Args>
-    void fprint(const char* str, const Args&... args) {
-        fprint_impl(str, args...);
+    void print(const char* str, const Args&... args) {
+        m_idx = 0;
+        print_impl(str, args...);
+        write('\n');
+        write('\0');
+        sp.write(m_buf.get_buf());
     }
 
     template <typename... Args> void print(const Args&... args) {
+        m_idx = 0;
         (write(args), ...);
+        write('\n');
+        write('\0');
         sp.write(m_buf.get_buf());
     }
 };

@@ -40,9 +40,11 @@ extern "C"
 void main(void *args)
 {
     Logger logger;
-
-    auto m_args = reinterpret_cast<KernelArgs *>(PA2VA<void *>(args));
-    PMemManager mm(logger);
-    mm.init(m_args);
     logger.print("Welcome to the kernel :)");
+
+    auto m_args = reinterpret_cast<KernelArgs*>(PA2VA<void*>(args));
+    PMemManager mm(logger);
+    if (!mm.init(m_args)) {
+        assert(logger, false, "Failed to init PMemManager");
+    }
 }
