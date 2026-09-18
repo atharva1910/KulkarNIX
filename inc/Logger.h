@@ -61,7 +61,7 @@ class Logger {
         }
     }
 
-    void print_impl(const char* str) {
+    void printf_impl(const char* str) {
         while (*str != '\0') {
             write(*str);
             str++;
@@ -69,7 +69,7 @@ class Logger {
     }
 
     template <typename First, typename... Rest>
-    void print_impl(const char* str, First& first, const Rest&... rest) {
+    void printf_impl(const char* str, First& first, const Rest&... rest) {
         while (*str != '\0') {
             if (*str == '{' and *(str + 1) == '}') {
                 write(first);
@@ -87,7 +87,7 @@ class Logger {
 
     // void printf(const char* str, const Args&... args) {
     template <typename... Args>
-    void print(const char* str, const Args&... args) {
+    void printf(const char* str, const Args&... args) {
         m_idx = 0;
         print_impl(str, args...);
         write('\n');

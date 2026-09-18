@@ -5,6 +5,12 @@ constexpr uint32_t PAGE_TABLE_NUM_ENTRIES = 512;
 constexpr uint16_t PAGE_SIZE = 4096;
 constexpr uint16_t PAGE_SIZE_SHIFT = 12;
 
+namespace Paging {
+    inline bool is_page_aligned(uint64_t addr) {
+        return (addr & (PAGE_SIZE - 1)) == 0;
+    }
+}
+
 #pragma pack(push, 1)
 class PageTableEntry {
 private:
