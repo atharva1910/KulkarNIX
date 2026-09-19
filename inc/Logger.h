@@ -1,6 +1,7 @@
 #pragma once
 #include "SerialPort.h"
 #include "Slice.h"
+#include <KulkarNIX.h>
 #include <stdarg.h>
 
 class Logger {
@@ -26,6 +27,9 @@ class Logger {
     }
 
     void write(const char c) { m_buf[m_idx++] = c; }
+    void write(uint64_t i) { itoa(i, 16); }
+    void write(VA x) { write(x.get_raw()); }
+    void write(PA x) { write(x.get_raw()); }
 
     void write(const char* str) {
         while (*str != '\0') {
@@ -51,8 +55,6 @@ class Logger {
         }
     }
 
-    void write(uint64_t i) { itoa(i, 16); }
-
     template <typename T> void write(T x) {
         if constexpr (T(-1) < T(0)) {
             write(static_cast<int64_t>(x));
@@ -74,7 +76,7 @@ class Logger {
             if (*str == '{' and *(str + 1) == '}') {
                 write(first);
                 str += 2;
-                return print_impl(str, rest...);
+                return printf_impl(str, rest...);
             } else {
                 write(*str);
                 str++;
@@ -89,7 +91,7 @@ class Logger {
     template <typename... Args>
     void printf(const char* str, const Args&... args) {
         m_idx = 0;
-        print_impl(str, args...);
+        printf_impl(str, args...);
         write('\n');
         write('\0');
         sp.write(m_buf.get_buf());

@@ -1,5 +1,6 @@
 #pragma once
 #include <stddef.h>
+#include <KulkarNIX.h>
 
 template <typename T> class Slice {
   private:
@@ -8,6 +9,8 @@ template <typename T> class Slice {
 
   public:
     Slice(T* buf, size_t buf_size) : m_buf(buf), m_size(buf_size) {};
+    Slice(VA buf, size_t buf_size) : m_buf(reinterpret_cast<T *>(buf.get_raw())), m_size(buf_size) {};
+    Slice(PA buf, size_t buf_size) : m_buf(reinterpret_cast<T *>(buf.get_raw())), m_size(buf_size) {};
 
     size_t size() { return m_size; }
 

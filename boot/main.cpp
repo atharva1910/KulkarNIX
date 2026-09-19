@@ -1,8 +1,8 @@
 #include <stdint.h>
+#include "KulkarNIX.h"
 #include "boot_context.h"
 #include "kernel.h"
 #include "memory_map.h"
-#include "KulkarNIX.h"
 #include "PagingManager.h"
 #include "KernelArgs.h"
 
@@ -62,14 +62,16 @@ setup_kernel_args(const MemoryMap &mm, const Kernel &kernel)
     }
 
     kernel_args->k_info.kernelPages = kernel.m_kernelPages;
-    kernel_args->k_info.kernelSize = kernel.m_kernelSize;
-    kernel_args->k_info.minAddr = kernel.m_minAddr;
+    kernel_args->k_info.kernelPAddr = kernel.m_minAddr;
+    kernel_args->k_info.kernelVAddr = KERNEL_START_VADDR;
 
     kernel_args->mm_info.total_memory = mm.m_total_mem;
+    kernel_args->mm_info.min_paddr = mm.m_min_paddr;
+    kernel_args->mm_info.max_paddr = mm.m_max_paddr;
     kernel_args->mm_info.dsize = mm.m_dsize;
     kernel_args->mm_info.size = mm.m_size;
     kernel_args->mm_info.num_desc = mm.m_num_desc;
-    kernel_args->mm_info.mm = reinterpret_cast<uint8_t *>(PA2VA<uint8_t*>(mm.mm));
+    kernel_args->mm_info.mm = PA(reinterpret_cast<uint64_t>(mm.mm));
 
     const char * str = "KNIXARG";
     for(int i = 0; i < sizeof(kernel_args->magic) - 1; i++)

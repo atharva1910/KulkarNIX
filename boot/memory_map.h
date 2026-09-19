@@ -1,7 +1,7 @@
 #pragma once
 #include "efi.h"
 #include "boot_context.h"
-#include "Paging.h"
+#include "KulkarNIX.h"
 
 class MemoryMap {
 public:

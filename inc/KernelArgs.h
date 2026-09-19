@@ -1,18 +1,21 @@
 #pragma once
+#include <KulkarNIX.h>
 #include <stdint.h>
 
 struct MemMapInfo {
+    uint64_t min_paddr;
+    uint64_t max_paddr;
     uint64_t dsize;
     uint64_t size;
     uint64_t total_memory;
     uint32_t num_desc;
-    uint8_t *mm;
+    PA mm;
 };
 
 struct KernelInfo {
     uint64_t kernelPages;
-    uint64_t minAddr;
-    uint64_t kernelSize;
+    PA kernelPAddr;
+    VA kernelVAddr;
 };
 
 struct KernelArgs {
