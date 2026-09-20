@@ -35,17 +35,17 @@ public:
                 pdesc->Type == EfiBootServicesData || pdesc->Type == EfiBootServicesCode)
                 m_total_mem += pdesc->NumberOfPages << 12;
 
-            if (pdesc->PhysicalStart < m_min_paddr)
-                m_min_paddr = pdesc->PhysicalStart;
+            if (PA(pdesc->PhysicalStart) < m_min_paddr)
+                m_min_paddr = PA(pdesc->PhysicalStart);
 
-            if ((pdesc->PhysicalStart + (pdesc->NumberOfPages << 12)) > m_max_paddr)
-                m_max_paddr = (pdesc->PhysicalStart + (pdesc->NumberOfPages << 12));
+            if (PA(pdesc->PhysicalStart + (pdesc->NumberOfPages << 12)) > m_max_paddr)
+                m_max_paddr = PA(pdesc->PhysicalStart + (pdesc->NumberOfPages << 12));
 
-            if (pdesc->VirtualStart < m_min_vaddr)
-                m_min_vaddr = pdesc->VirtualStart;
+            if (VA(pdesc->VirtualStart) < m_min_vaddr)
+                m_min_vaddr = VA(pdesc->VirtualStart);
 
-            if ((pdesc->VirtualStart + (pdesc->NumberOfPages << 12)) > m_max_vaddr)
-                m_max_vaddr = (pdesc->VirtualStart + (pdesc->NumberOfPages << 12));
+            if (VA(pdesc->VirtualStart + (pdesc->NumberOfPages << 12)) > m_max_vaddr)
+                m_max_vaddr = VA(pdesc->VirtualStart + (pdesc->NumberOfPages << 12));
         }
     }
 
@@ -62,7 +62,7 @@ public:
     uint32_t m_dver = 0;
     uint32_t m_num_desc = 0;
     uint8_t *mm = nullptr;
-    uint64_t m_min_paddr = -1, m_max_paddr = 0;
-    uint64_t m_min_vaddr = -1, m_max_vaddr = 0;
+    PA m_min_paddr{UINT64_MAX}, m_max_paddr{0};
+    VA m_min_vaddr{UINT64_MAX}, m_max_vaddr{0};
     uint64_t m_total_mem = 0;
 };

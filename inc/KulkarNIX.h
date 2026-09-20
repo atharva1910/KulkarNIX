@@ -22,19 +22,36 @@ struct AddrBase {
     uint64_t addr;
     explicit AddrBase(uint64_t x) : addr(x) {}
 
-    bool is_page_aligned() { return (addr & ~(PAGE_SIZE - 1)) == 0; }
+    bool is_page_aligned() const { return (addr & (PAGE_SIZE - 1)) == 0; }
+    uint64_t get_alignment() const { return addr & ~(PAGE_SIZE - 1); }
     void operator+(uint64_t x) { addr += x; }
     AddrBase operator+(uint64_t x) const { return AddrBase(addr + x); }
-    uint64_t get_raw() const { return addr;}
+    uint64_t get_raw() const { return addr; }
+    //bool operator<(uint64_t x) { return addr < x; }
+    bool operator<(AddrType x) const { return addr < x.addr; }
+    //bool operator>(uint64_t x) { return addr > x; }
+    bool operator>(AddrType x) const { return addr > x.addr; }
+    //bool operator==(uint64_t x) { return addr > x; }
+    bool operator==(AddrType x) const { return addr == x.addr; }
+
+    uint64_t print() { return addr; }
 };
+
+struct PA;
+struct VA;
 
 struct PA : AddrBase<PA>{
     using AddrBase::AddrBase;
+    explicit PA(const VA& va);
 };
 
 struct VA : AddrBase<VA> {
     using AddrBase::AddrBase;
-    explicit VA(const PA& pa)
-        : AddrBase<VA>(pa.get_raw() + HIGHER_MEMORY_VADDR) {}
-
+    explicit VA(const PA& pa);
 };
+
+inline PA::PA(const VA& va)
+        : AddrBase<PA>(va.get_raw() - HIGHER_MEMORY_VADDR) {}
+
+inline VA::VA(const PA& pa)
+        : AddrBase<VA>(pa.get_raw() + HIGHER_MEMORY_VADDR) {}

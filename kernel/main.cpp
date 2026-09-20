@@ -36,14 +36,14 @@ __asm__(
 );
 
 
-extern "C"
-void main(PA args)
-{
+extern "C" void main(PA args) {
+    SerialPort::init();
     Logger logger;
     logger.print("Welcome to the kernel :)");
 
     auto m_args = reinterpret_cast<KernelArgs*>(VA(args).get_raw());
     logger.print(m_args->magic);
+
     PMemManager mm(logger);
     if (!mm.init(m_args)) {
         assert(logger, false, "Failed to init PMemManager");

@@ -19,7 +19,7 @@ public:
 
     SerialPort() { init(); }
 
-    void init() {
+    static void init() {
       HAL::outb(INTR_REG, 0x0);
       HAL::outb(LINE_CTRL_REG, 0x80);
       HAL::outb(BAUD_LSB, 0x3);
@@ -29,38 +29,12 @@ public:
       HAL::outb(MODEM_CTRL_REG, 0x0F);
     }
 
-    void write(const char *str) {
+    static void write(const char *str) {
         const char *c = str;
         while (*c != '\0') {
             while ((HAL::inb(LINE_STATUS_REG) & 0x20) == 0);
             HAL::outb(TRANS_BUF, *c);
             c++;
         }
-    }
-
-    void write_hex(uint64_t num)
-    {
-        write("0x");
-
-        if (num == 0) {
-            write("0\n");
-            return;
-        }
-
-        // Lookup table for hexadecimal characters
-        constexpr char hex_digits[] = "0123456789abcdef";
-
-        // 64-bit uint can have up to 16 hex digits + 1 null terminator
-        char numstr[17];
-        int i = 16;
-        numstr[i--] = '\0';
-
-        while (num > 0) {
-            numstr[i--] = hex_digits[num & 0xF];
-            num >>= 4;
-        }
-
-        write(&numstr[i + 1]);
-        write("\n");
     }
 };

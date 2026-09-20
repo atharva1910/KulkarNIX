@@ -3,19 +3,18 @@
 #include <stdint.h>
 
 struct MemMapInfo {
-    uint64_t min_paddr;
-    uint64_t max_paddr;
     uint64_t dsize;
     uint64_t size;
     uint64_t total_memory;
     uint32_t num_desc;
+    PA min_paddr;
+    PA max_paddr;
     PA mm;
 };
 
 struct KernelInfo {
     uint64_t kernelPages;
     PA kernelPAddr;
-    VA kernelVAddr;
 };
 
 struct KernelArgs {

@@ -62,8 +62,7 @@ setup_kernel_args(const MemoryMap &mm, const Kernel &kernel)
     }
 
     kernel_args->k_info.kernelPages = kernel.m_kernelPages;
-    kernel_args->k_info.kernelPAddr = kernel.m_minAddr;
-    kernel_args->k_info.kernelVAddr = KERNEL_START_VADDR;
+    kernel_args->k_info.kernelPAddr = PA(reinterpret_cast<uint64_t>(kernel.m_kernelPaddr));
 
     kernel_args->mm_info.total_memory = mm.m_total_mem;
     kernel_args->mm_info.min_paddr = mm.m_min_paddr;
