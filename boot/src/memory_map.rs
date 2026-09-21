@@ -1,7 +1,7 @@
 use r_efi::efi::{self, LOADER_DATA, BOOT_SERVICES_DATA, CONVENTIONAL_MEMORY, LOADER_CODE, MemoryDescriptor};
 use crate::{
     boot_ctx::BOOT_CTX,
-    printer::PRINTER
+    printer
 };
 use alloc::{format, vec};
 pub struct MemoryMap {
@@ -17,7 +17,7 @@ pub struct MemoryMap {
 impl MemoryMap {
     pub fn new() -> Result<Self, efi::Status> {
         let Some(bs) = BOOT_CTX.get_bs() else {
-            PRINTER.print("GET BS FAIL\n");
+            printer::print("GET BS FAIL\n");
             return Err(efi::Status::INVALID_PARAMETER);
         };
 

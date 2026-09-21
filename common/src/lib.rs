@@ -1,10 +1,10 @@
 #![no_std]
-mod address;
 use r_efi::protocols::graphics_output::ModeInformation;
 
 pub mod paging;
 pub mod hal;
 pub mod serial_port;
+pub mod address;
 pub const KERNEL_ARGS_PAGES: usize = 10;
 pub const MMAP_BUFFER_SIZE: usize = KERNEL_ARGS_PAGES * paging::PAGE_SIZE - (core::mem::size_of::<usize>() * 2);
 

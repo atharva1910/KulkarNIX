@@ -9,7 +9,7 @@ mod memory_map;
 
 extern crate alloc;
 use alloc::format;
-use r_efi::{ efi::{self, ALLOCATE_ANY_PAGES, LOADER_CODE}, protocols::{graphics_output::{self, ModeInformation}, loaded_image}};
+use r_efi::{ efi::{self, ALLOCATE_ANY_PAGES, LOADER_CODE}, protocols::{graphics_output, loaded_image}};
 use boot_ctx::BOOT_CTX;
 use kernel::Kernel;
 use common::{
@@ -17,7 +17,7 @@ use common::{
 };
 use crate::{
     memory_map::MemoryMap,
-    printer::PRINTER, serial_port::SerialPort
+    serial_port::SerialPort
 };
 
 const ONE_KB: usize = 1024;
@@ -125,11 +125,11 @@ where
     let mut start_paddr = kernel.kernel_base;
     let mut start_vaddr = kernel.kernel_vaddr;
     for _ in 0..kernel.kernel_pages {
-        if pt_mgr.map_page( start_paddr, start_vaddr) {
+        if pt_mgr.map_page( start_paddr.get_raw(), start_vaddr.get_raw()) {
             start_vaddr += PAGE_SIZE as u64;
             start_paddr += PAGE_SIZE as u64;
         } else {
-            PRINTER.print("FAILED TO MAP KERNEL\n");
+            printer::print("FAILED TO MAP KERNEL\n");
             return Err(efi::Status::OUT_OF_RESOURCES);
         }
     }
@@ -153,7 +153,7 @@ where
 
     let pages = image_size >> 12;
 
-    PRINTER.print(&format!("Mapping image. Base 0x{:x} Size 0x{:x}\n", image_base, image_size));
+    printer::print(&format!("Mapping image. Base 0x{:x} Size 0x{:x}\n", image_base, image_size));
     for _ in 0..pages {
         pt_mgr.map_page(image_base, image_base);
         image_base += PAGE_SIZE as u64;
@@ -164,7 +164,7 @@ where
 
 fn setup_paging(h: efi::Handle, kernel: &Kernel, mem_map: &MemoryMap) -> Result<PageTableManager<impl Fn(usize) -> Option<u64>>, efi::Status> {
     let Some(pt_mgr) = PageTableManager::new(page_allocator) else {
-        PRINTER.print("setup_paging failed");
+        printer::print("setup_paging failed");
         return  Err(efi::Status::INVALID_PARAMETER);
     };
 
@@ -179,8 +179,8 @@ pub extern "efiapi" fn main(h: efi::Handle,
                             st: *mut efi::SystemTable) -> efi::Status {
 
     BOOT_CTX.new(st);
-    PRINTER.init(st);
-    PRINTER.clrscr();
+    printer::init(st);
+    printer::clrscr();
     SerialPort::init();
 
     let Some(bs) = BOOT_CTX.get_bs() else {
@@ -192,12 +192,12 @@ pub extern "efiapi" fn main(h: efi::Handle,
     }
 
     let Ok(kernel)= Kernel::new(h) else {
-        PRINTER.print("Kernel setup failed");
+        printer::print("Kernel setup failed");
         return BOOT_CTX.halt();
     };
 
     let Ok(mem_map) = MemoryMap::new() else {
-        PRINTER.print("Failed to get memory map");
+        printer::print("Failed to get memory map");
         return BOOT_CTX.halt();
     };
 
@@ -207,7 +207,7 @@ pub extern "efiapi" fn main(h: efi::Handle,
     };
 
     let Some(pml4t) = pt_mgr.get_pml4t() else {
-        PRINTER.print("PML4 not setup!?");
+        printer::print("PML4 not setup!?");
         return BOOT_CTX.halt();
     };
 
@@ -216,24 +216,23 @@ pub extern "efiapi" fn main(h: efi::Handle,
         return BOOT_CTX.halt();
     };
 
-    PRINTER.print(&format!("Jumping to Kernel at : 0x{:x}. Args 0x{:x}\n", kernel.kernel_entry, paddr));
+    printer::print(&format!("Jumping to Kernel at : 0x{:x}. Args 0x{:x}\n", kernel.kernel_entry, paddr));
 
 	let Ok(mem_map) = MemoryMap::new() else {
-	    PRINTER.print("Failed to get memory map\n");
+	    printer::print("Failed to get memory map\n");
 	    return BOOT_CTX.halt();
 	};
 
     if prepare_kernel_args(paddr, &mem_map).is_none() {
-	    PRINTER.print("Failed to setup kernel args\n");
+	    printer::print("Failed to setup kernel args\n");
 	    return BOOT_CTX.halt();
     }
 
-	// TODO make this a retry-loop
 	let status = unsafe {
 	    (bs.exit_boot_services)(h, mem_map.key)
 	};
 	if status != efi::Status::SUCCESS {
-	    PRINTER.print(&format!("Failed to exit boot services {}\n", status));
+	    printer::print(&format!("Failed to exit boot services {}\n", status));
         return BOOT_CTX.halt();
     }
 
@@ -244,7 +243,7 @@ pub extern "efiapi" fn main(h: efi::Handle,
             "jmp {entry}",
             in("rdi") paddr,
             pml4 = in(reg) pml4t as *const _ as u64,
-            entry = in(reg) kernel.kernel_entry,
+            entry = in(reg) kernel.kernel_entry.get_raw(),
             options(noreturn)
         );
     }

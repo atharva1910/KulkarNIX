@@ -42,7 +42,7 @@ global_asm!(
 
 #[unsafe(no_mangle)]
 pub extern "C" fn kernel_main(addr: u64) {
-    let mut s = SerialPort{ test: 42};
+    let mut s = SerialPort{};
     write!(s, "test 0x{:x}\n", addr);
     loop {};
 }
