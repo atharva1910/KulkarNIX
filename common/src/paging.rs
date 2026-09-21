@@ -1,8 +1,7 @@
-use crate::address::VirtualAddress;
+use crate::address::{PhysicalAddress, VirtualAddress};
 
 pub const PAGE_TABLE_NUM_ENTRIES: usize = 512;
 pub const PAGE_SIZE: usize = 4096;
-pub const PHYS_OFFSET: usize = 0xFFFF_FA00_0000_0000;
 
 #[repr(transparent)]
 pub struct PageEntry(pub u64);
@@ -156,6 +155,19 @@ where
         pt.pte[v.pt_idx()].set_rw();
         pt.pte[v.pt_idx()].set_present();
         pt.pte[v.pt_idx()].set_addr(phy);
+        true
+    }
+
+    pub fn map_1gb_page(&self, paddr: PhysicalAddress, vaddr: VirtualAddress) -> bool {
+        let Some(pml4t) = self.get_pml4t_mut() else {
+            return false;
+        };
+
+        let Some(pdpt) = self.get_or_create_entry::<PDPT>(&mut pml4t.pml4e[vaddr.pml4_idx()]) else {
+            return false;
+        };
+
+        pdpt.set_1gb_paging(vaddr.pdpt_idx(), paddr.get_raw());
         true
     }
 }

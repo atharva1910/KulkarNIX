@@ -103,7 +103,7 @@ impl Kernel {
         let total_size = max_paddr - min_paddr;
         let kernel_pages = ((total_size + (PAGE_SIZE - 1))/PAGE_SIZE) as usize;
 
-        printer::print(&format!("Total Size: 0x{:x} Total Pages : {:x} Min_Paddr: {:x} Max_Paddr: {:x}\n", total_size, kernel_pages, min_paddr, max_paddr));
+        printer::print(&format!("Kernel Info:\n\tSize: 0x{:x} Total Pages: {:x} Min_Paddr: {:x} Max_Paddr: {:x}\n", total_size, kernel_pages, min_paddr, max_paddr));
 
         let mut kernel_base: r_efi::base::PhysicalAddress = 0x0;
         let Some(bs) = BOOT_CTX.get_bs() else {
@@ -131,7 +131,6 @@ impl Kernel {
             let start = (ph.p_paddr - min_paddr) as usize;
             let end = start + ph.p_memsz as usize;
 
-            printer::print(&format!("pgram header eloaded at start 0x{:x} end {:x}\n", start as u64 + min_paddr, end as u64 + min_paddr));
             if ph.p_type != PT_LOAD || ph.p_memsz == 0 {
                 continue;
             }
@@ -149,7 +148,6 @@ impl Kernel {
             }
 
             let mut dyn_arr_start = (kernel_base + ph.p_vaddr - KERNEL_VADDR) as usize;
-            printer::print(&format!("PT_DYNAMIC vaddr: {:x}  kernel_base: {:x} dyn_arr: {:x}\n", ph.p_vaddr,  kernel_base, dyn_arr_start));
             let mut rela_addr = 0;
             let mut rela_size = 0;
             loop {
@@ -166,8 +164,6 @@ impl Kernel {
             }
 
             let rela_count = rela_size as usize/size_of::<Elf64Rela>();
-            printer::print(&format!("rela_addr: {:x} rela_size: {:x} rela_count: {}\n", rela_addr, rela_size, rela_count));
-
             let rela_arr = unsafe {
                 core::slice::from_raw_parts(rela_addr as *const Elf64Rela, rela_count)
             };
@@ -176,15 +172,14 @@ impl Kernel {
                 let address = kernel_base + rela.r_offset - KERNEL_VADDR;
                 let rela_type = rela.r_info & 0xFFFFFFFF;
                 if rela_type == 8 {
-                    printer::print(&format!("rela r_offset: {:x} address {:x} r_info: {:x} r_append: {:x}\n", rela.r_offset, address, rela.r_info, rela.r_append));
+                    //printer::print(&format!("rela r_offset: {:x} address {:x} r_info: {:x} r_append: {:x}\n", rela.r_offset, address, rela.r_info, rela.r_append));
                     unsafe {
                         core::ptr::write_unaligned(address as *mut u64, rela.r_append);
                     }
                 }
             }
         }
-        printer::print(&format!("Kernel loaded at: {:x} Kernel Entry: 0x{:x}\n", kernel_base, elf_header.e_entry));
-
+        printer::print(&format!("Kernel loaded at paddr: {:x} vaddr: {:x}  Kernel Entry: 0x{:x}\n", kernel_base, KERNEL_VADDR, elf_header.e_entry));
 
         Ok(Self {
             kernel_pages: kernel_pages,

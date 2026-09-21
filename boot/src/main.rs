@@ -13,7 +13,7 @@ use r_efi::{ efi::{self, ALLOCATE_ANY_PAGES, LOADER_CODE}, protocols::{graphics_
 use boot_ctx::BOOT_CTX;
 use kernel::Kernel;
 use common::{
-    KERNEL_ARGS_PAGES, KernelArgs, paging::{self, PageTableManager}, serial_port
+    KERNEL_ARGS_PAGES, KERNEL_DS_ADDR, KernelArgs, address::{PhysicalAddress, VirtualAddress}, paging::{self, PageTableManager}, serial_port
 };
 use crate::{
     memory_map::MemoryMap,
@@ -86,33 +86,12 @@ where
     assert!(total_mem < 512 * ONE_GB);
     assert!(num_1gb_pdpe < paging::PAGE_TABLE_NUM_ENTRIES);
 
-    let Some(pml4t) = pt_mgr.get_pml4t_mut() else {
-        return Err(efi::Status::INVALID_PARAMETER);
-    };
-
-    if pml4t.pml4e[256].is_entry_present() {
-        assert!(false, "Entry already present");
-    }
-
-    let Some(pdpt) = pt_mgr.allocate_tables(1) else {
-        return Err(efi::Status::OUT_OF_RESOURCES);
-    };
-
-    pml4t.pml4e[256].set_present();
-    pml4t.pml4e[256].set_rw();
-    pml4t.pml4e[256].set_addr(pdpt);
-
-
-    let Some(pdpt) = (unsafe {
-        (pdpt as *mut paging::PDPT).as_mut()
-    }) else {
-        return Err(efi::Status::INVALID_PARAMETER);
-    };
-
-    let mut addr = 0x0;
-    for i in 0..num_1gb_pdpe {
-        pdpt.set_1gb_paging(i, addr);
-        addr += ONE_GB as u64;
+    let mut paddr = PhysicalAddress(0x0);
+    let mut vaddr = VirtualAddress(KERNEL_DS_ADDR as u64);
+    for _ in 0..num_1gb_pdpe {
+        pt_mgr.map_1gb_page(paddr, vaddr);
+        paddr += ONE_GB as u64;
+        vaddr += ONE_GB as u64;
     }
 
     Ok(())

@@ -5,8 +5,11 @@ pub mod paging;
 pub mod hal;
 pub mod serial_port;
 pub mod address;
+
 pub const KERNEL_ARGS_PAGES: usize = 10;
 pub const MMAP_BUFFER_SIZE: usize = KERNEL_ARGS_PAGES * paging::PAGE_SIZE - (core::mem::size_of::<usize>() * 2);
+pub const KERNEL_CS_ADDR: usize = 0xFFFF_FA00_0000_0000;
+pub const KERNEL_DS_ADDR: usize = 0xFFFF_8000_0000_0000;
 
 #[repr(C)]
 pub struct FrameBuffer {
