@@ -14,45 +14,40 @@ const LINE_STATUS_REG: u16 = COM1 + 5;
 const MODEM_STATUS_REG: u16 = COM1 + 6;
 const SCRATCH_REG: u16 = COM1 + 7;
 
-struct Offset(pub u16);
-
 pub struct SerialPort {}
+//pub static mut SERIAL_PORT: SerialPort = SerialPort{};
 
-pub static mut SERIAL_PORT: SerialPort = SerialPort{};
+pub fn init() -> bool {
+    // Disable Interrupts
+    hal::outb(INT_ENABLE_REG, 0x0);
+    hal::outb(LINE_CTRL_REG, 0x80);
+    hal::outb(DIVISOR_LSB, 0x3);
+    hal::outb(DIVISOR_MSB, 0x0);
+    hal::outb(LINE_CTRL_REG, 0x3);
+    hal::outb(FIFO_CTRL_REG, 0xC7);
+    hal::outb(MODEM_CTRL_REG, 0x0B);
+    true
+}
 
-impl SerialPort {
-    pub fn init() -> bool {
-        // Disable Interrupts
-        hal::outb(INT_ENABLE_REG, 0x0);
-        hal::outb(LINE_CTRL_REG, 0x80);
-        hal::outb(DIVISOR_LSB, 0x3);
-        hal::outb(DIVISOR_MSB, 0x0);
-        hal::outb(LINE_CTRL_REG, 0x3);
-        hal::outb(FIFO_CTRL_REG, 0xC7);
-        hal::outb(MODEM_CTRL_REG, 0x0B);
-        true
+pub fn write_u8(byte: u8) {
+    while hal::inb(LINE_STATUS_REG) & 0x20 == 0 {}
+    hal::outb(BUFFER, byte);
+}
+
+pub fn write(x: &str) {
+    for byte in x.bytes() {
+        write_u8(byte);
     }
+}
 
-    pub fn write_u8(byte: u8) {
-        while hal::inb(LINE_STATUS_REG) & 0x20 == 0 {}
-        hal::outb(BUFFER, byte);
-    }
-
-    pub fn write(x: &str) {
-        for byte in x.bytes() {
-            Self::write_u8(byte);
-        }
-    }
-
-    pub fn read() -> u8 {
-        while hal::inb(LINE_STATUS_REG) & 0x1 == 0 {}
-        hal::inb(BUFFER)
-    }
+pub fn read() -> u8 {
+    while hal::inb(LINE_STATUS_REG) & 0x1 == 0 {}
+    hal::inb(BUFFER)
 }
 
 impl fmt::Write for SerialPort {
     fn write_str(&mut self, s: &str) -> fmt::Result {
-        SerialPort::write(s);
+        write(s);
         Ok(())
     }
 }

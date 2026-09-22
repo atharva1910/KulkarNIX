@@ -1,5 +1,6 @@
 #![no_std]
 use r_efi::protocols::graphics_output::ModeInformation;
+use crate::address::{PhysicalAddress, VirtualAddress};
 
 pub mod paging;
 pub mod hal;
@@ -20,8 +21,13 @@ pub struct FrameBuffer {
 
 #[repr(C)]
 pub struct KernelArgs {
+    //    pub frame_buf_info: FrameBuffer,
     pub desc_size: usize,
+    pub num_desc: usize,
     pub mem_map_size: usize,
-    pub frame_buf_info: FrameBuffer,
-    pub buffer: [u8; MMAP_BUFFER_SIZE],
+    pub total_memory: usize,
+    pub buffer: PhysicalAddress,
+    pub kernel_pbase: PhysicalAddress,
+    pub kernel_vbase: VirtualAddress,
+    pub kernel_pages: usize,
 }

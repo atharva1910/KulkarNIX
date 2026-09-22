@@ -3,14 +3,13 @@
 mod serial_port;
 mod errors;
 mod hal;
+mod pmem_manager;
 use core::arch::global_asm;
-use core::fmt::Write;
+use pmem_manager::PMemManager;
+//use core::fmt::Write;
 use core::panic::PanicInfo;
-use common::KernelArgs;
-use r_efi::efi::MemoryDescriptor;
-use common::serial_port::SERIAL_PORT;
-
-use crate::serial_port::SerialPort;
+use common::{KernelArgs, address::{PhysicalAddress, VirtualAddress}};
+//use serial_port::SerialPort;
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
@@ -41,8 +40,11 @@ global_asm!(
 );
 
 #[unsafe(no_mangle)]
-pub extern "C" fn kernel_main(addr: u64) {
-    let mut s = SerialPort{};
-    write!(s, "test 0x{:x}\n", addr);
+pub extern "C" fn kernel_main(addr: PhysicalAddress) {
+    let kernel_args = VirtualAddress::from(addr);
+    //write!(SerialPort{}, "test 0x{:x}\n", kernel_args);
+    if PMemManager::init(kernel_args.get_raw() as * const KernelArgs) {
+        serial_port::write("pmem_manager init successful\n");
+    }
     loop {};
 }

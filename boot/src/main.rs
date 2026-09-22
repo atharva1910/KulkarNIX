@@ -51,27 +51,27 @@ fn page_allocator(num_pages: usize) -> Option<usize> {
     Some(paddr as usize)
 }
 
-fn prepare_kernel_args(paddr: usize, mem_map: &MemoryMap) -> Option<()> {
-    let gop = BOOT_CTX.locate_protocol::<graphics_output::Protocol>(graphics_output::PROTOCOL_GUID)?;
-    let mode = unsafe {(*gop).mode.as_ref()}?;
-
+fn prepare_kernel_args(paddr: usize, mem_map: &MemoryMap, kernel: &Kernel) -> Option<()> {
     let args = unsafe {
         (paddr as *mut KernelArgs).as_mut()?
     };
 
     args.desc_size = mem_map.desc_size;
     args.mem_map_size = mem_map.mem_map_size;
+    args.buffer = PhysicalAddress(mem_map.buffer.as_ptr() as usize);
+    args.kernel_pbase = kernel.kernel_base;
+    args.kernel_vbase = kernel.kernel_vaddr;
+    args.kernel_pages = kernel.kernel_pages;
+    args.total_memory = mem_map.total_memory;
 
-    if args.buffer.len() < mem_map.buffer.len() {
-        return None;
-    }
-
-    args.buffer[..mem_map.buffer.len()].copy_from_slice(&mem_map.buffer[..]);
-    args.frame_buf_info.mode_information = unsafe {
-        mode.info.as_ref().unwrap().clone()
-    };
-    args.frame_buf_info.frame_base =  mode.frame_buffer_base;
-    args.frame_buf_info.frame_size =  mode.frame_buffer_size;
+    //let gop = BOOT_CTX.locate_protocol::<graphics_output::Protocol>(graphics_output::PROTOCOL_GUID)?;
+    //let mode = unsafe {(*gop).mode.as_ref()}?;
+    //args.buffer[..mem_map.buffer.len()].copy_from_slice(&mem_map.buffer[..]);
+    //args.frame_buf_info.mode_information = unsafe {
+    //    mode.info.as_ref().unwrap().clone()
+    //};
+    //args.frame_buf_info.frame_base =  mode.frame_buffer_base;
+    //args.frame_buf_info.frame_size =  mode.frame_buffer_size;
     Some(())
 }
 
@@ -202,7 +202,7 @@ pub extern "efiapi" fn main(h: efi::Handle,
 	    return BOOT_CTX.halt();
 	};
 
-    if prepare_kernel_args(paddr, &mem_map).is_none() {
+    if prepare_kernel_args(paddr, &mem_map, &kernel).is_none() {
 	    printer::print("Failed to setup kernel args\n");
 	    return BOOT_CTX.halt();
     }
