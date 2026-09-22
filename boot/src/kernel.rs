@@ -1,5 +1,5 @@
 use crate::{
-    boot_ctx::BOOT_CTX, elfheader::{ELF_MAGIC, Elf64Dyn, Elf64Ehdr, Elf64Phdr, Elf64Rela, Elf64Shdr, PT_DYNAMIC, PT_LOAD, SHT_RELA}, file::EfiFile, printer
+    boot_ctx::BOOT_CTX, elfheader::{ELF_MAGIC, Elf64Dyn, Elf64Ehdr, Elf64Phdr, Elf64Rela, PT_DYNAMIC, PT_LOAD}, file::EfiFile, printer
 };
 use common::address::{PhysicalAddress, VirtualAddress};
 use r_efi::{
@@ -174,7 +174,7 @@ impl Kernel {
                 if rela_type == 8 {
                     //printer::print(&format!("rela r_offset: {:x} address {:x} r_info: {:x} r_append: {:x}\n", rela.r_offset, address, rela.r_info, rela.r_append));
                     unsafe {
-                        core::ptr::write_unaligned(address as *mut u64, rela.r_append);
+                        core::ptr::write_unaligned(address as *mut u64, rela.r_append as u64);
                     }
                 }
             }
