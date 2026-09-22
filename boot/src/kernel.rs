@@ -10,8 +10,8 @@ use alloc::{
     format, slice, vec::Vec
 };
 
-const PAGE_SIZE: u64 = 4096; // TODO make this usize
-const KERNEL_VADDR: u64 = 0xfffffa0000000000;
+const PAGE_SIZE: usize = 4096; // TODO make this usize
+const KERNEL_VADDR: usize = 0xfffffa0000000000;
 
 pub struct Kernel {
     pub kernel_pages: usize,
@@ -83,20 +83,20 @@ impl Kernel {
         let elf_header = Self::read_elf_header(&fhandle)?;
         let ph_buf = Self::read_pheaders(&fhandle, &elf_header)?;
 
-        let mut min_paddr = u64::MAX;
-        let mut max_paddr = u64::MIN;
+        let mut min_paddr = usize::MAX;
+        let mut max_paddr = usize::MIN;
 
         for ph in &ph_buf {
             if ph.p_type != PT_LOAD || ph.p_memsz == 0 {
                 continue;
             }
 
-            if ph.p_paddr < min_paddr {
-                min_paddr = ph.p_paddr;
+            if (ph.p_paddr as usize) < min_paddr {
+                min_paddr = ph.p_paddr as usize;
             }
 
-            if ph.p_memsz + ph.p_paddr > max_paddr {
-                max_paddr = ph.p_memsz + ph.p_paddr;
+            if ((ph.p_memsz + ph.p_paddr) as usize) > max_paddr {
+                max_paddr = (ph.p_memsz + ph.p_paddr) as usize;
             }
         }
 
@@ -105,13 +105,13 @@ impl Kernel {
 
         printer::print(&format!("Kernel Info:\n\tSize: 0x{:x} Total Pages: {:x} Min_Paddr: {:x} Max_Paddr: {:x}\n", total_size, kernel_pages, min_paddr, max_paddr));
 
-        let mut kernel_base: r_efi::base::PhysicalAddress = 0x0;
+        let mut kernel_base: usize = 0x0;
         let Some(bs) = BOOT_CTX.get_bs() else {
             return Err(efi::Status::INVALID_PARAMETER);
         };
 
         let mut status = unsafe {
-            (bs.allocate_pages)(ALLOCATE_ANY_PAGES, LOADER_DATA, kernel_pages as usize, &mut kernel_base)
+            (bs.allocate_pages)(ALLOCATE_ANY_PAGES, LOADER_DATA, kernel_pages as usize, &mut kernel_base as *mut usize as *mut r_efi::efi::PhysicalAddress)
         };
         if status != efi::Status::SUCCESS {
             return Err(status);
@@ -128,7 +128,7 @@ impl Kernel {
             }
 
             fhandle.seek(ph.p_offset as usize);
-            let start = (ph.p_paddr - min_paddr) as usize;
+            let start = ph.p_paddr as usize - min_paddr;
             let end = start + ph.p_memsz as usize;
 
             if ph.p_type != PT_LOAD || ph.p_memsz == 0 {
@@ -147,14 +147,14 @@ impl Kernel {
                 continue;
             }
 
-            let mut dyn_arr_start = (kernel_base + ph.p_vaddr - KERNEL_VADDR) as usize;
+            let mut dyn_arr_start = kernel_base + ph.p_vaddr as usize - KERNEL_VADDR;
             let mut rela_addr = 0;
             let mut rela_size = 0;
             loop {
                 let dyn_arr = dyn_arr_start as *const Elf64Dyn;
                 unsafe {
                     match (*dyn_arr).d_tag {
-                        7 => rela_addr = kernel_base + (*dyn_arr).d_val - KERNEL_VADDR,
+                        7 => rela_addr = kernel_base + (*dyn_arr).d_val as usize - KERNEL_VADDR,
                         8 => rela_size = (*dyn_arr).d_val,
                         0 => break,
                         _ => {},
@@ -169,7 +169,7 @@ impl Kernel {
             };
 
             for rela in rela_arr {
-                let address = kernel_base + rela.r_offset - KERNEL_VADDR;
+                let address = kernel_base + rela.r_offset as usize - KERNEL_VADDR;
                 let rela_type = rela.r_info & 0xFFFFFFFF;
                 if rela_type == 8 {
                     //printer::print(&format!("rela r_offset: {:x} address {:x} r_info: {:x} r_append: {:x}\n", rela.r_offset, address, rela.r_info, rela.r_append));
@@ -183,8 +183,8 @@ impl Kernel {
 
         Ok(Self {
             kernel_pages: kernel_pages,
-            kernel_base: PhysicalAddress(kernel_base),
+            kernel_base: PhysicalAddress(kernel_base as usize),
             kernel_vaddr: VirtualAddress(KERNEL_VADDR),
-            kernel_entry: VirtualAddress(elf_header.e_entry)})
+            kernel_entry: VirtualAddress(elf_header.e_entry as usize)})
         }
     }

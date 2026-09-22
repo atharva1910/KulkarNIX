@@ -4,7 +4,7 @@ pub const PAGE_TABLE_NUM_ENTRIES: usize = 512;
 pub const PAGE_SIZE: usize = 4096;
 
 #[repr(transparent)]
-pub struct PageEntry(pub u64);
+pub struct PageEntry(pub usize);
 
 #[repr(C, align(4096))]
 pub struct PML4T {
@@ -28,10 +28,10 @@ pub struct PT {
 
 
 impl PageEntry {
-    const PRESENT: u64 = 1 << 0;
-    const RW: u64 = 1 << 1;
-    const ADDR_ALIGNMENT: u64 = (1 << 12) - 1;
-    const ADDR_MASK:u64 = 0x000F_FFFF_FFFF_F000;
+    const PRESENT: usize = 1 << 0;
+    const RW: usize = 1 << 1;
+    const ADDR_ALIGNMENT: usize = (1 << 12) - 1;
+    const ADDR_MASK:usize = 0x000F_FFFF_FFFF_F000;
 
     pub fn set_present(&mut self) {
         self.0 |= Self::PRESENT;
@@ -45,13 +45,13 @@ impl PageEntry {
         self.0 &= Self::ADDR_MASK;
     }
 
-    pub fn set_addr(&mut self, addr: u64) {
+    pub fn set_addr(&mut self, addr: usize) {
         assert!(addr & Self::ADDR_ALIGNMENT == 0, "ADDRESS NOT 4KB ALIGNED");
         self.0 &= !Self::ADDR_MASK;
         self.0 |= addr;
     }
 
-    pub fn get_addr(&mut self) -> u64 {
+    pub fn get_addr(&mut self) -> usize {
         self.0 & Self::ADDR_MASK
     }
 
@@ -61,23 +61,23 @@ impl PageEntry {
 }
 
 impl PDPT {
-    const PS: u64 = 1 << 7;
-    const ADDR_ALIGNMENT: u64 = (1 << 30) - 1;
-    const PRESENT: u64 = 1 << 0;
-    const RW: u64 = 1 << 1;
+    const PS: usize = 1 << 7;
+    const ADDR_ALIGNMENT: usize = (1 << 30) - 1;
+    const PRESENT: usize = 1 << 0;
+    const RW: usize = 1 << 1;
 
-    pub fn set_1gb_paging(&mut self, idx: usize, addr: u64) {
+    pub fn set_1gb_paging(&mut self, idx: usize, addr: usize) {
         assert!(addr & Self::ADDR_ALIGNMENT == 0, "ADDRESS NOT 1GB ALIGNED");
         self.pdpe[idx].0 = Self::PS | Self::PRESENT | Self::RW | addr;
     }
 }
 
 impl PDT {
-    const PS: u64 = 1 << 7;
-    const ADDR_ALIGNMENT: u64 = (1 << 20) - 1;
-    const PRESENT: u64 = 1 << 0;
-    const RW: u64 = 1 << 1;
-    pub fn set_2mb_paging(&mut self, idx: usize, addr: u64) {
+    const PS: usize = 1 << 7;
+    const ADDR_ALIGNMENT: usize = (1 << 20) - 1;
+    const PRESENT: usize = 1 << 0;
+    const RW: usize = 1 << 1;
+    pub fn set_2mb_paging(&mut self, idx: usize, addr: usize) {
         assert!(addr & Self::ADDR_ALIGNMENT == 0, "ADDRESS NOT 2MB ALIGNED");
         self.pde[idx].0 = Self::PS | Self::PRESENT | Self::RW | addr;
     }
@@ -85,14 +85,14 @@ impl PDT {
 
 pub struct PageTableManager<T>
 where
-    T: Fn(usize) -> Option<u64> {
+    T: Fn(usize) -> Option<usize> {
     pml4t: *mut PML4T,
     page_allocator: T,
 }
 
 impl<T> PageTableManager<T>
 where
-    T: Fn(usize) -> Option<u64> {
+    T: Fn(usize) -> Option<usize> {
     pub fn new(page_allocator: T) -> Option<Self> {
         let Some(pml4t) = page_allocator(1) else {
             return None;
@@ -116,12 +116,12 @@ where
         }
     }
 
-    pub fn allocate_tables(&self, num_tables: usize) -> Option<u64> {
+    pub fn allocate_tables(&self, num_tables: usize) -> Option<usize> {
         (self.page_allocator)(num_tables) // No method found??
     }
 
     pub fn get_or_create_entry<TABLE>(&self, entry: &mut PageEntry) -> Option<&'static mut TABLE> {
-        const ADDR_MASK:u64 = 0x000F_FFFF_FFFF_F000;
+        const ADDR_MASK:usize = 0x000F_FFFF_FFFF_F000;
         let mut table_addr = entry.get_addr() & ADDR_MASK;
         if table_addr == 0 {
             table_addr = (self.page_allocator)(1)?;
@@ -134,7 +134,7 @@ where
         }
     }
 
-    pub fn map_page(&self, phy: u64, virt: u64) -> bool {
+    pub fn map_page(&self, phy: usize, virt: usize) -> bool {
         let v = VirtualAddress(virt);
         let Some(pml4t) = self.get_pml4t_mut() else {
             return false;
