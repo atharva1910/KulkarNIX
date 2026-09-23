@@ -3,12 +3,15 @@
 mod serial_port;
 mod errors;
 mod hal;
+mod heap_manager;
 mod pmem_manager;
 use core::arch::global_asm;
 use pmem_manager::PMemManager;
 //use core::fmt::Write;
 use core::panic::PanicInfo;
 use common::{KernelArgs, address::{PhysicalAddress, VirtualAddress}};
+
+use crate::heap_manager::HeapManager;
 //use serial_port::SerialPort;
 
 #[panic_handler]
@@ -41,10 +44,11 @@ global_asm!(
 
 #[unsafe(no_mangle)]
 pub extern "C" fn kernel_main(addr: PhysicalAddress) {
-    let kernel_args = VirtualAddress::from(addr);
-    //write!(SerialPort{}, "test 0x{:x}\n", kernel_args);
-    if PMemManager::init(kernel_args.get_raw() as * const KernelArgs) {
+    let Ok(mut pmm) =  PMemManager::init(addr) else {
         serial_port::write("pmem_manager init successful\n");
-    }
+        return; //hang
+    };
+
+    let heap_manager = HeapManager::init(&mut pmm);
     loop {};
 }

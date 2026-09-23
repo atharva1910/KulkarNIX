@@ -1,4 +1,16 @@
-pub struct KError(pub u64);
+use core::{error::Error, fmt::{self, Formatter}};
 
-impl KError {
+#[derive(Debug)]
+pub enum KError {
+    GeneralError,
+    InvalidParameter
 }
+
+impl fmt::Display for KError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "KError");
+        Ok(())
+    }
+}
+
+impl Error for KError {}

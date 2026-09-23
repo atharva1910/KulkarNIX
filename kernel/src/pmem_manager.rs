@@ -1,8 +1,6 @@
-use crate::{bitmap::BitMap, errors::KError};
+use crate::{errors::KError};
 use common::{
-    KernelArgs,
-    address::{PhysicalAddress, VirtualAddress},
-    paging::PAGE_SIZE,
+    KERNEL_ARGS_PAGES, KernelArgs, address::{PhysicalAddress, VirtualAddress}, paging::PAGE_SIZE
 };
 use r_efi::efi::{
     BOOT_SERVICES_DATA, CONVENTIONAL_MEMORY, LOADER_CODE, LOADER_DATA, MemoryDescriptor,
@@ -16,22 +14,23 @@ pub struct PMemManager {
 impl PMemManager {
     fn is_page_free(&self, pos: usize) -> bool {
         let byte_pos = pos >> 3;
-        let bit_pos = byte_pos & !0x8;
+        let bit_pos = pos & 0x7;
         self.bitmap[byte_pos] & (1 << bit_pos) == 0
     }
 
     fn mark_page_alloc(&mut self, pos: usize) {
         let byte_pos = pos >> 3;
-        let bit_pos = byte_pos & !0x8;
+        let bit_pos = pos & 0x7;
         self.bitmap[byte_pos] |= 1 << bit_pos;
     }
 
-    pub fn alloc_page(&mut self, n: usize) -> Option<VirtualAddress> {
+    pub fn alloc_pages(&mut self, n: usize) -> Option<VirtualAddress> {
+        assert!(n != 0);
         let mut itr: usize = 0;
         let mut found: usize = 0;
 
         loop {
-            if itr > self.bitmap.len() {
+            if itr >= self.num_bits {
                 break;
             }
 
@@ -62,7 +61,7 @@ impl PMemManager {
 
     fn free_page(&mut self, addr: VirtualAddress) {
         assert!(addr.get_raw() % PAGE_SIZE == 0);
-        let bit_pos = addr.get_raw() >> 12;
+        let bit_pos = addr.to_physical().get_raw() >> 12;
         let byte_pos = bit_pos >> 3;
         let bit_pos = bit_pos & 0x7;
         self.bitmap[byte_pos] &= !(1 << bit_pos);
@@ -73,9 +72,10 @@ impl PMemManager {
         (0..n).for_each(|i| self.free_page(addr + (i * PAGE_SIZE)));
     }
 
-    pub fn init(kernel_args: *const KernelArgs) -> Result<Self, KError> {
+    pub fn init(args_addr: PhysicalAddress) -> Result<Self, KError> {
+        let kernel_args = args_addr.get_raw() as *const KernelArgs;
         let Some(pargs) = (unsafe { kernel_args.as_ref() }) else {
-            return Err(KError::GeneralFaliure);
+            return Err(KError::GeneralError);
         };
 
         let total_pages = usize::div_euclid(pargs.total_memory, PAGE_SIZE);
@@ -97,14 +97,17 @@ impl PMemManager {
                 && desc.r#type != BOOT_SERVICES_DATA
                 && desc.r#type != LOADER_CODE
                 && desc.r#type != LOADER_DATA
-                && (desc.number_of_pages as usize) < pages_required
             {
+                return None;
+            }
+
+            if (desc.number_of_pages as usize) < pages_required {
                 return None;
             }
 
             Some(PhysicalAddress(desc.physical_start as usize))
         }) else {
-            return Err(KError::GeneralFaliure);
+            return Err(KError::GeneralError);
         };
 
         let mut pmm = unsafe {
@@ -119,6 +122,7 @@ impl PMemManager {
 
         pmm.bitmap.fill(u8::MAX);
 
+        // Free usable memory
         (0..num_desc).for_each(|i| {
             let desc_paddr = pargs.buffer + (i * pargs.desc_size);
             let desc_vaddr = VirtualAddress::from(desc_paddr);
@@ -141,6 +145,18 @@ impl PMemManager {
             );
         });
 
+        // Mark kernel address allocated
+        assert!(pargs.kernel_pbase.get_raw() % PAGE_SIZE == 0);
+        let kernel_base_pos = pargs.kernel_pbase.get_raw() >> 12;
+        (0..pargs.kernel_pages).for_each(|i| pmm.mark_page_alloc(kernel_base_pos + i));
+
+        // Mark the kernel arguments pages as allocated
+        assert!(args_addr.get_raw() as usize % PAGE_SIZE == 0);
+        (0..KERNEL_ARGS_PAGES).for_each(|i| pmm.mark_page_alloc((args_addr.get_raw() as usize >> 12) + i));
+
+        // Mark the bitmap memory as used
+        assert!(bitmap_paddr.get_raw() % PAGE_SIZE == 0);
+        (0..pages_required).for_each(|i| pmm.mark_page_alloc((bitmap_paddr.get_raw() >> 12) + i));
 
         Ok(pmm)
     }

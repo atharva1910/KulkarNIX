@@ -43,6 +43,13 @@ macro_rules! addr_functions {
             }
         }
 
+        impl Sub<usize> for $name {
+            type Output = $name;
+            fn sub(self, x: usize) -> Self::Output {
+                $name(self.0 - x)
+            }
+        }
+
 
         impl AddAssign<usize> for $name {
             fn add_assign(&mut self, rhs: usize) {
