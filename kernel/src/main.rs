@@ -5,6 +5,8 @@ mod errors;
 mod hal;
 mod heap_manager;
 mod pmem_manager;
+mod linked_list;
+
 use core::arch::global_asm;
 use pmem_manager::PMemManager;
 //use core::fmt::Write;
