@@ -1,5 +1,5 @@
 use core::fmt::{self, LowerHex};
-use core::ops::{Add, AddAssign, Sub, SubAssign};
+use core::ops::{Add, AddAssign, Sub, SubAssign, Deref};
 use crate::KERNEL_DS_ADDR;
 
 macro_rules! addr_functions {
@@ -14,6 +14,13 @@ macro_rules! addr_functions {
             }
             pub fn to_ptr<T>(&self) -> *const T {
                 self.0 as *const T
+            }
+        }
+
+        impl Deref for $name  {
+            type Target = usize;
+            fn deref(&self) -> &Self::Target {
+                &self.0
             }
         }
 

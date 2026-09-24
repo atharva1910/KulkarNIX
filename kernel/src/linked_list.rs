@@ -5,6 +5,13 @@ pub struct RawList {
     prev: *mut RawList,
 }
 
+impl Iterator for &RawList {
+    type Item = *mut RawList;
+    fn next(&mut self) -> Option<Self::Item> {
+        Some(self.next)
+    }
+}
+
 impl RawList {
     pub fn new() -> Self {
         Self {
