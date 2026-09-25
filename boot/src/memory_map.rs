@@ -54,15 +54,15 @@ impl MemoryMap {
                 chunk.as_ptr().cast::<MemoryDescriptor>().as_ref().unwrap()
             };
 
+            total_memory +=
+                (desc.number_of_pages << 12) as usize;
+
             if  desc.r#type != CONVENTIONAL_MEMORY &&
                 desc.r#type != BOOT_SERVICES_DATA &&
                 desc.r#type != LOADER_CODE &&
                 desc.r#type != LOADER_DATA {
                     continue;
                 }
-
-            total_memory +=
-                (desc.number_of_pages << 12) as usize;
 
             if desc.physical_start < min_paddr {
                 min_paddr = desc.physical_start;
