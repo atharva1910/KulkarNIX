@@ -1,4 +1,5 @@
-use crate::{errors::KError};
+use core::fmt::Write;
+use crate::{errors::KError, SPrint};
 use common::{
     KERNEL_ARGS_PAGES, KernelArgs, address::{PhysicalAddress, VirtualAddress}, paging::PAGE_SIZE
 };
@@ -53,6 +54,7 @@ impl PMemManager {
         }
 
         let start = itr - found;
+        SPrint!("Found {} pages at bit {}. Addr 0x{:x}", n, start, start << 12);
         (0..n).for_each(|i|
                         self.mark_page_alloc(start + i));
 
@@ -68,21 +70,23 @@ impl PMemManager {
     }
 
     pub fn free_pages(&mut self, addr: VirtualAddress, n: usize) {
-        assert!(addr.get_raw() % PAGE_SIZE == 0);
+        assert!(addr.get_raw() % PAGE_SIZE == 0, "addr not page_size");
         (0..n).for_each(|i| self.free_page(addr + (i * PAGE_SIZE)));
     }
 
-    pub fn init(args_addr: PhysicalAddress) -> Result<Self, KError> {
+    pub fn init(args_addr: VirtualAddress) -> Result<Self, KError> {
         let kernel_args = args_addr.get_raw() as *const KernelArgs;
         let Some(pargs) = (unsafe { kernel_args.as_ref() }) else {
             return Err(KError::GeneralError);
         };
 
+
         let total_pages = usize::div_euclid(pargs.total_memory, PAGE_SIZE);
         let bytes_required = usize::div_ceil(total_pages, 8);
         let pages_required = usize::div_ceil(bytes_required, PAGE_SIZE);
+        SPrint!("total_pages {:X} bytes_required {:X} pages_required {:X}", total_pages, bytes_required, pages_required);
 
-        let num_desc = pargs.mem_map_size / pargs.desc_size;
+        let num_desc = usize::div_euclid(pargs.mem_map_size, pargs.desc_size);
 
         let Some(bitmap_paddr) = (0..num_desc).find_map(|i| {
             let desc_paddr = pargs.buffer + (i * pargs.desc_size);
@@ -146,16 +150,17 @@ impl PMemManager {
         });
 
         // Mark kernel address allocated
-        assert!(pargs.kernel_pbase.get_raw() % PAGE_SIZE == 0);
-        let kernel_base_pos = pargs.kernel_pbase.get_raw() >> 12;
+        assert!(*pargs.kernel_pbase % PAGE_SIZE == 0);
+        SPrint!("Marking Kernel Memory as allocated {:X}", *pargs.kernel_pbase);
+        let kernel_base_pos = *pargs.kernel_pbase >> 12;
         (0..pargs.kernel_pages).for_each(|i| pmm.mark_page_alloc(kernel_base_pos + i));
 
         // Mark the kernel arguments pages as allocated
-        assert!(args_addr.get_raw() as usize % PAGE_SIZE == 0);
-        (0..KERNEL_ARGS_PAGES).for_each(|i| pmm.mark_page_alloc((args_addr.get_raw() as usize >> 12) + i));
+        assert!(*args_addr.to_physical() as usize % PAGE_SIZE == 0);
+        (0..KERNEL_ARGS_PAGES).for_each(|i| pmm.mark_page_alloc((*args_addr.to_physical() >> 12) + i));
 
         // Mark the bitmap memory as used
-        assert!(bitmap_paddr.get_raw() % PAGE_SIZE == 0);
+        assert!(*bitmap_paddr % PAGE_SIZE == 0);
         (0..pages_required).for_each(|i| pmm.mark_page_alloc((bitmap_paddr.get_raw() >> 12) + i));
 
         Ok(pmm)
