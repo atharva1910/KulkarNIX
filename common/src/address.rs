@@ -1,4 +1,4 @@
-use core::fmt::{self, LowerHex};
+use core::fmt::{self, LowerHex, UpperHex};
 use core::ops::{Add, AddAssign, Sub, SubAssign, Deref};
 use crate::KERNEL_DS_ADDR;
 
@@ -36,7 +36,26 @@ macro_rules! addr_functions {
             }
         }
 
+        impl<T> From <*const T> for $name {
+            fn from(addr: *const T) -> $name {
+                $name(addr as usize)
+            }
+        }
+
+        impl<T> From <*mut T> for $name {
+            fn from(addr: *mut T) -> $name {
+                $name(addr as usize)
+            }
+        }
+
         impl LowerHex for $name {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                let _ = write!(f, "{:x}", self.0);
+                Ok(())
+            }
+        }
+
+        impl UpperHex for $name {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 let _ = write!(f, "{:x}", self.0);
                 Ok(())
