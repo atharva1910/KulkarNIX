@@ -15,7 +15,6 @@ const MODEM_STATUS_REG: u16 = COM1 + 6;
 const SCRATCH_REG: u16 = COM1 + 7;
 
 pub struct SerialPort {}
-//pub static mut SERIAL_PORT: SerialPort = SerialPort{};
 
 pub fn init() -> bool {
     // Disable Interrupts
@@ -51,3 +50,28 @@ impl fmt::Write for SerialPort {
         Ok(())
     }
 }
+
+#[macro_export]
+macro_rules! SPrint {
+     ($($args:tt)*) => {
+         {
+             let mut s = crate::serial_port::SerialPort{};
+             let _ = write!(s, $($args)*);
+             let _ = write!(s, "\n");
+         }
+    };
+ }
+
+#[macro_export]
+macro_rules! DbgPrint {
+     ($($args:tt)*) => {
+         {
+             if cfg!(feature = "debug_logs") {
+                 let mut s = crate::serial_port::SerialPort{};
+                 let _ = write!(s, "{}:{} ", module_path!(), line!());
+                 let _ = write!(s, $($args)*);
+                 let _ = write!(s, "\n");
+             }
+         }
+    };
+ }
