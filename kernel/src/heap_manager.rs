@@ -1,6 +1,6 @@
 use core::mem::offset_of;
-
-use crate::{linked_list::RawList, pmem_manager::PMemManager};
+use core::fmt::Write;
+use crate::{SPrint, linked_list::RawList, pmem_manager::PMemManager};
 use common::{address::VirtualAddress, paging::PAGE_SIZE};
 
 #[repr(C)]
@@ -24,9 +24,7 @@ impl<'a> HeapManager<'a> {
 
     pub fn alloc(&mut self, size: usize) -> Option<VirtualAddress> {
         if let Some(addr) = self.check_free_list(size) {
-            // Chop the node if required and return
-
-            return None;
+            return Some(addr.into());
         }
 
         let num_pages = usize::div_ceil(size + size_of::<usize>(), PAGE_SIZE);
@@ -36,11 +34,9 @@ impl<'a> HeapManager<'a> {
         }
 
         if let Some(addr) = self.check_free_list(size) {
-            // Chop the node if required and return
-            return None;
+            return Some(addr.into());
         }
 
-        // No memory
         None
     }
 
@@ -52,14 +48,17 @@ impl<'a> HeapManager<'a> {
 
 impl<'a> HeapManager<'a> {
     fn add_pages(&mut self, num_pages: usize) -> bool {
+        SPrint!("Allocating num pages: {}", num_pages);
         let Some(addr) = self.pmm.alloc_pages(num_pages) else {
             return false;
         };
 
         let pmeta_data = *addr as *mut MetaData;
+        let size = num_pages << 12 - size_of::<usize>();
         unsafe {
-            (*pmeta_data).size = num_pages << 12;
-            self.free_list.insert(&mut (*pmeta_data).links);
+            (*pmeta_data).size = size;
+            let mut links = RawList::init(&mut (*pmeta_data).links);
+            self.free_list.insert(&mut links);
         }
         true
     }
@@ -70,10 +69,12 @@ impl<'a> HeapManager<'a> {
             let pmd = pmd as *mut MetaData;
             unsafe {
                 if (*pmd).size >= size {
-                    return Some(pmd);
+                    return Some(self.chop_node(pmd, size));
                 }
             }
         }
+
+        SPrint!("No memory found in free list");
         None
     }
 
@@ -90,11 +91,12 @@ impl<'a> HeapManager<'a> {
 
         // chop chop
         node_ref.size = size; // Is this calc correct
-        let new_node = (node as usize + size + size_of::<usize>()) as *mut MetaData;
+        let new_node = (node as usize + size) as *mut MetaData;
         unsafe {
             (*new_node).size = rem;
             self.free_list.insert(&mut (*new_node).links);
         }
+
         return node;
     }
 }
