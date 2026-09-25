@@ -8,6 +8,9 @@ pub struct RawList {
 impl Iterator for &RawList {
     type Item = *mut RawList;
     fn next(&mut self) -> Option<Self::Item> {
+        if self.next == core::ptr::null_mut() {
+            return None;
+        }
         Some(self.next)
     }
 }
@@ -18,10 +21,15 @@ impl RawList {
             next: core::ptr::null_mut(),
             prev: core::ptr::null_mut(),
         }
+
+        //ret.next = &mut ret;
+        //ret.prev = &mut ret;
+        //ret
     }
 
     pub fn is_empty(&self) -> bool {
-        self.next == self.prev
+        self.next == core::ptr::null_mut() &&
+            self.prev == core::ptr::null_mut()
     }
 
     pub fn remove(&mut self) {
@@ -33,7 +41,18 @@ impl RawList {
         }
     }
 
-    pub fn insert(&mut self, list: *mut RawList) {
+    pub fn init(x: &mut RawList) -> &mut RawList {
+        x.next = x;
+        x.prev = x;
+        x
+    }
+
+    pub fn insert(&mut self, list: &mut RawList) {
+        if self.is_empty() {
+            self.next = list;
+            self.prev = list;
+        }
+
         unsafe {
             let tail = (*list).prev;
             (*tail).next = self;
