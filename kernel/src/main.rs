@@ -6,18 +6,21 @@ mod hal;
 mod heap_manager;
 mod pmem_manager;
 mod linked_list;
-
+use core::fmt::{self, Write};
+use core::panic::PanicInfo;
 use core::arch::global_asm;
 use pmem_manager::PMemManager;
-//use core::fmt::Write;
-use core::panic::PanicInfo;
+use serial_port::SerialPort;
 use common::{KernelArgs, address::{PhysicalAddress, VirtualAddress}};
 
 use crate::heap_manager::HeapManager;
 //use serial_port::SerialPort;
 
 #[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
+fn panic(info: &PanicInfo) -> ! {
+    SPrint!("PANIC");
+    SPrint!("{}", info);
+    SPrint!("PANIC");
     loop {}
 }
 
@@ -46,11 +49,16 @@ global_asm!(
 
 #[unsafe(no_mangle)]
 pub extern "C" fn kernel_main(addr: PhysicalAddress) {
-    let Ok(mut pmm) =  PMemManager::init(addr) else {
-        serial_port::write("pmem_manager init successful\n");
-        return; //hang
-    };
+    SPrint!("Welcome to the kernel PArgs: {:X} Vargs {:X}", addr, addr.to_virtual());
 
-    let heap_manager = HeapManager::init(&mut pmm);
+    let mut pmm =  PMemManager::init(addr.to_virtual()).unwrap();
+    SPrint!("Physical Memory Manager init successful");
+
+    let mut hmm = HeapManager::init(&mut pmm);
+
+    if let Some(addr) = hmm.alloc(512) {
+        SPrint!("Got address {}", *addr);
+        serial_port::write("hmm init successful\n");
+    }
     loop {};
 }
