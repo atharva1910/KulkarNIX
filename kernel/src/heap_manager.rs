@@ -1,7 +1,7 @@
 use core::mem::offset_of;
 use core::fmt::Write;
 use crate::{SPrint, linked_list::RawList, pmem_manager::PMemManager};
-use common::{address::VirtualAddress, paging::PAGE_SIZE};
+use common::{address::{PhysicalAddress, VirtualAddress}, paging::PAGE_SIZE};
 
 #[repr(C)]
 struct MetaData {
@@ -24,17 +24,16 @@ impl<'a> HeapManager<'a> {
 
     pub fn alloc(&mut self, size: usize) -> Option<VirtualAddress> {
         if let Some(addr) = self.check_free_list(size) {
-            return Some(addr.into());
+            return Some(addr);
         }
 
-        let num_pages = usize::div_ceil(size + size_of::<usize>(), PAGE_SIZE);
-        if !self.add_pages(num_pages) {
-            // Failed to add pages
+        if !self.add_mem(size) {
             return None;
         }
 
+        SPrint!("Checkig free list again");
         if let Some(addr) = self.check_free_list(size) {
-            return Some(addr.into());
+            return Some(addr);
         }
 
         None
@@ -47,29 +46,39 @@ impl<'a> HeapManager<'a> {
 }
 
 impl<'a> HeapManager<'a> {
-    fn add_pages(&mut self, num_pages: usize) -> bool {
+    fn get_vaddress(&self, meta_data: &mut MetaData) -> Option<VirtualAddress> {
+        let ret = &meta_data.links as *const _ as usize;
+        return Some(VirtualAddress(ret));
+    }
+
+    fn num_pages(&self, size: usize) -> usize {
+        let num_pages = usize::div_ceil(size + size_of::<usize>(), PAGE_SIZE);
+        num_pages
+    }
+
+    fn add_mem(&mut self, size: usize) -> bool {
+        let num_pages = self.num_pages(size);
         SPrint!("Allocating num pages: {}", num_pages);
+
         let Some(addr) = self.pmm.alloc_pages(num_pages) else {
             return false;
         };
 
-        let pmeta_data = *addr as *mut MetaData;
-        let size = num_pages << 12 - size_of::<usize>();
-        unsafe {
-            (*pmeta_data).size = size;
-            let mut links = RawList::init(&mut (*pmeta_data).links);
-            self.free_list.insert(&mut links);
-        }
+        SPrint!("Allocated {} page at addr: {:X}", num_pages, addr);
+        let alloc_size = num_pages << 12 - size_of::<usize>();
+        self.create_node(addr, alloc_size);
         true
     }
 
-    fn check_free_list(&mut self, size: usize) -> Option<*mut MetaData> {
+    fn check_free_list(&mut self, size: usize) -> Option<VirtualAddress> {
         for node in &self.free_list {
+            SPrint!("Found a node in free_list");
             let pmd = node as usize - offset_of!(MetaData, links);
-            let pmd = pmd as *mut MetaData;
-            unsafe {
-                if (*pmd).size >= size {
-                    return Some(self.chop_node(pmd, size));
+            if let Some(pmd) = unsafe {(pmd as *mut MetaData).as_mut()} {
+                if pmd.size >= size {
+                    SPrint!("Found a suitable node in free_list: {:X}", pmd.size);
+                    self.chop_node(pmd, size);
+                    return self.get_vaddress(pmd);
                 }
             }
         }
@@ -78,25 +87,28 @@ impl<'a> HeapManager<'a> {
         None
     }
 
-    fn chop_node(&mut self, node: *mut MetaData, size: usize) -> *mut MetaData {
-        let Some( node_ref) = (unsafe { node.as_mut() }) else {
-            return node; // This is a bug tho
-        };
-
-        let rem = node_ref.size - size;
+    fn chop_node(&mut self, node: &mut MetaData, size: usize)  {
+        let rem = node.size - size;
+        SPrint!("Chopping Node. Node Size {} Req Size {} Rem {}", node.size, size, rem);
         if rem <= size_of::<MetaData>() {
-            // Way too small memory. Dont chop
-            return node;
+            return;
         }
 
-        // chop chop
-        node_ref.size = size; // Is this calc correct
-        let new_node = (node as usize + size) as *mut MetaData;
-        unsafe {
-            (*new_node).size = rem;
-            self.free_list.insert(&mut (*new_node).links);
-        }
+        // Shirk the current node
+        node.size = size;
 
-        return node;
+        // Create new node
+        let addr = VirtualAddress(node as *const _ as usize + size);
+        self.create_node(addr, rem);
+    }
+
+    fn create_node(&mut self, addr: VirtualAddress, size: usize) {
+        SPrint!("Creating Node. Addr {:X} size {}", addr, size);
+        let pmeta_data = *addr as *mut MetaData;
+        if let Some(pmd) = unsafe {pmeta_data.as_mut()} {
+            pmd.size = size;
+            RawList::init(&mut pmd.links);
+            self.free_list.insert(&mut pmd.links);
+        }
     }
 }

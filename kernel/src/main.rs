@@ -55,9 +55,8 @@ pub extern "C" fn kernel_main(addr: PhysicalAddress) {
     SPrint!("Physical Memory Manager init successful");
 
     let mut hmm = HeapManager::init(&mut pmm);
-
     if let Some(addr) = hmm.alloc(512) {
-        SPrint!("Got address {}", *addr);
+        SPrint!("Got address {:X}", *addr);
         serial_port::write("hmm init successful\n");
     }
     loop {};

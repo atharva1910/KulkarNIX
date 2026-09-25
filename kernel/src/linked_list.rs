@@ -1,4 +1,6 @@
 use common::address::VirtualAddress;
+use core::{fmt::Write, ptr::null_mut};
+use crate::SPrint;
 
 pub struct RawList {
     next: *mut RawList,
@@ -8,7 +10,7 @@ pub struct RawList {
 impl Iterator for &RawList {
     type Item = *mut RawList;
     fn next(&mut self) -> Option<Self::Item> {
-        if self.next == core::ptr::null_mut() {
+        if self.next == null_mut() {
             return None;
         }
         Some(self.next)
@@ -21,10 +23,6 @@ impl RawList {
             next: core::ptr::null_mut(),
             prev: core::ptr::null_mut(),
         }
-
-        //ret.next = &mut ret;
-        //ret.prev = &mut ret;
-        //ret
     }
 
     pub fn is_empty(&self) -> bool {
@@ -41,24 +39,28 @@ impl RawList {
         }
     }
 
-    pub fn init(x: &mut RawList) -> &mut RawList {
-        x.next = x;
-        x.prev = x;
+    pub fn init(x: *mut RawList) -> *mut RawList {
+        unsafe {
+            (*x).next = core::ptr::null_mut();
+            (*x).prev = core::ptr::null_mut();
+        }
         x
     }
 
-    pub fn insert(&mut self, list: &mut RawList) {
-        if self.is_empty() {
-            self.next = list;
-            self.prev = list;
-        }
-
+    pub fn insert(&mut self, node: *mut RawList) {
         unsafe {
-            let tail = (*list).prev;
-            (*tail).next = self;
-            (*list).prev = self;
-            self.prev = tail;
-            self.next = list;
+            if self.is_empty() {
+                self.next = node;
+                self.prev = node;
+                (*node).prev = null_mut();
+                (*node).next = null_mut();
+            } else {
+                let tail = (*node).prev;
+                (*tail).next = node;
+                (*node).prev = tail;
+                (*node).next = null_mut();
+                self.prev = node;
+            }
         }
     }
 
