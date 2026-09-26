@@ -1,24 +1,24 @@
 use core::mem::offset_of;
 use core::fmt::Write;
-use crate::{SPrint, linked_list::RawList, pmem_manager::PMemManager};
+use crate::{SPrint, linked_list::List, pmem_manager::PMemManager};
 use common::{address::{PhysicalAddress, VirtualAddress}, paging::PAGE_SIZE};
 
 #[repr(C)]
 struct MetaData {
     size: usize,
-    links: RawList,
+    links: List,
 }
 
 pub struct HeapManager<'a> {
     pmm: &'a mut PMemManager,
-    free_list: RawList,
+    free_list: *mut List,
 }
 
 impl<'a> HeapManager<'a> {
     pub fn init(pmm: &'a mut PMemManager) -> Self {
         Self {
             pmm,
-            free_list: RawList::new(),
+            free_list: core::ptr::null_mut(),
         }
     }
 
@@ -40,8 +40,11 @@ impl<'a> HeapManager<'a> {
     }
 
     pub fn free(&mut self, addr: VirtualAddress) {
-        let node = RawList::create_node(addr);
-        self.free_list.insert(node);
+        //if let Some(node) = List::create_node(addr).as_ref() {
+        //    if let Some(list) = unsafe{self.free_list.as_mut()} {
+        //        list.insert(&mut node.links);
+        //    }
+        //}
     }
 }
 
@@ -71,17 +74,23 @@ impl<'a> HeapManager<'a> {
     }
 
     fn check_free_list(&mut self, size: usize) -> Option<VirtualAddress> {
-        for node in &self.free_list {
-            SPrint!("Found a node in free_list");
-            let pmd = node as usize - offset_of!(MetaData, links);
-            if let Some(pmd) = unsafe {(pmd as *mut MetaData).as_mut()} {
-                if pmd.size >= size {
-                    SPrint!("Found a suitable node in free_list: {:X}", pmd.size);
-                    self.chop_node(pmd, size);
-                    return self.get_vaddress(pmd);
+        let Some(list) = (unsafe{self.free_list.as_ref()}) else {
+            return None;
+        };
+
+        if let Some(pmd) = list.iter()
+            .filter_map(|node| {
+                let base = node as usize - offset_of!(MetaData, links);
+                if let Some(pmd) = unsafe {(base as *mut MetaData).as_mut()} {
+                    return Some(pmd);
                 }
+                return None;
+            })
+            .find(|pmd| pmd.size >= size) {
+                self.chop_node(pmd, size);
+                return self.get_vaddress(pmd);
             }
-        }
+
 
         SPrint!("No memory found in free list");
         None
@@ -107,8 +116,9 @@ impl<'a> HeapManager<'a> {
         let pmeta_data = *addr as *mut MetaData;
         if let Some(pmd) = unsafe {pmeta_data.as_mut()} {
             pmd.size = size;
-            RawList::init(&mut pmd.links);
-            self.free_list.insert(&mut pmd.links);
+            if let Some(list) = unsafe{self.free_list.as_mut()} {
+                list.insert(&mut pmd.links);
+            }
         }
     }
 }
