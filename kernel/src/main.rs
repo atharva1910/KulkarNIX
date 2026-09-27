@@ -6,15 +6,13 @@ mod hal;
 mod heap_manager;
 mod pmem_manager;
 mod linked_list;
-use core::fmt::{self, Write};
+
+use core::fmt::Write;
 use core::panic::PanicInfo;
 use core::arch::global_asm;
 use pmem_manager::PMemManager;
-use serial_port::SerialPort;
-use common::{KernelArgs, address::{PhysicalAddress, VirtualAddress}};
-
+use common::address::PhysicalAddress;
 use crate::heap_manager::HeapManager;
-//use serial_port::SerialPort;
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
@@ -56,7 +54,6 @@ pub extern "C" fn kernel_main(addr: PhysicalAddress) {
 
     let mut hmm = HeapManager::init(&mut pmm);
     if let Some(addr) = hmm.alloc(512) {
-        SPrint!("Got address {:X}", *addr);
         hmm.free(addr);
     }
     loop {};

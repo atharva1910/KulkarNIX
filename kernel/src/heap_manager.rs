@@ -1,7 +1,6 @@
 use core::mem::offset_of;
-use core::fmt::Write;
-use crate::{SPrint, linked_list::List, pmem_manager::PMemManager};
-use common::{address::{PhysicalAddress, VirtualAddress}, paging::PAGE_SIZE};
+use crate::{linked_list::List, pmem_manager::PMemManager};
+use common::{address:: VirtualAddress, paging::PAGE_SIZE};
 
 #[repr(C)]
 struct MetaData {
@@ -31,7 +30,6 @@ impl<'a> HeapManager<'a> {
             return None;
         }
 
-        SPrint!("Checking free list again");
         if let Some(addr) = self.check_free_list(size) {
             return Some(addr);
         }
@@ -44,17 +42,11 @@ impl<'a> HeapManager<'a> {
             if let Some(list) = unsafe{self.free_list.as_mut()} {
                 list.insert(&mut node.links);
             } else {
-                assert!(false);
+                self.free_list = &mut node.links;
             };
         } else {
-            SPrint!("what");
-            panic!("what");
+            panic!("The node address is invalid?");
         };
-        //if let Some(node) = List::create_node(addr).as_ref() {
-        //    if let Some(list) = unsafe{self.free_list.as_mut()} {
-        //        list.insert(&mut node.links);
-        //    }
-        //}
     }
 }
 
@@ -133,5 +125,31 @@ impl<'a> HeapManager<'a> {
                 self.free_list = &mut pmd.links;
             }
         }
+    }
+
+    fn coallase_mem(&mut self) {
+
+        let Some(list) = (unsafe{self.free_list.as_mut()}) else {
+            panic!("List is empty?");
+        };
+
+        list.iter().fold(None, |prev, curr| {
+            if prev.is_none() {
+                return Some(curr);
+            }
+
+            if let Some(prev_node) = unsafe{self.get_node(VirtualAddress::from(prev.unwrap() as *const _ as usize)).as_mut()} {
+                if let Some(curr_node) = unsafe{self.get_node(VirtualAddress::from(curr as usize)).as_mut()} {
+                    if prev_node.size + prev_node as *const _ as usize == curr_node as *const _ as usize {
+                        prev_node.size += curr_node.size;
+                        list.remove(&mut curr_node.links);
+                        return Some(&mut prev_node.links);
+                    } else {
+                        return Some(&mut curr_node.links);
+                    }
+                }
+            }
+            None
+        });
     }
 }

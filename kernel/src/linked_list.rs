@@ -11,6 +11,7 @@ impl List {
     pub fn iter(&mut self) -> ListIter {
         ListIter {
             current: self,
+            next: self,
         }
     }
 
@@ -33,19 +34,54 @@ impl List {
         node
     }
 
-    pub fn insert(&mut self, node: &mut List) {
-        node.prev = null_mut();
-        node.prev = null_mut();
+    pub fn insert_before(&mut self, after: &mut List, node: &mut List) {
+        let before = after.prev;
 
-        if self.next == null_mut() {
-            self.next = node;
-            self.prev = node;
-        } else {
-            node.prev = self.prev;
-            unsafe {
-                (*self.prev).next = node;
+        node.next = after;
+        after.prev = node;
+
+        if let Some(before) = unsafe{before.as_mut()} {
+            before.next = node;
+            node.prev = before;
+        }
+
+    }
+
+    pub fn insert(&mut self, node: &mut List) {
+        if let Some(after) = node.iter().find(|&n| {
+            if n as usize > node as *const _ as usize {
+                return true;
             }
-            self.prev = node;
+            false
+        }) {
+            if let Some(after) = unsafe{ after.as_mut() } {
+                if let Some(before) = unsafe {after.prev.as_mut()} {
+                    before.next = node;
+                    after.prev = node;
+                    node.prev = before;
+                    node.next = after;
+                } else {
+                    // No node before. Must be head
+                    node.next = after;
+                    node.prev = after.prev;
+                    after.prev = node;
+                    self.next = node;
+                }
+            }
+        } else {
+            if let Some(tail) = unsafe{self.prev.as_mut()} {
+                // No node after. Must be tail
+                self.prev = node;
+                node.prev = tail;
+                node.next = tail.next;
+                tail.next = node;
+            } else {
+                // No node in the list;
+                self.next = node;
+                self.prev = node;
+                node.next = null_mut();
+                node.prev = null_mut();
+            }
         }
     }
 
@@ -61,16 +97,33 @@ impl List {
 
 pub struct ListIter {
     current: *mut List,
+    next: *mut List,
 }
 
 impl Iterator for ListIter {
     type Item = *mut List;
     fn next(&mut self) -> Option<Self::Item> {
+        if self.current == null_mut() {
+            return None;
+        }
+
+        let ret = self.current;
+        self.current = self.next;
+        if let Some(next_node) = unsafe{self.next.as_mut()} {
+            self.next = next_node.next;
+        }
+
+        Some(ret)
+    }
+}
+
+impl DoubleEndedIterator for ListIter {
+    fn next_back(&mut self) -> Option<Self::Item> {
         let Some(curr) = (unsafe{self.current.as_ref()}) else {
             return None;
         };
         let ret = self.current;
-        self.current =  curr.next;
+        self.current = curr.prev;
         Some(ret)
     }
 }
