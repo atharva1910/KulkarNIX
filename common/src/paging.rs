@@ -135,7 +135,7 @@ where
     }
 
     pub fn map_page(&self, phy: usize, virt: usize) -> bool {
-        let v = VirtualAddress(virt);
+        let v = VirtualAddress::from(virt);
         let Some(pml4t) = self.get_pml4t_mut() else {
             return false;
         };

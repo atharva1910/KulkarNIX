@@ -31,7 +31,7 @@ impl<'a> HeapManager<'a> {
             return None;
         }
 
-        SPrint!("Checkig free list again");
+        SPrint!("Checking free list again");
         if let Some(addr) = self.check_free_list(size) {
             return Some(addr);
         }
@@ -40,6 +40,16 @@ impl<'a> HeapManager<'a> {
     }
 
     pub fn free(&mut self, addr: VirtualAddress) {
+        if let Some(node) = unsafe{self.get_node(addr).as_mut()} {
+            if let Some(list) = unsafe{self.free_list.as_mut()} {
+                list.insert(&mut node.links);
+            } else {
+                assert!(false);
+            };
+        } else {
+            SPrint!("what");
+            panic!("what");
+        };
         //if let Some(node) = List::create_node(addr).as_ref() {
         //    if let Some(list) = unsafe{self.free_list.as_mut()} {
         //        list.insert(&mut node.links);
@@ -51,7 +61,7 @@ impl<'a> HeapManager<'a> {
 impl<'a> HeapManager<'a> {
     fn get_vaddress(&self, meta_data: &mut MetaData) -> Option<VirtualAddress> {
         let ret = &meta_data.links as *const _ as usize;
-        return Some(VirtualAddress(ret));
+        return Some(VirtualAddress::from(ret));
     }
 
     fn num_pages(&self, size: usize) -> usize {
@@ -61,44 +71,41 @@ impl<'a> HeapManager<'a> {
 
     fn add_mem(&mut self, size: usize) -> bool {
         let num_pages = self.num_pages(size);
-        SPrint!("Allocating num pages: {}", num_pages);
 
         let Some(addr) = self.pmm.alloc_pages(num_pages) else {
             return false;
         };
 
-        SPrint!("Allocated {} page at addr: {:X}", num_pages, addr);
-        let alloc_size = num_pages << 12 - size_of::<usize>();
+        let alloc_size = (num_pages << 12) - size_of::<usize>();
         self.create_node(addr, alloc_size);
         true
     }
 
     fn check_free_list(&mut self, size: usize) -> Option<VirtualAddress> {
-        let Some(list) = (unsafe{self.free_list.as_ref()}) else {
+        let Some(list) = (unsafe{self.free_list.as_mut()}) else {
             return None;
         };
 
-        if let Some(pmd) = list.iter()
+        if let Some(md) = list.iter()
             .filter_map(|node| {
-                let base = node as usize - offset_of!(MetaData, links);
-                if let Some(pmd) = unsafe {(base as *mut MetaData).as_mut()} {
+                if let Some(pmd) = unsafe {(self.get_node(VirtualAddress::from(node as usize))).as_mut()} {
                     return Some(pmd);
                 }
                 return None;
             })
-            .find(|pmd| pmd.size >= size) {
-                self.chop_node(pmd, size);
-                return self.get_vaddress(pmd);
+            .find(|pmd| {
+                pmd.size >= size
+            }) {
+                self.chop_node(md, size);
+                return self.get_vaddress(md);
             }
 
 
-        SPrint!("No memory found in free list");
         None
     }
 
     fn chop_node(&mut self, node: &mut MetaData, size: usize)  {
         let rem = node.size - size;
-        SPrint!("Chopping Node. Node Size {} Req Size {} Rem {}", node.size, size, rem);
         if rem <= size_of::<MetaData>() {
             return;
         }
@@ -107,17 +114,23 @@ impl<'a> HeapManager<'a> {
         node.size = size;
 
         // Create new node
-        let addr = VirtualAddress(node as *const _ as usize + size);
+        let addr = VirtualAddress::from(node as *const _ as usize + size);
         self.create_node(addr, rem);
     }
 
+    fn get_node(&mut self, addr: VirtualAddress) -> *mut MetaData {
+        let base = *addr - offset_of!(MetaData, links);
+        base as *mut MetaData
+    }
+
     fn create_node(&mut self, addr: VirtualAddress, size: usize) {
-        SPrint!("Creating Node. Addr {:X} size {}", addr, size);
         let pmeta_data = *addr as *mut MetaData;
         if let Some(pmd) = unsafe {pmeta_data.as_mut()} {
             pmd.size = size;
             if let Some(list) = unsafe{self.free_list.as_mut()} {
                 list.insert(&mut pmd.links);
+            } else {
+                self.free_list = &mut pmd.links;
             }
         }
     }

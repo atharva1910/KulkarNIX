@@ -8,14 +8,19 @@ pub struct List {
 }
 
 impl List {
-    pub fn iter(&self) -> ListIter {
+    pub fn iter(&mut self) -> ListIter {
         ListIter {
-            current: self.next,
+            current: self,
         }
     }
 
     pub fn is_empty(&self) -> bool {
         self.next == null_mut()
+    }
+
+    pub fn init(&mut self) {
+        self.next = null_mut();
+        self.prev = null_mut();
     }
 
     pub fn create_node(addr: VirtualAddress) -> *mut List {
@@ -29,10 +34,14 @@ impl List {
     }
 
     pub fn insert(&mut self, node: &mut List) {
+        node.prev = null_mut();
+        node.prev = null_mut();
+
         if self.next == null_mut() {
             self.next = node;
             self.prev = node;
         } else {
+            node.prev = self.prev;
             unsafe {
                 (*self.prev).next = node;
             }

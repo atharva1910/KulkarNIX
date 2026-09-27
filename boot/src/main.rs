@@ -58,7 +58,7 @@ fn prepare_kernel_args(paddr: usize, mem_map: &MemoryMap, kernel: &Kernel) -> Op
 
     args.desc_size = mem_map.desc_size;
     args.mem_map_size = mem_map.mem_map_size;
-    args.buffer = PhysicalAddress(mem_map.buffer.as_ptr() as usize);
+    args.buffer = PhysicalAddress::from(mem_map.buffer.as_ptr() as usize);
     args.kernel_pbase = kernel.kernel_base;
     args.kernel_vbase = kernel.kernel_vaddr;
     args.kernel_pages = kernel.kernel_pages;
@@ -86,8 +86,8 @@ where
     assert!(total_mem < 512 * ONE_GB);
     assert!(num_1gb_pdpe < paging::PAGE_TABLE_NUM_ENTRIES);
 
-    let mut paddr = PhysicalAddress(0x0);
-    let mut vaddr = VirtualAddress(KERNEL_DS_ADDR);
+    let mut paddr = PhysicalAddress::from(0x0);
+    let mut vaddr = VirtualAddress::from(KERNEL_DS_ADDR);
     for _ in 0..num_1gb_pdpe {
         pt_mgr.map_1gb_page(paddr, vaddr);
         paddr += ONE_GB as usize;

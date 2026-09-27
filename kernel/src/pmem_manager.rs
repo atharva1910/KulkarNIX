@@ -58,7 +58,7 @@ impl PMemManager {
         (0..n).for_each(|i|
                         self.mark_page_alloc(start + i));
 
-        Some(PhysicalAddress(start << 12).to_virtual())
+        Some(PhysicalAddress::from(start << 12).to_virtual())
     }
 
     fn free_page(&mut self, addr: VirtualAddress) {
@@ -109,7 +109,7 @@ impl PMemManager {
                 return None;
             }
 
-            Some(PhysicalAddress(desc.physical_start as usize))
+            Some(PhysicalAddress::from(desc.physical_start as usize))
         }) else {
             return Err(KError::GeneralError);
         };
@@ -144,7 +144,7 @@ impl PMemManager {
             }
 
             pmm.free_pages(
-                PhysicalAddress(desc.physical_start as usize).to_virtual(),
+                PhysicalAddress::from(desc.physical_start as usize).to_virtual(),
                 desc.number_of_pages as usize,
             );
         });

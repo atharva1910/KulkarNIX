@@ -183,8 +183,8 @@ impl Kernel {
 
         Ok(Self {
             kernel_pages: kernel_pages,
-            kernel_base: PhysicalAddress(kernel_base as usize),
-            kernel_vaddr: VirtualAddress(KERNEL_VADDR),
-            kernel_entry: VirtualAddress(elf_header.e_entry as usize)})
+            kernel_base: PhysicalAddress::from(kernel_base as usize),
+            kernel_vaddr: VirtualAddress::from(KERNEL_VADDR),
+            kernel_entry: VirtualAddress::from(elf_header.e_entry as usize)})
         }
     }

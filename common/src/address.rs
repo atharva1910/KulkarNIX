@@ -1,12 +1,13 @@
 use core::fmt::{self, LowerHex, UpperHex};
 use core::ops::{Add, AddAssign, Sub, SubAssign, Deref};
+
 use crate::KERNEL_DS_ADDR;
 
 macro_rules! addr_functions {
     ($name:ident) => {
         #[repr(transparent)]
         #[derive(Clone, Default, Copy)]
-        pub struct $name(pub usize);
+        pub struct $name(usize);
 
         impl $name {
             pub fn get_raw(&self) -> usize {
@@ -27,12 +28,6 @@ macro_rules! addr_functions {
         impl From<$name> for usize {
             fn from(addr: $name) -> usize {
                 addr.0
-            }
-        }
-
-        impl From<usize> for $name {
-            fn from(addr: usize) -> $name {
-                $name(addr)
             }
         }
 
@@ -129,6 +124,19 @@ impl From<VirtualAddress> for PhysicalAddress {
     }
 }
 
+impl From<usize> for VirtualAddress {
+    fn from(addr: usize) -> VirtualAddress {
+        assert!(addr >= KERNEL_DS_ADDR);
+        VirtualAddress(addr)
+    }
+}
+
+impl From<usize> for PhysicalAddress {
+    fn from(addr: usize) -> PhysicalAddress {
+        assert!(addr < KERNEL_DS_ADDR);
+        PhysicalAddress(addr)
+    }
+}
 
 
 addr_functions!(VirtualAddress);
