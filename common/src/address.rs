@@ -103,6 +103,9 @@ impl VirtualAddress {
         assert!(self.0 >= KERNEL_DS_ADDR);
         PhysicalAddress(self.0 - KERNEL_DS_ADDR)
     }
+    pub fn no_check(addr: usize) -> Self{
+        Self(addr)
+    }
 }
 
 impl PhysicalAddress {

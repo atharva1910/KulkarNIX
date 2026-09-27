@@ -104,7 +104,7 @@ where
     let mut start_paddr = kernel.kernel_base;
     let mut start_vaddr = kernel.kernel_vaddr;
     for _ in 0..kernel.kernel_pages {
-        if pt_mgr.map_page( start_paddr.get_raw(), start_vaddr.get_raw()) {
+        if pt_mgr.map_page( start_paddr, start_vaddr) {
             start_vaddr += PAGE_SIZE;
             start_paddr += PAGE_SIZE;
         } else {
@@ -134,7 +134,7 @@ where
 
     printer::print(&format!("Mapping image. Base 0x{:x} Size 0x{:x}\n", image_base, image_size));
     for _ in 0..pages {
-        pt_mgr.map_page(image_base, image_base);
+        pt_mgr.map_page(PhysicalAddress::from(image_base), VirtualAddress::no_check(image_base));
         image_base += PAGE_SIZE;
     }
     Ok(())

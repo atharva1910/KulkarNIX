@@ -134,27 +134,26 @@ where
         }
     }
 
-    pub fn map_page(&self, phy: usize, virt: usize) -> bool {
-        let v = VirtualAddress::from(virt);
+    pub fn map_page(&self, phy: PhysicalAddress, virt: VirtualAddress) -> bool {
         let Some(pml4t) = self.get_pml4t_mut() else {
             return false;
         };
 
-        let Some(pdpt) = self.get_or_create_entry::<PDPT>(&mut pml4t.pml4e[v.pml4_idx()]) else {
+        let Some(pdpt) = self.get_or_create_entry::<PDPT>(&mut pml4t.pml4e[virt.pml4_idx()]) else {
             return false;
         };
 
-        let Some(pdt) = self.get_or_create_entry::<PDT>(&mut pdpt.pdpe[v.pdpt_idx()]) else {
+        let Some(pdt) = self.get_or_create_entry::<PDT>(&mut pdpt.pdpe[virt.pdpt_idx()]) else {
             return false;
         };
 
-        let Some(pt) = self.get_or_create_entry::<PT>(&mut pdt.pde[v.pdt_idx()]) else {
+        let Some(pt) = self.get_or_create_entry::<PT>(&mut pdt.pde[virt.pdt_idx()]) else {
             return false;
         };
 
-        pt.pte[v.pt_idx()].set_rw();
-        pt.pte[v.pt_idx()].set_present();
-        pt.pte[v.pt_idx()].set_addr(phy);
+        pt.pte[virt.pt_idx()].set_rw();
+        pt.pte[virt.pt_idx()].set_present();
+        pt.pte[virt.pt_idx()].set_addr(*phy);
         true
     }
 
