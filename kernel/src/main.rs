@@ -6,6 +6,7 @@ mod hal;
 mod heap_manager;
 mod pmem_manager;
 mod linked_list;
+mod spin_lock;
 
 use core::fmt::Write;
 use core::panic::PanicInfo;
@@ -49,12 +50,11 @@ global_asm!(
 pub extern "C" fn kernel_main(addr: PhysicalAddress) {
     SPrint!("Welcome to the kernel PArgs: {:X} Vargs {:X}", addr, addr.to_virtual());
 
-    let mut pmm =  PMemManager::init(addr.to_virtual()).unwrap();
+    PMemManager::init(addr.to_virtual()).unwrap();
     SPrint!("Physical Memory Manager init successful");
 
-    let mut hmm = HeapManager::init(&mut pmm);
-    if let Some(addr) = hmm.alloc(512) {
-        hmm.free(addr);
-    }
+    HeapManager::init();
+    SPrint!("Heap Memory Manager init successful");
+
     loop {};
 }

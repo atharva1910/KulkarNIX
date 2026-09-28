@@ -1,5 +1,5 @@
-use core::fmt::Write;
-use crate::{errors::KError, SPrint};
+use core::{fmt::Write, usize};
+use crate::{errors::KError, SPrint, spin_lock::SpinLock};
 use common::{
     KERNEL_ARGS_PAGES, KernelArgs, address::{PhysicalAddress, VirtualAddress}, paging::PAGE_SIZE
 };
@@ -12,30 +12,31 @@ pub struct PMemManager {
     num_bits: usize,
 }
 
+static PMEM_MGR: SpinLock<Option<PMemManager>> = SpinLock::init(None);
+
 impl PMemManager {
-    fn is_page_free(&self, pos: usize) -> bool {
-        let byte_pos = pos >> 3;
-        let bit_pos = pos & 0x7;
-        self.bitmap[byte_pos] & (1 << bit_pos) == 0
+    pub fn free_pages(addr: VirtualAddress, n: usize) {
+        assert!(addr.get_raw() % PAGE_SIZE == 0, "addr not page_size");
+        if let Some(pmm) = PMEM_MGR.lock().as_mut() {
+            (0..n).for_each(|i| pmm.free_page(addr + (i * PAGE_SIZE)));
+        }
     }
 
-    fn mark_page_alloc(&mut self, pos: usize) {
-        let byte_pos = pos >> 3;
-        let bit_pos = pos & 0x7;
-        self.bitmap[byte_pos] |= 1 << bit_pos;
-    }
-
-    pub fn alloc_pages(&mut self, n: usize) -> Option<VirtualAddress> {
+    pub fn alloc_pages(n: usize) -> Option<VirtualAddress> {
         assert!(n != 0);
+        let mut guard = PMEM_MGR.lock();
+        let Some(pmm) =  guard.as_mut() else {
+            return None;
+        };
         let mut itr: usize = 0;
         let mut found: usize = 0;
 
         loop {
-            if itr >= self.num_bits {
+            if itr >= pmm.num_bits {
                 break;
             }
 
-            if !self.is_page_free(itr) {
+            if !pmm.is_page_free(itr) {
                 itr = itr + 1;
                 found = 0;
                 continue;
@@ -56,25 +57,37 @@ impl PMemManager {
         let start = itr - found;
         SPrint!("Found {} pages at bit {}. Addr 0x{:x}", n, start, start << 12);
         (0..n).for_each(|i|
-                        self.mark_page_alloc(start + i));
+                        pmm.mark_page_alloc(start + i));
 
         Some(PhysicalAddress::from(start << 12).to_virtual())
     }
 
+    fn is_page_free(&self, pos: usize) -> bool {
+        let byte_pos = pos >> 3;
+        let bit_pos = pos & 0x7;
+        self.bitmap[byte_pos] & (1 << bit_pos) == 0
+    }
+
+    fn mark_page_alloc(&mut self, pos: usize) {
+        let byte_pos = pos >> 3;
+        let bit_pos = pos & 0x7;
+        self.bitmap[byte_pos] |= 1 << bit_pos;
+    }
+
+    fn mark_page_free(&mut self, pos: usize) {
+        let byte_pos = pos >> 3;
+        let bit_pos = pos & 0x7;
+        self.bitmap[byte_pos] &= !(1 << bit_pos);
+    }
+
     fn free_page(&mut self, addr: VirtualAddress) {
-        assert!(addr.get_raw() % PAGE_SIZE == 0);
         let bit_pos = addr.to_physical().get_raw() >> 12;
         let byte_pos = bit_pos >> 3;
         let bit_pos = bit_pos & 0x7;
         self.bitmap[byte_pos] &= !(1 << bit_pos);
     }
 
-    pub fn free_pages(&mut self, addr: VirtualAddress, n: usize) {
-        assert!(addr.get_raw() % PAGE_SIZE == 0, "addr not page_size");
-        (0..n).for_each(|i| self.free_page(addr + (i * PAGE_SIZE)));
-    }
-
-    pub fn init(args_addr: VirtualAddress) -> Result<Self, KError> {
+    pub fn init(args_addr: VirtualAddress) -> Result<(), KError> {
         let kernel_args = args_addr.get_raw() as *const KernelArgs;
         let Some(pargs) = (unsafe { kernel_args.as_ref() }) else {
             return Err(KError::GeneralError);
@@ -143,10 +156,8 @@ impl PMemManager {
                 return;
             }
 
-            pmm.free_pages(
-                PhysicalAddress::from(desc.physical_start as usize).to_virtual(),
-                desc.number_of_pages as usize,
-            );
+            let page_pos = desc.physical_start as usize >> 12;
+            (0..desc.number_of_pages as usize).for_each(|i| pmm.mark_page_free(page_pos + i));
         });
 
         // Mark kernel address allocated
@@ -163,6 +174,8 @@ impl PMemManager {
         assert!(*bitmap_paddr % PAGE_SIZE == 0);
         (0..pages_required).for_each(|i| pmm.mark_page_alloc((bitmap_paddr.get_raw() >> 12) + i));
 
-        Ok(pmm)
+        *PMEM_MGR.lock() = Some(pmm);
+
+        Ok(())
     }
 }
