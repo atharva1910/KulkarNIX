@@ -44,6 +44,18 @@ impl List {
         node
     }
 
+    pub fn insert_after(&mut self, before: &mut List, node: &mut List) {
+        let after = before.next;
+
+        before.next = node;
+        node.prev = before;
+
+        if let Some(after) = unsafe{after.as_mut()} {
+            node.next = after;
+            after.prev = node;
+        }
+
+    }
     pub fn insert_before(&mut self, after: &mut List, node: &mut List) {
         let before = after.prev;
 

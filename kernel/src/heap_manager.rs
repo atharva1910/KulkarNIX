@@ -8,15 +8,22 @@ struct MetaData {
     links: List,
 }
 
-pub struct HeapManager<'a> {
-    pmm: &'a mut PMemManager,
+impl MetaData {
+    pub fn is_adjacent(&mut self, node2: &mut MetaData) -> bool {
+        assert!((self as *const _ as usize) < node2 as *const _ as usize);
+        let node2_start = node2 as *const _ as usize;
+        let node1_list = &self.links as *const _ as usize;
+        node1_list + self.size == node2_start
+    }
+}
+
+pub struct HeapManager {
     free_list: *mut List,
 }
 
-impl<'a> HeapManager<'a> {
-    pub fn init(pmm: &'a mut PMemManager) -> Self {
+impl HeapManager {
+    pub fn init() -> Self {
         Self {
-            pmm,
             free_list: core::ptr::null_mut(),
         }
     }
@@ -47,29 +54,41 @@ impl<'a> HeapManager<'a> {
             return;
         };
 
+        let mut before: Option<&mut MetaData> = None;
+        let mut after: Option<&mut MetaData> = None;
+
         for link in list.iter() {
             let Some(itr_node) = self.get_node_mut(VirtualAddress::from(link as usize)) else {
                 panic!("Bad node address {:X}", addr);
             };
 
             if (itr_node as *const _ as usize) < *addr {
-                let next_node = itr_node.links.get_next();
-                if let Some(next_node) = self.get_node_mut(VirtualAddress::from(next_node as usize)) {
-                    list.insert_between(&mut itr_node.links, &mut next_node.links, &mut node.links);
-                } else {
-                    list.insert_tail(&mut node.links);
-                }
+                before = Some(itr_node);
+                continue;
             } else {
-                if node.size + *addr == link as usize {
-                } else {
-                    list.insert_head(&mut node.links);
-                }
+                after = Some(itr_node);
+                break;
+            }
+        }
+
+        if let Some(node_after) = after {
+            if node.is_adjacent(node_after) {
+                node.size += node_after.size;
+                list.remove(&mut node_after.links);
+            }
+        }
+
+        if let Some(node_before) = before {
+            if node_before.is_adjacent(node) {
+                node_before.size += node.size;
+            } else {
+                list.insert_after(&mut node_before.links, &mut node.links);
             }
         }
     }
 }
 
-impl<'a> HeapManager<'a> {
+impl HeapManager {
     #[inline]
     pub fn get_list_mut(&self) -> Option<&mut List> {
         unsafe {
@@ -104,7 +123,7 @@ impl<'a> HeapManager<'a> {
     fn add_mem(&mut self, size: usize) -> bool {
         let num_pages = self.num_pages(size);
 
-        let Some(addr) = self.pmm.alloc_pages(num_pages) else {
+        let Some(addr) = PMemManager::alloc_pages(num_pages) else {
             return false;
         };
 
@@ -166,4 +185,6 @@ impl<'a> HeapManager<'a> {
             }
         }
     }
+
+
 }
