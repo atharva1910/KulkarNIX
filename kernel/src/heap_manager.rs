@@ -1,5 +1,5 @@
-use core::{mem::offset_of, ptr::null_mut};
-use crate::{linked_list::List, pmem_manager::PMemManager, spin_lock::SpinLock};
+use core::mem::offset_of;
+use crate::{linked_list::List, pmem_manager::PMemManager};
 use common::{address:: VirtualAddress, paging::PAGE_SIZE};
 
 #[repr(C)]
@@ -8,50 +8,89 @@ struct MetaData {
     links: List,
 }
 
-struct HeapManager {
+pub struct HeapManager<'a> {
+    pmm: &'a mut PMemManager,
     free_list: *mut List,
 }
 
-unsafe impl Send for HeapManager {}
+impl<'a> HeapManager<'a> {
+    pub fn init(pmm: &'a mut PMemManager) -> Self {
+        Self {
+            pmm,
+            free_list: core::ptr::null_mut(),
+        }
+    }
 
-static HEAP_MGR: SpinLock<HeapManager> = SpinLock::init(HeapManager{
-    free_list: null_mut()
-});
-
-impl HeapManager {
-    pub fn alloc(size: usize) -> Option<VirtualAddress> {
-        let mut hmm = HEAP_MGR.lock();
-
-        if let Some(addr) = hmm.check_free_list(size) {
+    pub fn alloc(&mut self, size: usize) -> Option<VirtualAddress> {
+        if let Some(addr) = self.check_free_list(size) {
             return Some(addr);
         }
 
-        if !hmm.add_mem(size) {
+        if !self.add_mem(size) {
             return None;
         }
 
-        if let Some(addr) = hmm.check_free_list(size) {
+        if let Some(addr) = self.check_free_list(size) {
             return Some(addr);
         }
 
         None
     }
 
-    pub fn free(addr: VirtualAddress) {
-        let mut hmm = HEAP_MGR.lock();
-        if let Some(node) = unsafe{hmm.get_node(addr).as_mut()} {
-            if let Some(list) = unsafe{hmm.free_list.as_mut()} {
-                list.insert(&mut node.links);
-            } else {
-                hmm.free_list = &mut node.links;
-            };
-        } else {
-            panic!("The node address is invalid?");
+    pub fn free(&mut self, addr: VirtualAddress) {
+        let Some(node) = self.get_node_mut(addr) else {
+            panic!("Bad node address {:X}", addr);
         };
+
+        let Some(list) = self.get_list_mut() else {
+            self.free_list = &mut node.links;
+            return;
+        };
+
+        for link in list.iter() {
+            let Some(itr_node) = self.get_node_mut(VirtualAddress::from(link as usize)) else {
+                panic!("Bad node address {:X}", addr);
+            };
+
+            if (itr_node as *const _ as usize) < *addr {
+                let next_node = itr_node.links.get_next();
+                if let Some(next_node) = self.get_node_mut(VirtualAddress::from(next_node as usize)) {
+                    list.insert_between(&mut itr_node.links, &mut next_node.links, &mut node.links);
+                } else {
+                    list.insert_tail(&mut node.links);
+                }
+            } else {
+                if node.size + *addr == link as usize {
+                } else {
+                    list.insert_head(&mut node.links);
+                }
+            }
+        }
     }
 }
 
-impl HeapManager {
+impl<'a> HeapManager<'a> {
+    #[inline]
+    pub fn get_list_mut(&self) -> Option<&mut List> {
+        unsafe {
+            self.free_list.as_mut()
+        }
+    }
+
+    #[inline]
+    fn get_node_ref(&self, addr: VirtualAddress) -> Option<&MetaData> {
+        unsafe {
+            self.get_node(addr).as_ref()
+        }
+    }
+
+    #[inline]
+    fn get_node_mut(&self, addr: VirtualAddress) -> Option<&mut MetaData> {
+        unsafe {
+            self.get_node(addr).as_mut()
+        }
+    }
+
     fn get_vaddress(&self, meta_data: &mut MetaData) -> Option<VirtualAddress> {
         let ret = &meta_data.links as *const _ as usize;
         return Some(VirtualAddress::from(ret));
@@ -65,7 +104,7 @@ impl HeapManager {
     fn add_mem(&mut self, size: usize) -> bool {
         let num_pages = self.num_pages(size);
 
-        let Some(addr) = PMemManager::alloc_pages(num_pages) else {
+        let Some(addr) = self.pmm.alloc_pages(num_pages) else {
             return false;
         };
 
@@ -111,7 +150,7 @@ impl HeapManager {
         self.create_node(addr, rem);
     }
 
-    fn get_node(&mut self, addr: VirtualAddress) -> *mut MetaData {
+    fn get_node(&self, addr: VirtualAddress) -> *mut MetaData {
         let base = *addr - offset_of!(MetaData, links);
         base as *mut MetaData
     }
@@ -126,31 +165,5 @@ impl HeapManager {
                 self.free_list = &mut pmd.links;
             }
         }
-    }
-
-    fn coallase_mem(&mut self) {
-
-        let Some(list) = (unsafe{self.free_list.as_mut()}) else {
-            panic!("List is empty?");
-        };
-
-        list.iter().fold(None, |prev, curr| {
-            if prev.is_none() {
-                return Some(curr);
-            }
-
-            if let Some(prev_node) = unsafe{self.get_node(VirtualAddress::from(prev.unwrap() as *const _ as usize)).as_mut()} {
-                if let Some(curr_node) = unsafe{self.get_node(VirtualAddress::from(curr as usize)).as_mut()} {
-                    if prev_node.size + prev_node as *const _ as usize == curr_node as *const _ as usize {
-                        prev_node.size += curr_node.size;
-                        list.remove(&mut curr_node.links);
-                        return Some(&mut prev_node.links);
-                    } else {
-                        return Some(&mut curr_node.links);
-                    }
-                }
-            }
-            None
-        });
     }
 }
