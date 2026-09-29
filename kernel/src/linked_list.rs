@@ -8,11 +8,21 @@ pub struct List {
 }
 
 impl List {
+    pub fn node_mut(&self, node: *mut List) -> Option<&mut List> {
+        unsafe {
+            node.as_mut()
+        }
+    }
+
     pub fn iter(&mut self) -> ListIter {
         ListIter {
             current: self,
             next: self,
         }
+    }
+
+    pub fn get_next(&self) -> *mut List {
+        self.next
     }
 
     pub fn is_empty(&self) -> bool {
@@ -45,6 +55,33 @@ impl List {
             node.prev = before;
         }
 
+    }
+
+    pub fn insert_head(&mut self, node: &mut List) {
+        if let Some(head) = self.node_mut(self.next) {
+            head.prev = node;
+            node.next = head;
+            self.next = node;
+        } else {
+            panic!("Bad node address {:X}", node as *const _ as usize);
+        }
+    }
+
+    pub fn insert_between(&mut self, before: &mut List, after: &mut List, node: &mut List) {
+        before.next = node;
+        after.prev = node;
+        node.prev = before;
+        node.next = after;
+    }
+
+    pub fn insert_tail(&mut self, node: &mut List) {
+        if let Some(head) = self.node_mut(self.prev) {
+            head.prev = node;
+            node.next = head;
+            self.next = node;
+        } else {
+            panic!("Bad node address {:X}", node as *const _ as usize);
+        }
     }
 
     pub fn insert(&mut self, node: &mut List) {
