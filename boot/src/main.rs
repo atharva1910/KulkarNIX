@@ -30,7 +30,7 @@ fn panic_handler(_info: &core::panic::PanicInfo) -> ! {
     loop {}
 }
 
-fn page_allocator(num_pages: usize) -> Option<usize> {
+pub fn page_allocator(num_pages: usize) -> Option<usize> {
     let Some(bs) = BOOT_CTX.get_bs() else {
         return None;
     };

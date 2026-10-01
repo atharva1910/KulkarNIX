@@ -17,7 +17,6 @@ impl List {
     pub fn iter(&mut self) -> ListIter {
         ListIter {
             current: self,
-            next: self,
         }
     }
 
@@ -146,10 +145,41 @@ impl List {
 
 pub struct ListIter {
     current: *mut List,
-    next: *mut List,
 }
 
 impl Iterator for ListIter {
+    type Item = *mut List;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let Some(curr) = (unsafe {
+            self.current.as_ref()
+        }) else {
+            return None;
+        };
+
+        let ret = self.current;
+        self.current = curr.next;
+        Some(ret)
+    }
+}
+
+impl DoubleEndedIterator for ListIter {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        let Some(curr) = (unsafe{self.current.as_ref()}) else {
+            return None;
+        };
+        let ret = self.current;
+        self.current = curr.prev;
+        Some(ret)
+    }
+}
+
+pub struct ListIterSafe {
+    current: *mut List,
+    next: *mut List,
+}
+
+impl Iterator for ListIterSafe {
     type Item = *mut List;
     fn next(&mut self) -> Option<Self::Item> {
         if self.current == null_mut() {
@@ -166,7 +196,7 @@ impl Iterator for ListIter {
     }
 }
 
-impl DoubleEndedIterator for ListIter {
+impl DoubleEndedIterator for ListIterSafe {
     fn next_back(&mut self) -> Option<Self::Item> {
         let Some(curr) = (unsafe{self.current.as_ref()}) else {
             return None;

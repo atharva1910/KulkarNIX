@@ -1,5 +1,5 @@
 use crate::{
-    boot_ctx::BOOT_CTX, elfheader::{ELF_MAGIC, Elf64Dyn, Elf64Ehdr, Elf64Phdr, Elf64Rela, PT_DYNAMIC, PT_LOAD}, file::EfiFile, printer
+    boot_ctx::BOOT_CTX, elfheader::{ELF_MAGIC, Elf64Dyn, Elf64Ehdr, Elf64Phdr, Elf64Rela, PT_DYNAMIC, PT_LOAD}, file::EfiFile, page_allocator, printer
 };
 use common::address::{PhysicalAddress, VirtualAddress};
 use r_efi::{
@@ -105,17 +105,10 @@ impl Kernel {
 
         printer::print(&format!("Kernel Info:\n\tSize: 0x{:x} Total Pages: {:x} Min_Paddr: {:x} Max_Paddr: {:x}\n", total_size, kernel_pages, min_paddr, max_paddr));
 
-        let mut kernel_base: usize = 0x0;
-        let Some(bs) = BOOT_CTX.get_bs() else {
-            return Err(efi::Status::INVALID_PARAMETER);
+        let Some(kernel_base) = page_allocator(kernel_pages as usize) else {
+            printer::print("Failed to allocate Pages for kernel");
+            return Err(efi::Status::OUT_OF_RESOURCES);
         };
-
-        let mut status = unsafe {
-            (bs.allocate_pages)(ALLOCATE_ANY_PAGES, LOADER_DATA, kernel_pages as usize, &mut kernel_base as *mut usize as *mut r_efi::efi::PhysicalAddress)
-        };
-        if status != efi::Status::SUCCESS {
-            return Err(status);
-        }
 
         let kbuffer = unsafe {
             core::slice::from_raw_parts_mut(kernel_base as *mut u8, kernel_pages << 12)
@@ -129,13 +122,13 @@ impl Kernel {
 
             fhandle.seek(ph.p_offset as usize);
             let start = ph.p_paddr as usize - min_paddr;
-            let end = start + ph.p_memsz as usize;
+            let end = start + ph.p_filesz as usize;
 
             if ph.p_type != PT_LOAD || ph.p_memsz == 0 {
                 continue;
             }
 
-            status = fhandle.read_bytes(&mut kbuffer[start..end]);
+            let status = fhandle.read_bytes(&mut kbuffer[start..end]);
             if status != efi::Status::SUCCESS {
                 printer::print("Failed to load pgram header\n");
                 return Err(status);
