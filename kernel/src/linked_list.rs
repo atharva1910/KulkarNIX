@@ -25,6 +25,7 @@ impl List {
     }
 
     pub fn is_empty(&self) -> bool {
+        self.prev == null_mut() &&
         self.next == null_mut()
     }
 
@@ -134,11 +135,22 @@ impl List {
     }
 
     pub fn remove(&mut self, node: &mut List) {
-        let next_node = node.next;
-        let prev_node = node.prev;
-        unsafe {
-            (*prev_node).next = next_node;
-            (*next_node).prev = prev_node;
+        let next_node = self.node_mut(self.next);
+        let prev_node = self.node_mut(self.prev);
+        if let Some(pnode) = prev_node {
+            if let Some(nnode) = next_node {
+                pnode.next = nnode;
+                nnode.prev = pnode;
+            } else {
+                pnode.next = null_mut();
+                self.next = null_mut();
+            }
+        } else if let Some(nnode) = next_node {
+            nnode.prev = null_mut();
+            self.prev = null_mut();
+        } else {
+            self.next = null_mut();
+            self.prev = null_mut();
         }
     }
 }

@@ -84,7 +84,7 @@ impl HeapManager {
         if let Some(node_after) = after {
             if node.is_adjacent(node_after) {
                 node.size += node_after.size;
-                list.remove(&mut node_after.links);
+                hmm.remove_node(&mut node_after.links);
             }
         }
 
@@ -156,16 +156,16 @@ impl HeapManager {
     }
 
     fn check_free_list(&mut self, size: usize) -> Option<VirtualAddress> {
-        let Some(free_list) = (unsafe{self.free_list.as_mut()}) else {
+        let Some(free_list) = self.get_list_mut() else {
             return None;
         };
 
         let mut found_node_addr: Option<VirtualAddress> = None;
         for list in free_list.iter() {
             if let Some(node) = self.get_node_from_links_mut(VirtualAddress::from(list as usize)) {
-                if node.size > size {
+                if node.size >= size {
                     found_node_addr = Some(node.as_addr().into());
-                    free_list.remove(&mut node.links);
+                    //self.remove_node(list);
                 }
             } else {
                 panic!("Bad Node address");
@@ -176,6 +176,8 @@ impl HeapManager {
             self.chop_node(found_node_addr, size);
             if let Some(ret_node) = self.to_node(found_node_addr) {
                 return self.get_vaddress(ret_node);
+            } else {
+                panic!("Bad node address");
             }
         }
 
@@ -206,10 +208,9 @@ impl HeapManager {
     }
 
     fn create_node(&mut self, addr: VirtualAddress, size: usize) {
-        let pmeta_data = *addr as *mut MetaData;
-        if let Some(pmd) = unsafe {pmeta_data.as_mut()} {
+        if let Some(pmd) = self.to_node(addr) {
             pmd.size = size;
-            if let Some(list) = unsafe{self.free_list.as_mut()} {
+            if let Some(list) = self.get_list_mut() {
                 list.insert(&mut pmd.links);
             } else {
                 self.free_list = &mut pmd.links;
@@ -221,6 +222,17 @@ impl HeapManager {
         let node = *addr as *mut MetaData;
         unsafe {
             node.as_mut()
+        }
+    }
+
+    fn remove_node(&mut self, link: &mut List) {
+        let Some(free_list) = self.get_list_mut() else {
+            panic!("Empty list");
+        };
+
+        free_list.remove(link);
+        if free_list.is_empty() {
+            self.free_list = null_mut();
         }
     }
 }
