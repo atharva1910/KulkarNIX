@@ -55,43 +55,65 @@ impl HeapManager {
 
     pub fn free(addr: VirtualAddress) {
         let mut hmm  = HEAP_MGR.lock();
-        let Some(node) = hmm.get_node_from_links_mut(addr) else {
-            panic!("Bad node address {:X}", addr);
-        };
 
         let Some(list) = hmm.get_list_mut() else {
+            let Some(node) = hmm.get_node_from_links_mut(addr) else {
+                panic!("Bad node address {:X}", addr);
+            };
             hmm.free_list = &mut node.links;
             return;
         };
 
-        let mut before: Option<&mut MetaData> = None;
-        let mut after: Option<&mut MetaData> = None;
+        let mut before: Option<VirtualAddress> = None;
+        let mut after: Option<VirtualAddress> = None;
 
         for link in list.iter() {
             let Some(itr_node) = hmm.get_node_from_links_mut(VirtualAddress::from(link as usize)) else {
                 panic!("Bad node address {:X}", addr);
             };
 
-            if (itr_node as *const _ as usize) < *addr {
-                before = Some(itr_node);
+            if itr_node.as_addr() < *addr {
+                before = Some(itr_node.as_addr().into());
                 continue;
             } else {
-                after = Some(itr_node);
+                // Since the list is sorted, this is okay
+                after = Some(itr_node.as_addr().into());
                 break;
             }
         }
 
-        if let Some(node_after) = after {
+        if let Some(node_after_vaddr) = after {
+            let Some(node_after) = hmm.addr_to_node(node_after_vaddr) else {
+                panic!("Bad node address");
+            };
+
+            let Some(node) = hmm.get_node_from_links_mut(addr) else {
+                panic!("Bad node address {:X}", addr);
+            };
+
             if node.is_adjacent(node_after) {
                 node.size += node_after.size;
-                hmm.remove_node(&mut node_after.links);
+                hmm.remove_node(node_after_vaddr);
             }
         }
 
-        if let Some(node_before) = before {
+        if let Some(node_before_vaddr) = before {
+            let Some(node_before) = hmm.addr_to_node(node_before_vaddr) else {
+                panic!("Bad node address");
+            };
+
+            let Some(node) = hmm.get_node_from_links_mut(addr) else {
+                panic!("Bad node address {:X}", addr);
+            };
+
             if node_before.is_adjacent(node) {
                 node_before.size += node.size;
             } else {
+                //list.insert_after(&mut node_before.links, &mut node.links);
+                let Some(list) = hmm.get_list_mut() else {
+                    panic!("Empty free lsit?");
+                };
+
                 list.insert_after(&mut node_before.links, &mut node.links);
             }
         }
@@ -165,7 +187,6 @@ impl HeapManager {
             if let Some(node) = self.get_node_from_links_mut(VirtualAddress::from(list as usize)) {
                 if node.size >= size {
                     found_node_addr = Some(node.as_addr().into());
-                    //self.remove_node(list);
                 }
             } else {
                 panic!("Bad Node address");
@@ -173,8 +194,9 @@ impl HeapManager {
         }
 
         if let Some(found_node_addr) = found_node_addr {
+            self.remove_node(found_node_addr);
             self.chop_node(found_node_addr, size);
-            if let Some(ret_node) = self.to_node(found_node_addr) {
+            if let Some(ret_node) = self.addr_to_node(found_node_addr) {
                 return self.get_vaddress(ret_node);
             } else {
                 panic!("Bad node address");
@@ -185,7 +207,7 @@ impl HeapManager {
     }
 
     fn chop_node(&mut self, addr: VirtualAddress, size: usize)  {
-        let Some(node) = self.to_node(addr) else {
+        let Some(node) = self.addr_to_node(addr) else {
             panic!("Bad node address");
         };
 
@@ -208,7 +230,7 @@ impl HeapManager {
     }
 
     fn create_node(&mut self, addr: VirtualAddress, size: usize) {
-        if let Some(pmd) = self.to_node(addr) {
+        if let Some(pmd) = self.addr_to_node(addr) {
             pmd.size = size;
             if let Some(list) = self.get_list_mut() {
                 list.insert(&mut pmd.links);
@@ -218,21 +240,37 @@ impl HeapManager {
         }
     }
 
-    fn to_node(&self, addr: VirtualAddress) -> Option<&mut MetaData> {
+    fn addr_to_node(&self, addr: VirtualAddress) -> Option<&mut MetaData> {
         let node = *addr as *mut MetaData;
         unsafe {
             node.as_mut()
         }
     }
 
-    fn remove_node(&mut self, link: &mut List) {
+    fn remove_node(&mut self, addr: VirtualAddress) {
+        let Some(node) = self.addr_to_node(addr) else {
+            panic!("Bad node address");
+        };
+
         let Some(free_list) = self.get_list_mut() else {
             panic!("Empty list");
         };
 
-        free_list.remove(link);
+        free_list.remove(&mut node.links);
         if free_list.is_empty() {
             self.free_list = null_mut();
         }
+    }
+
+    fn insert_node(&mut self, addr: VirtualAddress) {
+        let Some(node) = self.addr_to_node(addr) else {
+            panic!("Bad node address");
+        };
+
+        let Some(free_list) = self.get_list_mut() else {
+            panic!("Empty list");
+        };
+
+        free_list.insert(&mut node.links);
     }
 }
