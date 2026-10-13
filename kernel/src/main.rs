@@ -53,7 +53,10 @@ pub extern "C" fn kernel_main(addr: PhysicalAddress) {
     PMemManager::init(addr.to_virtual()).unwrap();
     SPrint!("Physical Memory Manager init successful");
 
-    let x = HeapManager::alloc(512);
+    if let Some(addr) = HeapManager::alloc(512)  {
+        HeapManager::print();
+        HeapManager::free(addr);
+    }
     HeapManager::print();
     loop {};
 }
