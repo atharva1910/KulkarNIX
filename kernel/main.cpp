@@ -1,5 +1,8 @@
 #include "KulkarNIX.h"
+#include "Assert.h"
+#include "Logger.h"
 #include "PMemManager.h"
+#include "SerialPort.h"
 
 __asm__(
     /* Set up the global function __start */
@@ -38,14 +41,9 @@ __asm__(
 
 extern "C" void main(PA args) {
     SerialPort::init();
-    Logger logger;
-    logger.print("Welcome to the kernel :)");
-
+    Logger::print("test");
     auto m_args = reinterpret_cast<KernelArgs*>(VA(args).get_raw());
-    logger.print(m_args->magic);
-
-    PMemManager mm(logger);
-    if (!mm.init(m_args)) {
-        assert(logger, false, "Failed to init PMemManager");
-    }
+    Logger::print("Welcome to the kernel", m_args->magic);
+    PMM::init(m_args);
+    assert(false, "End of kernel_main");
 }

@@ -5,6 +5,7 @@
 template <typename T> class Slice {
   private:
     size_t m_size{0};
+    size_t m_idx{0};
     T* m_buf{nullptr};
 
   public:
@@ -34,5 +35,11 @@ template <typename T> class Slice {
     void fill(T c) {
         for (size_t i = 0; i < m_size; i++)
             m_buf[i] = c;
+    }
+
+    void push(T c) {
+        if (m_idx < m_size) {
+            m_buf[m_idx++] = c;
+        }
     }
 };
