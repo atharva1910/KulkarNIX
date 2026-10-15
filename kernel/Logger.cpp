@@ -17,10 +17,22 @@ void itoa(uint64_t number, int radix, Slice<char>& buffer) {
     }
 }
 
-void format(const char c, Slice<char>& buffer) { buffer.push(c); }
-void format(uint64_t i, Slice<char>& buffer) { itoa(i, 16, buffer); }
-void format(VA x, Slice<char>& buffer) { format(x.get_raw(), buffer); }
-void format(PA x, Slice<char>& buffer) { format(x.get_raw(), buffer); }
+void format(const char c, Slice<char>& buffer) {
+    buffer.push(c);
+}
+
+void format(uint64_t i, Slice<char>& buffer) {
+    itoa(i, 16, buffer);
+}
+
+void format(VA x, Slice<char>& buffer) {
+    format(x.get_raw(), buffer);
+}
+
+void format(PA x, Slice<char>& buffer) {
+    format(x.get_raw(), buffer);
+}
+
 void format(const char* str, Slice<char>& buffer) {
     while (*str != '\0') {
         buffer.push(*str);
