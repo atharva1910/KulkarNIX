@@ -97,7 +97,7 @@ namespace PMM {
         return g_pmm.init(kernelArgs);
     }
 
-    void* alloc() {
+    void* alloc_pages(size_t n) {
         return nullptr;
     }
 
