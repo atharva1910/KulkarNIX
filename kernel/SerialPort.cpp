@@ -48,10 +48,14 @@ static SPort g_SerialPort;
 
 namespace SerialPort {
     void init() {
-        g_SerialPort.init();
+        if (!g_SerialPort.has_init) {
+            g_SerialPort.init();
+            g_SerialPort.has_init = true;
+        }
     }
+
     void write(const char* str) {
-        if (g_SerialPort.is_init()) {
+        if (g_SerialPort.has_init) {
             g_SerialPort.write(str);
         }
     }
