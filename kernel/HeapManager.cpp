@@ -43,6 +43,8 @@ class HeapManager {
             if (p == nullptr) {
                 Logger::print("PMM returned nullptr");
                 return nullptr;
+            } else {
+                Logger::print("PMM returned ", p);
             }
 
             p->size = num_pages << 12;
@@ -50,6 +52,7 @@ class HeapManager {
             p->links.prev = nullptr;
             return reinterpret_cast<void *>(&p->links);
         }
+
         Logger::print("Memory found in free list", reinterpret_cast<uintptr_t>(meta_data));
         m_free_list.remove_node(meta_data->links);
         return reinterpret_cast<void *>(&meta_data->links);

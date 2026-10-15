@@ -2,8 +2,6 @@
 #include "Logger.h"
 #include "HAL.h"
 
-void dump_regs() {
-}
 /*
   called as
   assert(logger, false, "Print this");
@@ -18,4 +16,5 @@ void assert(bool exp, Args&... args) {
     Logger::print(args...);
     Logger::print("[ASSERT END]");
     HAL::hlt();
+    while(true);
 }

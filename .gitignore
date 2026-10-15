@@ -13,3 +13,6 @@ Bin/*
 build/*
 sym/*
 disk/*
+kernel/target/*
+common/target/*
+boot/target/*

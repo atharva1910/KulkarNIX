@@ -56,11 +56,13 @@ struct VA;
 struct PA : AddrBase<PA>{
     using AddrBase::AddrBase;
     explicit PA(const VA& va);
+    //VA to_virtual();
 };
 
 struct VA : AddrBase<VA> {
     using AddrBase::AddrBase;
     explicit VA(const PA& pa);
+    //PA to_physical();
 };
 
 inline PA::PA(const VA& va)

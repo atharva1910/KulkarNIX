@@ -3,6 +3,7 @@
 #include "Logger.h"
 #include "PMemManager.h"
 #include "SerialPort.h"
+#include "HeapManager.h"
 
 __asm__(
     /* Set up the global function __start */
@@ -41,9 +42,14 @@ __asm__(
 
 extern "C" void main(PA args) {
     SerialPort::init();
-    Logger::print("test");
+
     auto m_args = reinterpret_cast<KernelArgs*>(VA(args).get_raw());
-    Logger::print("Welcome to the kernel", m_args->magic);
+    Logger::print("Welcome to the kernel ", m_args->magic);
+
     PMM::init(m_args);
+    Heap::init();
+
+    auto p = Heap::alloc(4096 * 4);
+    Logger::print("Allocated ", p);
     assert(false, "End of kernel_main");
 }

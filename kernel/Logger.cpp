@@ -57,31 +57,9 @@ void format(int64_t i, Slice<char>& buffer) {
     }
 }
 
-template <typename T> void format(T x, Slice<char>& buffer) {
-    if constexpr (T(-1) < T(0)) {
-        format(static_cast<int64_t>(x), buffer);
-    } else {
-        format(static_cast<uint64_t>(x), buffer);
-    }
-}
-
-void printf_impl(const char* str, Slice<char>& buffer) {
+void printf_impl(Slice<char>& buffer, const char* str) {
     while (*str != '\0') {
         format(*str, buffer);
         str++;
-    }
-}
-
-template <typename First, typename... Rest>
-void printf_impl(const char* str, First& first, const Rest&... rest, Slice<char>& buffer) {
-    while (*str != '\0') {
-        if (*str == '{' and *(str + 1) == '}') {
-            format(first, buffer);
-            str += 2;
-            return printf_impl(str, rest...);
-        } else {
-            format(*str, buffer);
-            str++;
-        }
     }
 }
