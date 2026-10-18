@@ -49,7 +49,10 @@ extern "C" void main(PA args) {
     PMM::init(m_args);
     Heap::init();
 
-    auto p = Heap::alloc(4096 * 4);
+    auto p = Heap::alloc(44);
     Logger::print("Allocated ", p);
+
+    auto g = Heap::alloc(512);
+    Logger::print("Allocated ", g);
     assert(false, "End of kernel_main");
 }

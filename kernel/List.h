@@ -49,4 +49,24 @@ class List {
             m_head = next_node;
         }
     }
+
+    void insert(Node& new_node) {
+        if (m_head == nullptr) {
+            m_head = &new_node;
+            return;
+        }
+
+        auto itr = this->iter();
+        for (auto node = itr.next(); node != nullptr; node = itr.next()) {
+            if (node->next == nullptr || node->next > (&new_node)) {
+                auto next = node->next;
+                node->next = &new_node;
+                new_node.prev = node;
+                new_node.next = next;
+                if (next) {
+                    next->prev = &new_node;
+                }
+            }
+        }
+    }
 };

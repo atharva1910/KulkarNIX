@@ -20,7 +20,12 @@ constexpr T CEILING(T x, T y) {
 }
 
 template <typename Parent, typename Member>
-Parent* container_of(Member* member, Member Parent::* member_ptr) {
+size_t OFFSET_OF(Member Parent::* member_ptr) {
+    return reinterpret_cast<uintptr_t>(&(((Parent*)nullptr)->*member_ptr));
+}
+
+template <typename Parent, typename Member>
+Parent* CONTAINER_OF(Member* member, Member Parent::* member_ptr) {
     if (member == nullptr)
         return nullptr;
 
@@ -46,6 +51,8 @@ struct AddrBase {
     bool operator>(AddrType x) const { return addr > x.addr; }
     //bool operator==(uint64_t x) { return addr > x; }
     bool operator==(AddrType x) const { return addr == x.addr; }
+    uintptr_t operator>>(int x) const { return addr >> x; }
+    uintptr_t operator<<(int x) const { return addr << x; }
 
     uintptr_t print() { return addr; }
 };

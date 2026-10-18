@@ -17,22 +17,20 @@ class PMemManager {
 
     void mark_pages_alloc(const PA& addr, uint64_t num_pages) {
         assert(addr.is_page_aligned(), "Addr ", addr, " not page aligned");
-        auto raw_addr = addr.get_raw();
-        for (uint64_t i = 0; i < num_pages; i++) {
-            raw_addr += (i * PAGE_SIZE);
-            auto byte_offset = raw_addr >> 3;
-            auto bit_offset = raw_addr & 0x7;
+        auto page_idx = addr >> PAGE_SIZE_SHIFT;
+        while(num_pages--) {
+            auto byte_offset = page_idx >> 3;
+            auto bit_offset = page_idx & 0x7;
             BitOps::set_bit(m_bitmap[byte_offset], bit_offset);
         }
     }
 
     void mark_pages_free(PA addr, uint64_t num_pages) {
         assert(addr.is_page_aligned(), "Addr ", addr, " not page aligned");
-        auto raw_addr = addr.get_raw();
-        for (uint64_t i = 0; i < num_pages; i++) {
-            raw_addr += (i * PAGE_SIZE);
-            auto byte_offset = raw_addr >> 3;
-            auto bit_offset = raw_addr & 0x7;
+        auto page_idx = addr >> PAGE_SIZE_SHIFT;
+        while(num_pages--) {
+            auto byte_offset = page_idx >> 3;
+            auto bit_offset = page_idx & 0x7;
             BitOps::clear_bit(m_bitmap[byte_offset], bit_offset);
         }
     }
